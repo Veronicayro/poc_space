@@ -1,0 +1,54 @@
+---
+# State manifest for Digital KYC Onboarding functionality
+functionality_id: DKO-Sonnet46-DigitalKYC-v1
+functionality_name: Digital KYC Onboarding
+version: "1.0.0"
+
+# Execution timeline
+phases:
+  phase_1_business_requirements_and_bian_alignment:
+    status: COMPLETED
+    executed_at: "2026-06-25"
+    artifacts_generated:
+      - design/context/context-pack.yaml
+      - design/enterprise/domain-standard-alignment.yaml
+      - design/enterprise/enterprise-capability-map.yaml
+      - design/enterprise/semantic-dictionary.yaml
+      - design/enterprise/gaps-and-access-issues.md
+    notes: "COLLISION_DETECTED on CAP-PARTY-002 and CAP-COMP-001; auto-continued per agent rules."
+  
+  phase_2_solution_landscape_design:
+    status: PENDING
+    notes: "Will execute api-landscape-governance skill to decide REUSE/EXTEND/CREATE per layer."
+  
+  phase_3_backend_component_design:
+    status: PENDING
+    notes: "Will design components per layer: experience, business, domain, support."
+  
+  phase_4_backend_contract_design:
+    status: PENDING
+    notes: "For Business/Domain APIs with BIAN: invoke bian-contract-deriver skill."
+  
+  phase_5_backend_diagram_design:
+    status: PENDING
+    notes: "Generate backend architecture diagrams after contracts are stable."
+
+# Context & decisions
+capabilities_aligned:
+  - CAP-PARTY-001
+  - CAP-PARTY-002
+  - CAP-COMP-001
+  - CAP-CHAN-002
+
+bian_service_domains_selected:
+  - PartyReferenceDataDirectory
+  - PartyLifecycleManagement
+  - GuidelineCompliance
+
+domain_standard: BIAN Release 14.0.0
+
+technology_stack_default: .NET 10
+
+execution_mode: minimal
+
+catalog_collision_decision: AUTO_CONTINUE
