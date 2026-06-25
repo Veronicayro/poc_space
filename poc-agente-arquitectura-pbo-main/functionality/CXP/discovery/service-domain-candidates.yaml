@@ -1,0 +1,52 @@
+# Discovery: BIAN Service Domain Candidates - Cuentas por Pagar (CXP)
+schema_version: "1.0"
+functionality_id: CXP
+generated_at: "2026-06-17"
+domain_standard: BIAN-Release-14
+
+candidates:
+  - service_domain: AccountsReceivable
+    rationale: >
+      Dominio más cercano al ciclo de vida de obligaciones financieras por pagar.
+      Provee estructura semántica para gestión de facturas y su ciclo de estados.
+    local_cache_path: architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls/AccountsReceivable.yaml
+    confidence: high
+    use_case_coverage: [UC-CXP-001, UC-CXP-002, UC-CXP-003]
+
+  - service_domain: Disbursement
+    rationale: >
+      Cubre la ejecución de pagos y desembolsos. Directamente aplicable para
+      programación y ejecución de pagos a proveedores.
+    local_cache_path: architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls/Disbursement.yaml
+    confidence: high
+    use_case_coverage: [UC-CXP-004, UC-CXP-005]
+
+  - service_domain: FinancialAccounting
+    rationale: >
+      Gestiona registros contables y asientos. Aplica para integración con ERP
+      y registro de asientos tras cada transacción de pago.
+    local_cache_path: architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls/FinancialAccounting.yaml
+    confidence: high
+    use_case_coverage: [UC-CXP-005]
+
+  - service_domain: ContractorandSupplierAgreement
+    rationale: >
+      Gestiona acuerdos con proveedores. Aplica para validación de proveedor
+      activo antes de registrar factura (BR-CXP-001).
+    local_cache_path: architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls/ContractorandSupplierAgreement.yaml
+    confidence: medium
+    use_case_coverage: [UC-CXP-001]
+
+  - service_domain: FinancialGateway
+    rationale: >
+      Gestiona conectividad con sistemas financieros externos. Aplica para
+      integración con Banking System via REST/Webhooks.
+    local_cache_path: architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls/FinancialGateway.yaml
+    confidence: medium
+    use_case_coverage: [UC-CXP-005]
+
+excluded_domains:
+  - service_domain: CreditManagement
+    reason: No aplica; CXP gestiona pagos a proveedores, no crédito a clientes
+  - service_domain: CurrentAccount
+    reason: No aplica; el foco es AP, no gestión de cuentas corrientes propias

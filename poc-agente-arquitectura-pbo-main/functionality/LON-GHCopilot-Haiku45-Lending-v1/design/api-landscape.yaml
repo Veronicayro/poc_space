@@ -1,0 +1,647 @@
+---
+# =============================================================================
+# API LANDSCAPE — DRAFT (Phase 3: Solution Landscape)
+# Functionality: Digital Personal Loan Origination
+# =============================================================================
+
+schema_id: api-landscape
+artifact_version: "2.0"
+maturity: finalized
+validation_status: complete
+functionalityId: "LON-GHCopilot-Haiku45-Lending-v1"
+createdDate: "2026-06-24"
+lastUpdatedDate: "2026-06-25"
+createdBy: "backend-component-designer (Phase 3: solution-landscape mode)"
+finalizedBy: "api-landscape-governance (Phase 4: api-landscape-design)"
+phaseGate: "GATE-Phase3-Complete → Phase 4: api-landscape-design (COMPLETED)"
+
+overview: |
+  FINALIZED API Landscape for Digital Personal Loan Origination.
+  
+  This Phase 4 document completes the 4-layer target architecture (experience, business,
+  domain, support) with 9 APIs and autonomous governance decisions.
+  
+  ACTION DECISIONS are FINALIZED based on catalog analysis per api-landscape-governance/SKILL.md:
+  - CreditApplicationAPI v1.3 collision RESOLVED: EXTEND (🟡 extender) for LoanRequest-Experience-API
+  - DisbursementAPI v1.1 opportunity RESOLVED: REUSE (🟢 reutilizar) for Disbursement-Domain-API
+  - All other APIs: CREATE (🔴 crear) — no conflicts, clear gaps in catalog
+  
+  Status: FINALIZED → All APIs marked maturity=finalized, validation=complete
+  Next Phase: Phase 5 (TBD) or Phase 6 (backend-component-design)
+  
+  SCENARIO: Hybrid (all 4 layers active; mix of REUSE/EXTEND/CREATE)
+
+# =============================================================================
+# LAYERS DEFINITION (Mandatory)
+# =============================================================================
+
+layers:
+  # =========================================================================
+  # EXPERIENCE LAYER (BFF / Customer-Facing APIs)
+  # =========================================================================
+  experience:
+    applicable: true
+    rationale: "REST APIs for web/mobile customers; covers request intake, offer view, status polling."
+    
+    apis:
+      # ———— LOAN REQUEST API ————
+      - api_name: "LoanRequest-Experience-API"
+        description: "Initiate loan request; upload supporting documents"
+        version: "v1.0"
+        capability: "CAP-LOAN-001-REQUEST"
+        use_cases: ["UC-001", "UC-002"]
+        business_rules: ["BR-001", "BR-002", "BR-008"]
+        
+        action: "extender"
+        status: "finalized"
+        catalog_ref: "catalog/domains/loans.yaml#CreditApplicationAPI"
+        reusing_from: "CreditApplicationAPI v1.3"
+        new_endpoints:
+          - "POST /requests/{id}/documents (add document upload support)"
+        backward_compatible: true
+        
+        rationale: |
+          GOVERNANCE DECISION (Phase 4): EXTEND existing CreditApplicationAPI v1.3
+          
+          Collision Analysis:
+          - Existing: CreditApplicationAPI v1.3 (published, Tier 1)
+          - Coverage: 80% (POST /credit-applications, GET /credit-applications, submit flow)
+          - Missing: document upload endpoint
+          - Fit: Partial but backward-compatible extension possible
+          
+          Recommendation: EXTEND v1.3 with document upload instead of creating new API
+          - Avoids duplicate endpoints for customer-facing loan requests
+          - Maintains single source of truth for application state
+          - Version 1.4+ will add: POST /credit-applications/{id}/documents
+          - Full BFF contract: handled by this Experience API wrapper
+          
+          Depends on: LoanOriginationOrchestrator-Business-API
+        
+        pattern: "BFF (Backend for Frontend) → extended CreditApplicationAPI"
+        apiStyle: "REST"
+        consumers: ["Web Banking", "Mobile App"]
+        calls_to:
+          - "LoanOriginationOrchestrator-Business-API"
+        maturity: "finalized"
+        validation: "complete"
+
+      # ———— LOAN OFFER API ————
+      - api_name: "LoanOffer-Experience-API"
+        description: "Retrieve personalized loan offer; submit acceptance + signature"
+        version: "v1.0"
+        capability: "CAP-LOAN-003-OFFER"
+        use_cases: ["UC-004", "UC-005"]
+        business_rules: ["BR-006", "BR-007", "BR-009"]
+        
+        action: "crear"
+        status: "finalized"
+        catalog_ref: null
+        
+        rationale: |
+          GOVERNANCE DECISION (Phase 4): CREATE new API
+          
+          Gap Analysis:
+          - No collision in catalog (api-catalog-mock-bank.yaml has no LoanOffer BFF)
+          - Clear requirement: customer-facing offer retrieval + digital acceptance
+          - BIAN mapping: CustomerOffer SD (covered by domain layer)
+          - Pattern: BFF wrapper to coordinate domain API calls
+          
+          This API must support:
+          - GET /offers/{id} (retrieve with offer details, expiration)
+          - POST /offers/{id}/accept (submit acceptance + digital signature)
+          - GET /offers/{id}/timeline (offer history)
+          
+          Depends on: LoanOriginationOrchestrator-Business-API
+        
+        pattern: "BFF"
+        apiStyle: "REST"
+        consumers: ["Web Banking", "Mobile App"]
+        calls_to:
+          - "LoanOriginationOrchestrator-Business-API"
+        maturity: "finalized"
+        validation: "complete"
+
+      # ———— LOAN STATUS API ————
+      - api_name: "LoanStatus-Experience-API"
+        description: "Retrieve loan request status and timeline; status polling"
+        version: "v1.0"
+        capability: "CAP-LOAN-001-REQUEST"
+        use_cases: ["UC-008"]
+        business_rules: []
+        
+        action: "crear"
+        status: "finalized"
+        catalog_ref: null
+        
+        rationale: |
+          GOVERNANCE DECISION (Phase 4): CREATE new API
+          
+          Gap Analysis:
+          - No collision in catalog (no Status/Polling BFF for loan requests)
+          - Clear requirement: read-only customer transparency API
+          - Complements LoanRequest-Experience-API (immutable state reads)
+          - Pattern: BFF read replica for async state polling
+          
+          This API must support:
+          - GET /requests/{id}/status (current state)
+          - GET /requests/{id}/timeline (state transition history)
+          - GET /requests/{id}/next-steps (guidance for next action)
+          
+          Depends on: LoanOriginationOrchestrator-Business-API
+        
+        pattern: "BFF (read-only)"
+        apiStyle: "REST"
+        consumers: ["Web Banking", "Mobile App"]
+        calls_to:
+          - "LoanOriginationOrchestrator-Business-API"
+        maturity: "finalized"
+        validation: "complete"
+
+  # =========================================================================
+  # BUSINESS LAYER (Orchestration & Process APIs)
+  # =========================================================================
+  business:
+    applicable: true
+    rationale: "Orchestration APIs that coordinate domain APIs and manage workflow state machine."
+    
+    apis:
+      # ———— LOAN ORIGINATION ORCHESTRATOR ————
+      - api_name: "LoanOriginationOrchestrator-Business-API"
+        description: "Master workflow orchestrator; coordinates all domain APIs, external services, events"
+        version: "v1.0"
+        capability: "CAP-LOAN-ORIGINATION-CORE"
+        use_cases: ["UC-001", "UC-002", "UC-003", "UC-004", "UC-005", "UC-006", "UC-007", "UC-008"]
+        business_rules: ["BR-001", "BR-002", "BR-003", "BR-004", "BR-005", "BR-006", "BR-007", "BR-008", "BR-009", "BR-010", "BR-011", "BR-012"]
+        
+        action: "crear"
+        status: "finalized"
+        catalog_ref: null
+        
+        rationale: |
+          GOVERNANCE DECISION (Phase 4): CREATE new API
+          
+          Gap Analysis:
+          - No BIAN Service Domain mapping (orchestration is proprietary business logic)
+          - No collision in catalog (no loan origination orchestrator exists)
+          - Clear requirement: multi-step saga orchestration across 4 domain SDs
+          - Pattern: Business Service / Stateful Orchestrator (Saga pattern)
+          
+          Must support:
+          - POST /loans/originate (multi-step orchestration)
+          - GET /loans/{id} (query state + progress)
+          - Event publishing (state transitions, audit events)
+          - Saga/workflow orchestration (handles happy path + exception flows)
+          
+          Depends on: All domain APIs (PartyLifecycleMgmt, CustomerOffer, Underwriting, Disbursement)
+        
+        pattern: "Business Service / Orchestrator (Saga)"
+        apiStyle: "REST + AsyncAPI (event-driven)"
+        consumers:
+          - "LoanRequest-Experience-API"
+          - "LoanOffer-Experience-API"
+          - "LoanStatus-Experience-API"
+        calls_to:
+          - "PartyLifecycleMgmt-Domain-API"
+          - "CustomerOffer-Domain-API"
+          - "Underwriting-Domain-API"
+          - "Disbursement-Domain-API"
+        async_integration: ["INT-002:Audit & Compliance", "EXT-005:Notification Service"]
+        maturity: "finalized"
+        validation: "complete"
+
+  # =========================================================================
+  # DOMAIN LAYER (BIAN-Aligned Service Domains)
+  # =========================================================================
+  domain:
+    applicable: true
+    rationale: "4 BIAN Release 14 Service Domains: PartyLifecycleManagement, CustomerOffer, Underwriting, Disbursement"
+    
+    apis:
+      # ———— PARTY LIFECYCLE MANAGEMENT ————
+      - api_name: "PartyLifecycleMgmt-Domain-API"
+        description: "KYC/Party data lookup; prerequisite validation"
+        version: "v1.0"
+        capability: "CAP-LOAN-001-REQUEST (prerequisite)"
+        use_cases: ["UC-001"]
+        business_rules: ["BR-001"]
+        
+        action: "crear"
+        status: "finalized"
+        catalog_ref: null
+        bian_sd: "PartyLifecycleManagement"
+        bian_operation: "Retrieve"
+        bian_alignment_type: "direct"
+        bian_confidence: 0.95
+        
+        rationale: |
+          GOVERNANCE DECISION (Phase 4): CREATE new API
+          
+          Gap Analysis:
+          - BIAN mapping: Direct → PartyLifecycleManagement SD (confidence 0.95)
+          - No existing API in catalog for PartyLifecycleManagement BIAN alignment
+          - Clear requirement: KYC status lookup before loan request acceptance
+          - Pattern: Domain Service (ACL to external KYC system)
+          
+          Must support:
+          - GET /party/{customerId}/kyc-status (check if approved)
+          
+          Dependencies: INT-001 (Identity & KYC system — external)
+          Complexity: Low (read-only lookup)
+        
+        pattern: "Domain Service (ACL to external KYC system)"
+        apiStyle: "REST"
+        consumers:
+          - "LoanOriginationOrchestrator-Business-API"
+        calls_to:
+          - "INT-001:Identity & KYC System"
+        maturity: "finalized"
+        validation: "complete"
+
+      # ———— CUSTOMER OFFER ————
+      - api_name: "CustomerOffer-Domain-API"
+        description: "Loan request intake, offer generation, acceptance recording"
+        version: "v1.0"
+        capability: "CAP-LOAN-001-REQUEST, CAP-LOAN-003-OFFER"
+        use_cases: ["UC-001", "UC-002", "UC-004", "UC-005"]
+        business_rules: ["BR-001", "BR-006", "BR-007", "BR-009"]
+        
+        action: "crear"
+        status: "finalized"
+        catalog_ref: null
+        bian_sd: "CustomerOffer"
+        bian_operations: ["Create", "Update", "ExchangeFacilityApplication"]
+        bian_alignment_type: "direct"
+        bian_confidence: 0.95
+        
+        rationale: |
+          GOVERNANCE DECISION (Phase 4): CREATE new API
+          
+          Gap Analysis:
+          - BIAN mapping: Direct → CustomerOffer SD (confidence 0.95)
+          - No existing API in catalog for full offer lifecycle (request + offer + acceptance)
+          - CreditApplicationAPI v1.3 is partial (covers request only, not offer generation/acceptance)
+          - Clear requirement: full offer lifecycle with pricing, signature, state management
+          - Pattern: Domain Service with state machine
+          
+          Must support:
+          - POST /offers (create request, calculate rate)
+          - PUT /offers/{id} (update offer after underwriting)
+          - POST /offers/{id}/accept (record acceptance + signature)
+          - GET /offers/{id} (retrieve offer)
+          
+          State machine: DRAFT → SUBMITTED → ACCEPTED → DISBURSED
+          
+          Dependencies: EXT-004 (Digital Signature), EXT-006 (Document Storage), INT-002 (Audit)
+          Complexity: Moderate-to-high (stateful, pricing logic, signature handling)
+        
+        pattern: "Domain Service (BIAN-aligned)"
+        apiStyle: "REST"
+        consumers:
+          - "LoanOriginationOrchestrator-Business-API"
+        calls_to:
+          - "EXT-004:Digital Signature Provider"
+          - "EXT-006:Document Storage"
+          - "INT-002:Audit & Compliance"
+        maturity: "finalized"
+        validation: "complete"
+
+      # ———— UNDERWRITING ————
+      - api_name: "Underwriting-Domain-API"
+        description: "Automated and manual credit evaluation; decision recording"
+        version: "v1.0"
+        capability: "CAP-LOAN-002-UNDERWRITING"
+        use_cases: ["UC-003", "UC-006"]
+        business_rules: ["BR-002", "BR-003", "BR-004", "BR-005", "BR-010"]
+        
+        action: "crear"
+        status: "finalized"
+        catalog_ref: null
+        bian_sd: "Underwriting"
+        bian_operations: ["ExecuteUnderwritingAssessment", "Update"]
+        bian_alignment_type: "direct"
+        bian_confidence: 0.95
+        
+        rationale: |
+          GOVERNANCE DECISION (Phase 4): CREATE new API
+          
+          Gap Analysis:
+          - BIAN mapping: Direct → Underwriting SD (confidence 0.95)
+          - No existing API in catalog for Underwriting BIAN alignment
+          - Clear requirement: automated + manual credit evaluation with fallback logic
+          - Pattern: Domain Service with rule engine and escalation
+          
+          Must support:
+          - POST /assessments (initiate credit evaluation)
+          - GET /assessments/{id} (retrieve decision)
+          - POST /assessments/{id}/referral (escalate to analyst)
+          - PUT /assessments/{id} (record manual decision)
+          
+          Dependencies: EXT-001 (Credit Bureau), EXT-002 (Scoring Engine), INT-002 (Audit)
+          Complexity: High (external integrations, fallback logic, decision tree)
+        
+        pattern: "Domain Service (BIAN-aligned, rule-driven)"
+        apiStyle: "REST + AsyncAPI (async callbacks from manual review)"
+        consumers:
+          - "LoanOriginationOrchestrator-Business-API"
+        calls_to:
+          - "EXT-001:Credit Bureau"
+          - "EXT-002:Scoring Engine"
+          - "INT-002:Audit & Compliance"
+        maturity: "finalized"
+        validation: "complete"
+
+      # ———— DISBURSEMENT ————
+      - api_name: "Disbursement-Domain-API"
+        description: "Loan disbursement instruction and confirmation"
+        version: "v1.0"
+        capability: "CAP-LOAN-004-DISBURSEMENT"
+        use_cases: ["UC-007"]
+        business_rules: ["BR-011"]
+        
+        action: "reutilizar"
+        status: "finalized"
+        catalog_ref: "catalog/domains/loans.yaml#DisbursementAPI"
+        reusing_from: "DisbursementAPI v1.1"
+        
+        rationale: |
+          GOVERNANCE DECISION (Phase 4): REUSE existing DisbursementAPI v1.1
+          
+          Collision Analysis:
+          - Existing: DisbursementAPI v1.1 (published, Tier 1)
+          - BIAN mapping: Disbursement SD (confidence 0.90, fully aligned)
+          - Coverage: 100% (POST /disbursements, GET /disbursements/{id}, async confirmation)
+          - Fit: Perfect — all required operations covered, same BIAN SD alignment
+          
+          Comparison:
+          - Requires: POST /disbursements (initiate), GET /disbursements/{id} (query status), async confirmation
+          - Existing v1.1: Provides POST /disbursements, GET /disbursements/{disbursementId}, async callback flow
+          - Gap: None — existing API is fully sufficient
+          
+          Recommendation: REUSE v1.1 directly
+          - Avoids redundant implementation
+          - Maintains single source of truth for disbursement operations
+          - Already integrated with EXT-003 (Core Banking) and INT-002 (Audit)
+          - SLA: 99.9%, Tier 1 criticality
+          
+          Dependencies: EXT-003 (Core Banking System), INT-002 (Audit)
+          Complexity: Inherited from v1.1 (high — fund orchestration, audit trail, failure handling)
+        
+        bian_sd: "Disbursement"
+        bian_operations: ["ExecuteDisbursement"]
+        bian_alignment_type: "direct"
+        bian_confidence: 0.90
+        
+        pattern: "Domain Service / External System Adapter (existing API)"
+        apiStyle: "REST + AsyncAPI (async confirmation)"
+        consumers:
+          - "LoanOriginationOrchestrator-Business-API"
+        calls_to:
+          - "EXT-003:Core Banking System"
+          - "INT-002:Audit & Compliance"
+        maturity: "finalized"
+        validation: "complete"
+
+  # =========================================================================
+  # SUPPORT LAYER (Cross-Cutting Concerns)
+  # =========================================================================
+  support:
+    applicable: true
+    rationale: "Compliance, audit, and cross-cutting service APIs."
+    
+    apis:
+      # ———— LOAN AUDIT LOG API ————
+      - api_name: "LoanAuditLog-Support-API"
+        description: "Async event publisher for compliance and audit trail"
+        version: "v1.0"
+        capability: "All (cross-cutting)"
+        use_cases: ["All"]
+        business_rules: ["BR-010"]
+        
+        action: "crear"
+        status: "finalized"
+        catalog_ref: null
+        apiStyle: "AsyncAPI (event publisher)"
+        
+        rationale: |
+          GOVERNANCE DECISION (Phase 4): CREATE new API
+          
+          Gap Analysis:
+          - No BIAN mapping (cross-cutting compliance service, not a domain SD)
+          - No collision in catalog (no compliance event publisher for loans)
+          - Clear requirement: async event publishing for all loan lifecycle events
+          - Pattern: Event Publisher / Support Service
+          
+          Publishes events:
+          - RequestCreated, DocumentsUploaded, EvaluationStarted, DecisionMade,
+            OfferGenerated, OfferAccepted, DisbursementStarted, DisbursementConfirmed, etc.
+          
+          Requirements:
+          - Ensure all decisions logged with rationale (BR-010)
+          - Event-driven integration with INT-002 (Audit & Compliance system)
+          - Support for both internal (INT-002) and external (EXT-005 Notification) consumers
+          
+          Pattern: Event Publisher (async topics)
+          Complexity: Low (event schema definition + pub/sub infrastructure)
+        
+        pattern: "Event Publisher / Support Service"
+        apiStyle: "AsyncAPI (Kafka/RabbitMQ topic)"
+        consumers:
+          - "INT-002:Audit & Compliance"
+          - "EXT-005:Notification Service"
+        calls_to: []
+        maturity: "finalized"
+        validation: "complete"
+
+# =============================================================================
+# EXTERNAL INTEGRATIONS & DEPENDENCIES (Informational)
+# =============================================================================
+
+externalIntegrations:
+  description: "External systems called from domain/business layers; not APIs defined in this landscape."
+  
+  systems:
+    - id: "EXT-001"
+      name: "Credit Bureau"
+      pattern: "REST sync (query credit report)"
+      dependency_on: "Underwriting-Domain-API"
+      criticality: "P0 (blocks decision)"
+      fallback: "If unavailable, refer case for manual review"
+    
+    - id: "EXT-002"
+      name: "Scoring Engine"
+      pattern: "REST sync (score calculation)"
+      dependency_on: "Underwriting-Domain-API"
+      criticality: "P0 (blocks decision)"
+      fallback: "If unavailable, refer case for manual review"
+    
+    - id: "EXT-003"
+      name: "Core Banking System"
+      pattern: "REST sync + async callback (fund transfer)"
+      dependency_on: "Disbursement-Domain-API"
+      criticality: "P0 (blocks disbursement)"
+      fallback: "Retry with exponential backoff; escalate to manual intervention"
+    
+    - id: "EXT-004"
+      name: "Digital Signature Provider"
+      pattern: "REST sync (signature capture & verification)"
+      dependency_on: "CustomerOffer-Domain-API"
+      criticality: "P0 (blocks acceptance)"
+      fallback: "If unavailable, defer acceptance to manual process"
+    
+    - id: "EXT-005"
+      name: "Notification Service"
+      pattern: "AsyncAPI event consumer (SMS/Email)"
+      dependency_on: "LoanAuditLog-Support-API"
+      criticality: "P1 (non-blocking)"
+      fallback: "Queue notifications; retry on recovery"
+    
+    - id: "EXT-006"
+      name: "Document Storage"
+      pattern: "REST sync (upload/retrieve documents)"
+      dependency_on: "CustomerOffer-Domain-API"
+      criticality: "P0 (blocks document upload)"
+      fallback: "Reject upload; prompt user to retry"
+
+internalIntegrations:
+  description: "Internal systems (mandatory dependencies) for loan origination."
+  
+  systems:
+    - id: "INT-001"
+      name: "Identity & KYC System"
+      pattern: "REST sync / AsyncAPI event consumer"
+      dependency_on: "PartyLifecycleMgmt-Domain-API"
+      criticality: "P0 (blocks request)"
+      owner: "Party & Compliance Squad"
+      gap: "API contract or integration pattern to be defined in Phase 6"
+    
+    - id: "INT-002"
+      name: "Audit & Compliance Event Broker"
+      pattern: "AsyncAPI event consumer"
+      dependency_on: "LoanAuditLog-Support-API, all domain APIs"
+      criticality: "P0 (compliance)"
+      owner: "Compliance & Risk Squad"
+      gap: "Event schema to be defined in Phase 6"
+
+# =============================================================================
+# PHASE 4 COMPLETION SUMMARY (api-landscape-design)
+# =============================================================================
+
+phase4_completion:
+  date: "2026-06-25"
+  orchestrator: "api-landscape-governance/SKILL.md"
+  
+  governance_decisions_resolved:
+    - api: "LoanRequest-Experience-API"
+      collision: "CreditApplicationAPI v1.3 (catalog)"
+      decision: "🟡 EXTENDER"
+      catalog_ref: "catalog/domains/loans.yaml#CreditApplicationAPI"
+      rationale: "CreditApplicationAPI v1.3 covers 80% (POST/GET/submit). Extend with document upload endpoint (v1.4+) for backward compatibility."
+      
+    - api: "Disbursement-Domain-API"
+      collision: "DisbursementAPI v1.1 (catalog)"
+      decision: "🟢 REUTILIZAR"
+      catalog_ref: "catalog/domains/loans.yaml#DisbursementAPI"
+      rationale: "DisbursementAPI v1.1 covers 100% of requirements (POST/GET, async confirmation). Direct reuse; no gaps."
+  
+  other_decisions:
+    - api: "LoanOffer-Experience-API"
+      decision: "🔴 CREAR"
+      reason: "No collision in catalog; clear gap for offer retrieval + digital acceptance BFF"
+      
+    - api: "LoanStatus-Experience-API"
+      decision: "🔴 CREAR"
+      reason: "No collision in catalog; read-only transparency BFF"
+      
+    - api: "LoanOriginationOrchestrator-Business-API"
+      decision: "🔴 CREAR"
+      reason: "Proprietary orchestration (no BIAN SD); no collision"
+      
+    - api: "PartyLifecycleMgmt-Domain-API"
+      decision: "🔴 CREAR"
+      reason: "BIAN-aligned (PartyLifecycleManagement); no existing API in catalog"
+      
+    - api: "CustomerOffer-Domain-API"
+      decision: "🔴 CREAR"
+      reason: "BIAN-aligned (CustomerOffer); CreditApplicationAPI is partial (request only, not offer/acceptance)"
+      
+    - api: "Underwriting-Domain-API"
+      decision: "🔴 CREAR"
+      reason: "BIAN-aligned (Underwriting); no existing API in catalog"
+      
+    - api: "LoanAuditLog-Support-API"
+      decision: "🔴 CREAR"
+      reason: "Cross-cutting compliance publisher; no collision"
+  
+  artifacts_produced:
+    - "design/api-landscape.yaml (THIS FILE — FINALIZED)"
+    - "design/experience-api-style-evaluation.md (REST vs GraphQL)"
+    - "design/diagrams/api-landscape-diagram.md (Mermaid flowchart)"
+    - "design/diagrams/api-landscape-inventory-delta.md (comparison table)"
+  
+  status: "FINALIZED (all APIs maturity=finalized, validation=complete)"
+  
+  validation_summary:
+    - "✅ VAL-001: All domain APIs with action != crear have catalog_ref"
+    - "✅ VAL-002: All domain APIs with bian_sd have bian_operation"
+    - "✅ VAL-003: All APIs with action=extender have new_endpoints"
+    - "✅ VAL-004: All 4 layers applicable=true (no omitted layers)"
+  
+  phase5_readiness: "Phase 4 COMPLETE. Phase 5 (TBD) or Phase 6 (backend-component-design) READY."
+
+# =============================================================================
+# SUMMARY OF CHANGES FROM PHASE 3 → PHASE 4
+# =============================================================================
+
+summary_of_changes:
+  overview: "Phase 4 finalized API landscape decisions by applying governance rules to catalog analysis. 2 collisions resolved autonomously."
+  
+  maturity_transition: "DRAFT → FINALIZED"
+  validation_transition: "pending → complete"
+  
+  decision_counts:
+    total_apis: 9
+    reutilizar: 1  # Disbursement-Domain-API
+    extender: 1    # LoanRequest-Experience-API
+    crear: 7       # All others
+  
+  collision_resolutions:
+    resolved: 2
+    details:
+      - "CreditApplicationAPI v1.3: EXTEND (backward-compatible document upload)"
+      - "DisbursementAPI v1.1: REUSE (100% fit, no gaps)"
+  
+  new_fields_added_per_api:
+    - "catalog_ref (when action != crear)"
+    - "reusing_from (when action = reutilizar/extender)"
+    - "new_endpoints (when action = extender)"
+    - "backward_compatible (when action = extender)"
+  
+  external_governance_evidence:
+    - "Governance rules: .github/skills/api-landscape-governance/SKILL.md"
+    - "Catalog source: catalog/bian-capability-index.yaml, catalog/domains/loans.yaml"
+    - "Semantic reference: design/semantic-dictionary.yaml (Phase 1)"
+    - "BIAN alignment: design/bian/bian-service-domain-evaluation.yaml (Phase 1)"
+
+# =============================================================================
+# VALIDATION RULES (from schema)
+# =============================================================================
+
+validation:
+  rules:
+    - id: "VAL-001"
+      rule: "All domain APIs with action != crear MUST have catalog_ref"
+      status: "DEFERRED to Phase 4 (all action=crear placeholders)"
+    
+    - id: "VAL-002"
+      rule: "All domain APIs with bian_sd MUST have bian_operation"
+      status: "✓ SATISFIED (all domain APIs have bian_operations)"
+    
+    - id: "VAL-003"
+      rule: "All APIs with action=extender MUST have new_endpoints"
+      status: "✓ SATISFIED (no extender actions in draft)"
+    
+    - id: "VAL-004"
+      rule: "If layer applicable=false, apis field MUST NOT be present"
+      status: "✓ SATISFIED (all 4 layers applicable=true)"
+  
+  overall_validation_status: "DRAFT (will be finalized in Phase 4)"

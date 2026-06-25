@@ -1,0 +1,237 @@
+component: kyc-onboarding-api
+generated_at: "2026-06-22"
+
+engine_recommendation: relational
+rationale: >
+  OnboardingCase is a strongly consistent aggregate with well-defined relational
+  entities (case, result, decision, audit). ACID transactions are required for
+  state machine transitions and the outbox pattern (event publication). Relational
+  model fits PII encryption at column level and structured audit queries.
+  PostgreSQL-compatible engine recommended (e.g., PostgreSQL 16+, AWS Aurora PG).
+
+model_type: relational
+
+ownership:
+  owner_component: kyc-onboarding-api
+  read_by:
+    - kyc-onboarding-api (own reads)
+    - read-replica (observability/reporting — optional)
+  written_by:
+    - kyc-onboarding-api
+
+retention_notes: >
+  OnboardingCase and related entities: 5 years from case creation (regulatory requirement).
+  audit_entries: 7 years (ISO27001 audit retention).
+  GDPR erasure: personal data fields pseudonymized on erasure request; records NOT deleted
+  to preserve audit trail. Erasure tracked in a separate erasure_requests table (out of scope).
+
+tables:
+
+  - table: onboarding_cases
+    description: "Aggregate root — OnboardingCase"
+    columns:
+      - name: id
+        type: UUID
+        constraints: [PRIMARY KEY, NOT NULL, DEFAULT gen_random_uuid()]
+      - name: customer_id
+        type: UUID
+        constraints: [NOT NULL]
+        notes: "Reference to CustomerProfileAPI customer.id; not enforced as FK (cross-service)"
+      - name: status
+        type: VARCHAR(32)
+        constraints: [NOT NULL, CHECK status IN ('INITIATED','DOCS_SUBMITTED','UNDER_VALIDATION','REVIEW_REQUIRED','APPROVED','REJECTED')]
+      - name: customer_name_enc
+        type: BYTEA
+        constraints: [NOT NULL]
+        notes: "AES-256 encrypted PII (BR-007)"
+      - name: document_number_enc
+        type: BYTEA
+        constraints: [NOT NULL]
+        notes: "AES-256 encrypted PII (BR-007)"
+      - name: document_type
+        type: VARCHAR(20)
+        constraints: [NOT NULL, CHECK document_type IN ('CEDULA','PASAPORTE','OTRO')]
+      - name: document_expires_at
+        type: DATE
+        constraints: [NOT NULL]
+        notes: "BR-002: validated > today on submission"
+      - name: identity_id_ref
+        type: UUID
+        constraints: [nullable]
+        notes: "Reference to CustomerIdentityAPI identity record"
+      - name: channel
+        type: VARCHAR(20)
+        constraints: [NOT NULL, CHECK channel IN ('WEB','MOBILE','BACKOFFICE')]
+      - name: correlation_id
+        type: VARCHAR(128)
+        constraints: [NOT NULL, UNIQUE]
+        notes: "Idempotency key from Idempotency-Key header on initiation"
+      - name: initiated_at
+        type: TIMESTAMPTZ
+        constraints: [NOT NULL, DEFAULT now()]
+      - name: updated_at
+        type: TIMESTAMPTZ
+        constraints: [NOT NULL, DEFAULT now()]
+      - name: approved_at
+        type: TIMESTAMPTZ
+        constraints: [nullable]
+    indexes:
+      - columns: [customer_id]
+        type: btree
+        rationale: "Lookup active onboarding case by customer"
+      - columns: [status]
+        type: btree
+        rationale: "Analyst review queue query (WHERE status = 'REVIEW_REQUIRED')"
+      - columns: [correlation_id]
+        type: btree
+        unique: true
+        rationale: "Idempotency enforcement"
+
+  - table: kyc_results
+    description: "KYCResult entity — immutable after creation"
+    columns:
+      - name: id
+        type: UUID
+        constraints: [PRIMARY KEY, NOT NULL, DEFAULT gen_random_uuid()]
+      - name: onboarding_case_id
+        type: UUID
+        constraints: [NOT NULL, FK → onboarding_cases.id ON DELETE CASCADE]
+      - name: overall_status
+        type: VARCHAR(20)
+        constraints: [NOT NULL, CHECK overall_status IN ('APPROVED','REVIEW_REQUIRED','REJECTED')]
+      - name: identity_verification_status
+        type: VARCHAR(20)
+        constraints: [NOT NULL, CHECK identity_verification_status IN ('PASSED','FAILED','PENDING')]
+      - name: aml_screening_status
+        type: VARCHAR(20)
+        constraints: [NOT NULL, CHECK aml_screening_status IN ('CLEAR','MATCH','PENDING')]
+      - name: aml_screening_id
+        type: VARCHAR(128)
+        constraints: [nullable]
+      - name: id_verification_job_id
+        type: VARCHAR(128)
+        constraints: [nullable]
+      - name: failure_reason
+        type: TEXT
+        constraints: [nullable]
+      - name: validated_at
+        type: TIMESTAMPTZ
+        constraints: [NOT NULL, DEFAULT now()]
+    indexes:
+      - columns: [onboarding_case_id]
+        type: btree
+
+  - table: review_decisions
+    description: "ReviewDecision entity — immutable after creation"
+    columns:
+      - name: id
+        type: UUID
+        constraints: [PRIMARY KEY, NOT NULL, DEFAULT gen_random_uuid()]
+      - name: onboarding_case_id
+        type: UUID
+        constraints: [NOT NULL, FK → onboarding_cases.id ON DELETE CASCADE]
+      - name: decision
+        type: VARCHAR(20)
+        constraints: [NOT NULL, CHECK decision IN ('APPROVED','REJECTED')]
+      - name: analyst_id
+        type: VARCHAR(256)
+        constraints: [NOT NULL]
+        notes: "OAuth token subject of KYC_ANALYST"
+      - name: justification
+        type: TEXT
+        constraints: [nullable]
+      - name: decided_at
+        type: TIMESTAMPTZ
+        constraints: [NOT NULL, DEFAULT now()]
+    indexes:
+      - columns: [onboarding_case_id]
+        type: btree
+
+  - table: audit_entries
+    description: "Append-only audit log (BR-006); PII pseudonymized for GDPR"
+    columns:
+      - name: id
+        type: UUID
+        constraints: [PRIMARY KEY, NOT NULL, DEFAULT gen_random_uuid()]
+      - name: onboarding_case_id
+        type: UUID
+        constraints: [NOT NULL]
+        notes: "Not enforced as FK to allow retention after case deletion"
+      - name: event_type
+        type: VARCHAR(64)
+        constraints: [NOT NULL]
+      - name: actor_id
+        type: VARCHAR(256)
+        constraints: [NOT NULL]
+      - name: metadata
+        type: JSONB
+        constraints: [nullable]
+        notes: "Non-PII context only (from_status, to_status, etc.)"
+      - name: occurred_at
+        type: TIMESTAMPTZ
+        constraints: [NOT NULL, DEFAULT now()]
+    indexes:
+      - columns: [onboarding_case_id]
+        type: btree
+      - columns: [occurred_at]
+        type: btree
+        rationale: "Time-range audit queries"
+    constraints:
+      - "No UPDATE or DELETE allowed on this table (append-only enforced at application layer)"
+
+  - table: outbox_events
+    description: "Transactional outbox for reliable domain event publication"
+    columns:
+      - name: id
+        type: UUID
+        constraints: [PRIMARY KEY, NOT NULL, DEFAULT gen_random_uuid()]
+      - name: event_id
+        type: UUID
+        constraints: [NOT NULL, UNIQUE]
+        notes: "Stable event identifier for consumer deduplication"
+      - name: event_type
+        type: VARCHAR(128)
+        constraints: [NOT NULL]
+      - name: aggregate_id
+        type: UUID
+        constraints: [NOT NULL]
+        notes: "onboarding_case_id"
+      - name: payload
+        type: JSONB
+        constraints: [NOT NULL]
+      - name: created_at
+        type: TIMESTAMPTZ
+        constraints: [NOT NULL, DEFAULT now()]
+      - name: published_at
+        type: TIMESTAMPTZ
+        constraints: [nullable]
+        notes: "Set by relay process after successful broker publication"
+      - name: attempts
+        type: INT
+        constraints: [NOT NULL, DEFAULT 0]
+    indexes:
+      - columns: [published_at]
+        type: btree
+        rationale: "Relay queries pending (WHERE published_at IS NULL)"
+      - columns: [event_id]
+        type: btree
+        unique: true
+
+transaction_boundaries:
+  - name: "InitiateOnboarding"
+    includes: [INSERT onboarding_cases, INSERT audit_entries, INSERT outbox_events]
+    notes: "Single DB transaction; outbox pattern ensures event publication atomicity"
+  - name: "SubmitDocument"
+    includes: [UPDATE onboarding_cases (status), INSERT audit_entries, INSERT outbox_events]
+  - name: "RecordKYCResult"
+    includes: [INSERT kyc_results, UPDATE onboarding_cases (status), INSERT audit_entries, INSERT outbox_events]
+  - name: "RecordReviewDecision"
+    includes: [INSERT review_decisions, UPDATE onboarding_cases (status, approved_at), INSERT audit_entries, INSERT outbox_events]
+
+access_patterns:
+  - "GET case by id: SELECT * FROM onboarding_cases WHERE id = $1"
+  - "GET active case by customer: SELECT * FROM onboarding_cases WHERE customer_id = $1 AND status NOT IN ('APPROVED','REJECTED')"
+  - "LIST analyst review queue: SELECT * FROM onboarding_cases WHERE status = 'REVIEW_REQUIRED' ORDER BY updated_at ASC LIMIT $limit"
+  - "GET KYC result by case: SELECT * FROM kyc_results WHERE onboarding_case_id = $1"
+  - "GET audit trail by case: SELECT * FROM audit_entries WHERE onboarding_case_id = $1 ORDER BY occurred_at ASC"
+  - "Outbox relay: SELECT * FROM outbox_events WHERE published_at IS NULL ORDER BY created_at ASC LIMIT 50"

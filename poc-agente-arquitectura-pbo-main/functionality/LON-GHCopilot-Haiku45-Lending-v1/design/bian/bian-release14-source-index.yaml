@@ -1,0 +1,175 @@
+---
+bianRelease14SourceIndex:
+  metadata:
+    functionalityId: "LON-GHCopilot-Haiku45-Lending-v1"
+    releaseVersion: "14.0.0"
+    indexGeneratedAt: "2026-06-24T00:00:00Z"
+    indexedBy: "bian-baseline-indexer"
+    purpose: "Index of BIAN Release 14 Service Domains for Digital Personal Loan Origination capability"
+
+  sourceDirectories:
+    oas3: "architecture/cache/bian/release14.0.0/oas3/yamls"
+    asyncapi3x: "architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls"
+
+  serviceDomainIndex:
+    # PRIMARY SERVICE DOMAINS
+    - rank: 1
+      serviceDomain: "CustomerOffer"
+      status: "indexed"
+      retrievalStatus: "success"
+      oas3File:
+        fileName: "CustomerOffer.yaml"
+        filePath: "architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml"
+        title: "Customer Offer"
+        version: "14.0.0"
+        description: "Orchestrates processing of product offers for customers. Covers offer generation, document checks, collateral allocation, credit assessments."
+        operations:
+          - "Create"
+          - "Update"
+          - "Control"
+          - "Retrieve"
+          - "RequestFacilityApplicationExecution"
+          - "ExchangeFacilityApplication"
+          - "ExecuteFacilityApplication"
+          - "RetrieveFacilityApplication"
+      mappedUseCases: ["UC-004", "UC-005"]
+      rationale: "Primary domain for offer generation (UC-004) and acceptance (UC-005)"
+      operationIndexRef: "architecture/cache/bian/release14.0.0/index/CustomerOffer.json"
+      contentHash: "dynamic"
+      notes: "Core offer lifecycle management"
+
+    - rank: 2
+      serviceDomain: "Underwriting"
+      status: "indexed"
+      retrievalStatus: "success"
+      oas3File:
+        fileName: "Underwriting.yaml"
+        filePath: "architecture/cache/bian/release14.0.0/oas3/yamls/Underwriting.yaml"
+        title: "Underwriting"
+        version: "14.0.0"
+        description: "Provides credit assessment and underwriting decisions. Covers automated underwriting, manual review, and decision recording."
+        operations:
+          - "Create"
+          - "Update"
+          - "Control"
+          - "Retrieve"
+          - "RequestUnderwritingAssessmentExecution"
+          - "ExecuteUnderwritingAssessment"
+          - "RetrieveUnderwritingAssessment"
+      mappedUseCases: ["UC-003", "UC-006"]
+      rationale: "Primary domain for automated credit evaluation (UC-003) and manual review (UC-006)"
+      operationIndexRef: "architecture/cache/bian/release14.0.0/index/Underwriting.json"
+      contentHash: "dynamic"
+      notes: "Credit assessment and decision-making"
+
+    # SECONDARY SERVICE DOMAINS
+    - rank: 3
+      serviceDomain: "Disbursement"
+      status: "indexed"
+      retrievalStatus: "success"
+      oas3File:
+        fileName: "Disbursement.yaml"
+        filePath: "architecture/cache/bian/release14.0.0/oas3/yamls/Disbursement.yaml"
+        title: "Disbursement"
+        version: "14.0.0"
+        description: "Executes and tracks disbursement of funds. Covers disbursement instruction and confirmation."
+        operations:
+          - "Create"
+          - "Update"
+          - "Retrieve"
+          - "RequestDisbursementExecution"
+          - "ExecuteDisbursement"
+      mappedUseCases: ["UC-007"]
+      rationale: "Secondary domain for disbursement instruction (UC-007)"
+      operationIndexRef: "architecture/cache/bian/release14.0.0/index/Disbursement.json"
+      contentHash: "dynamic"
+      notes: "Fund disbursement execution"
+
+    - rank: 4
+      serviceDomain: "ConsumerLoan"
+      status: "indexed"
+      retrievalStatus: "success"
+      oas3File:
+        fileName: "ConsumerLoan.yaml"
+        filePath: "architecture/cache/bian/release14.0.0/oas3/yamls/ConsumerLoan.yaml"
+        title: "Consumer Loan"
+        version: "14.0.0"
+        description: "Manages consumer loan products and servicing. Includes origination and lifecycle management."
+        operations:
+          - "Initiate"
+          - "Update"
+          - "Retrieve"
+          - "RequestRepaymentScheduleExecution"
+      mappedUseCases: ["UC-007"]
+      rationale: "Secondary domain for loan product and lifecycle after origination"
+      operationIndexRef: "architecture/cache/bian/release14.0.0/index/ConsumerLoan.json"
+      contentHash: "dynamic"
+      notes: "Consumer loan servicing and management"
+
+    # SUPPORTING SERVICE DOMAINS
+    - rank: 5
+      serviceDomain: "PartyLifecycleManagement"
+      status: "indexed"
+      retrievalStatus: "success"
+      oas3File:
+        fileName: "PartyLifecycleManagement.yaml"
+        filePath: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+        title: "Party Lifecycle Management"
+        version: "14.0.0"
+        description: "Manages customer/party identity and lifecycle including KYC. Provides identity validation and status tracking."
+        operations:
+          - "Create"
+          - "Update"
+          - "Retrieve"
+      mappedUseCases: ["UC-001"]
+      rationale: "Supporting domain for KYC validation (BR-001, UC-001)"
+      operationIndexRef: "architecture/cache/bian/release14.0.0/index/PartyLifecycleManagement.json"
+      contentHash: "dynamic"
+      notes: "Customer identity and compliance status"
+
+    - rank: 6
+      serviceDomain: "ReferenceDataDirectory"
+      status: "indexed"
+      retrievalStatus: "success"
+      oas3File:
+        fileName: "ReferenceDataDirectory.yaml"
+        filePath: "architecture/cache/bian/release14.0.0/oas3/yamls/ReferenceDataDirectory.yaml"
+        title: "Reference Data Directory"
+        version: "14.0.0"
+        description: "Manages reference data including rates, limits, and pricing policies. Supports configuration of business rules."
+        operations:
+          - "Create"
+          - "Update"
+          - "Retrieve"
+          - "RequestRegistrationExecution"
+      mappedUseCases: ["UC-004"]
+      rationale: "Supporting domain for pricing policy and configuration (UC-004)"
+      operationIndexRef: "architecture/cache/bian/release14.0.0/index/ReferenceDataDirectory.json"
+      contentHash: "dynamic"
+      notes: "Configuration and reference data management"
+
+  cacheStrategy:
+    operationIndexFormat: "JSON"
+    operationIndexLocation: "architecture/cache/bian/release14.0.0/index/"
+    generationCommand: "python architecture/scripts/bian_extract_service_domain.py"
+    notes: |
+      Operation index files (JSON) are generated on-demand via bian_extract_service_domain.py
+      and cached locally. This index stores ONLY references, not full OAS3 bodies.
+
+  additionalReferences:
+    globalSpecIndex: "architecture/context/bian-spec-index.yaml"
+    oas3SpecIndex: "architecture/context/bian-spec-index-oas3.yaml"
+    asyncapiSpecIndex: "architecture/context/bian-spec-index-asyncapi.yaml"
+    purpose: "Router indexes for name lookup only; detailed SD data retrieved from local cache"
+
+  qualityAssurances:
+    indexCompleteness: "6 primary + secondary + supporting Service Domains indexed"
+    localCopyStatus: "All files present in local cache"
+    releaseVersion: "14.0.0 — current"
+    lastValidated: "2026-06-24"
+
+  notes: |
+    This index is generated during Phase 1 (enterprise-capability-alignment).
+    It lists only the Service Domains relevant to Digital Personal Loan Origination.
+    The index is a ROUTER to local cached files; actual contract derivation happens
+    in Phase 7 (backend-contract-design) using the operation_index_ref JSON files.

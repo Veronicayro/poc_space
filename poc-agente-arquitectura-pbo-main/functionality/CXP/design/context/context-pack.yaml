@@ -1,0 +1,84 @@
+# Phase 1 Output: Context Pack - Cuentas por Pagar (CXP)
+schema_version: "1.0"
+functionality_id: CXP
+phase: enterprise-capability-alignment
+generated_at: "2026-06-17"
+
+summary:
+  name: "Cuentas por Pagar (AP - Accounts Payable)"
+  domain: "Financial Operations / Treasury"
+  description: >
+    Sistema de gestión del ciclo de vida completo de facturas de proveedores:
+    registro, validación, aprobación, programación y ejecución de pagos,
+    con integridad contable ACID y trazabilidad completa (SOX/ISO27001 readiness).
+  scope: greenfield
+  domain_standard: BIAN-Release-14
+
+business_context:
+  problem_statement: >
+    La organización necesita un sistema centralizado para gestionar el pago a proveedores
+    con control de flujo basado en roles, auditoría completa y trazabilidad del estado
+    de cada factura desde su registro hasta el pago efectivo.
+  business_value:
+    - "Reducción de riesgo de pagos duplicados o no autorizados"
+    - "Cumplimiento regulatorio (ISO 27001 / SOX readiness)"
+    - "Visibilidad en tiempo real del estado de obligaciones financieras"
+    - "Integración con ERP para integridad contable automatizada"
+    - "Trazabilidad completa del ciclo de vida de facturas"
+
+actors:
+  - id: ANALYST
+    role: "Analista Financiero"
+    primary_use_cases: [UC-CXP-001]
+    permissions: [create_invoice, view_invoice, edit_invoice]
+  - id: MANAGER
+    role: "Gerente Financiero"
+    primary_use_cases: [UC-CXP-002, UC-CXP-003]
+    permissions: [approve_invoice, reject_invoice, view_invoice]
+  - id: TREASURER
+    role: Tesorero
+    primary_use_cases: [UC-CXP-004, UC-CXP-005, UC-CXP-007]
+    permissions: [schedule_payment, execute_payment, view_payment_status]
+
+use_cases_summary:
+  - UC-CXP-001: "Registrar Factura de Proveedor"
+  - UC-CXP-002: "Aprobar Factura"
+  - UC-CXP-003: "Rechazar Factura"
+  - UC-CXP-004: "Programar Pago de Factura"
+  - UC-CXP-005: "Ejecutar Pago"
+  - UC-CXP-006: "Cancelar Factura"
+  - UC-CXP-007: "Consultar Estado de Pago"
+
+key_business_rules:
+  - BR-CXP-001: "Validación de Proveedor activo en ERP"
+  - BR-CXP-002: "Unicidad de factura (supplier_id + invoice_number)"
+  - BR-CXP-003: "Estado inicial = PENDING"
+  - BR-CXP-004: "Transiciones de estado válidas (state machine)"
+  - BR-CXP-009: "Idempotencia en ejecución de pagos"
+  - BR-CXP-011: "RBAC por rol"
+  - BR-CXP-013: "Auditoría completa del ciclo de vida"
+
+invoice_lifecycle_states:
+  - PENDING
+  - APPROVED
+  - REJECTED
+  - SCHEDULED
+  - PAID
+  - CANCELLED
+
+external_dependencies:
+  - system: ERP
+    criticality: high
+    coupling: synchronous (validación) + async (contabilización)
+  - system: Banking
+    criticality: high
+    coupling: async REST + webhooks
+
+nfr_highlights:
+  performance: "< 300ms SLA, 500 concurrent users"
+  security: "OAuth2/OIDC + RBAC + TLS 1.2+"
+  observability: "OpenTelemetry + Prometheus + structured logging"
+  reliability: "Retry policies + circuit breakers"
+  compliance: "ISO 27001 / SOX readiness - audit trail completo"
+
+architecture_style: "Microservices - Layered (Experience → Business → Domain → Support)"

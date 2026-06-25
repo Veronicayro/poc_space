@@ -1,0 +1,30 @@
+schema_id: validation-report
+artifact_path: design/validation-report.yaml
+required_fields:
+  - validation_status
+  - blocking_issues
+  - warnings
+  - metrics
+fields:
+  validation_status:
+    enum: [passed, failed, passed_with_warnings]
+  blocking_issues:
+    type: array
+    item_fields:
+      issue_id: string
+      artifact: string
+      description: string
+      required_action: string
+  warnings:
+    type: array
+    item_fields:
+      issue_id: string
+      artifact: string
+      description: string
+  metrics:
+    total_components: number
+    total_apis: number
+    total_contracts: number
+    total_diagrams: number
+    bian_aligned_apis: number
+    unresolved_bian_mappings: number

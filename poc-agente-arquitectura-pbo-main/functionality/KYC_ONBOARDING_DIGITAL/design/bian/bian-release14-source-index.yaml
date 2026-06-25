@@ -1,0 +1,97 @@
+release: "14.0.0"
+generated_at: "2026-06-22"
+functionality_id: KYC_ONBOARDING_DIGITAL
+source_directories:
+  oas3: "architecture/cache/bian/release14.0.0/oas3/yamls"
+  asyncapi_3x: "architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls"
+
+# Scoped index: only the Service Domains relevant to this functionality.
+# Full global index: architecture/context/bian-spec-index-oas3.yaml
+
+files:
+  - api_style: oas3
+    file_name: PartyLifecycleManagement.yaml
+    service_domain_candidate: PartyLifecycleManagement
+    source_url: "https://github.com/bian-official/public/tree/main/release14.0.0/semantic-apis/oas3/yamls/PartyLifecycleManagement.yaml"
+    local_copy_path: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+    title: "Party Lifecycle Management"
+    version: "14.0.0"
+    operations_or_channels:
+      - path: "/PartyLifecycleManagement/Initiate"
+        method: POST
+        operationId: InitiatePartyLifecycleManagement
+        bian_behavior: Initiate
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Update"
+        method: PUT
+        operationId: UpdatePartyLifecycleManagement
+        bian_behavior: Update
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Control"
+        method: PUT
+        operationId: ControlPartyLifecycleManagement
+        bian_behavior: Control
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Exchange"
+        method: PUT
+        operationId: ExchangePartyLifecycleManagement
+        bian_behavior: Exchange
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Execute"
+        method: PUT
+        operationId: ExecutePartyLifecycleManagement
+        bian_behavior: Execute
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Request"
+        method: PUT
+        operationId: RequestPartyLifecycleManagement
+        bian_behavior: Request
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Retrieve"
+        method: GET
+        operationId: RetrievePartyLifecycleManagement
+        bian_behavior: Retrieve
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Qualification/{qualificationid}/Retrieve"
+        method: GET
+        operationId: RetrieveQualification
+        bian_behavior: Retrieve
+        sub_behavior: Qualification
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Update"
+        method: PUT
+        operationId: UpdateDocumentation
+        bian_behavior: Update
+        sub_behavior: Documentation
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Execute"
+        method: PUT
+        operationId: ExecuteDocumentation
+        bian_behavior: Execute
+        sub_behavior: Documentation
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Request"
+        method: PUT
+        operationId: RequestDocumentation
+        bian_behavior: Request
+        sub_behavior: Documentation
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Retrieve"
+        method: GET
+        operationId: RetrieveDocumentation
+        bian_behavior: Retrieve
+        sub_behavior: Documentation
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Precedents/{precedentsid}/Update"
+        method: PUT
+        operationId: UpdatePrecedents
+        bian_behavior: Update
+        sub_behavior: Precedents
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Precedents/{precedentsid}/Retrieve"
+        method: GET
+        operationId: RetrievePrecedents
+        bian_behavior: Retrieve
+        sub_behavior: Precedents
+      - path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/IdentityProofing/{identityproofingid}/Retrieve"
+        method: GET
+        operationId: RetrieveIdentityProofing
+        bian_behavior: Retrieve
+        sub_behavior: IdentityProofing
+
+  - api_style: oas3
+    file_name: CustomerOffer.yaml
+    service_domain_candidate: CustomerOffer
+    local_copy_path: "architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml"
+    title: "Customer Offer"
+    version: "14.0.0"
+    status: evaluated_rejected
+    rejection_reason: "Scope mismatch: product-centric lifecycle, not identity/KYC-centric"
+    operations_or_channels: []

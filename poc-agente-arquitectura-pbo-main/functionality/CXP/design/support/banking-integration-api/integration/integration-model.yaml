@@ -1,0 +1,51 @@
+# Component Integration Model - banking-integration-api
+schema_version: "1.0"
+component_id: banking-integration-api
+generated_at: "2026-06-17"
+
+integrations:
+  - id: INT-BANK-001
+    target: Banking System
+    type: REST HTTP (outbound)
+    direction: outbound
+    protocol: HTTPS
+    auth: "mTLS + API Key"
+    transport: "TLS 1.2+"
+    headers:
+      - "X-Idempotency-Key: {uuid}"
+      - "X-Correlation-ID: {uuid}"
+    operations:
+      - "POST /payments/orders → create payment order"
+      - "GET /payments/orders/{orderId} → get payment status"
+    timeout_ms: 10000
+    retry:
+      enabled: true
+      max: 3
+      backoff: exponential
+      initial_delay_ms: 1000
+      idempotent: true
+    circuit_breaker:
+      enabled: true
+      threshold: 3
+      timeout_seconds: 60
+    message_transformation:
+      outbound: "CXP PaymentOrder → Banking BankingPaymentOrder (FinancialGateway schema)"
+      inbound: "Banking PaymentConfirmation → CXP PaymentStatus"
+    gap_ref: GAP-003
+
+  - id: INT-BANK-002
+    target: Banking System
+    type: Webhook (inbound)
+    direction: inbound
+    path: "/api/v1/banking/webhooks/inbound"
+    validation:
+      signature_header: "X-Banking-Signature"
+      algorithm: HMAC-SHA256
+      timestamp_tolerance_seconds: 300
+    idempotency:
+      enabled: true
+      key_field: event_id
+      storage: banking_idempotency_log
+
+inbound_consumers:
+  - payment-management-api

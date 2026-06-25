@@ -1,0 +1,23 @@
+schema_version: "1.0"
+functionality_id: CXP-GHCopilot-Sonnet46
+
+bian_service_domain_candidates:
+  - id: AccountsPayable
+    rationale: Gestión del ciclo de vida de facturas de proveedores y pagos asociados
+    confidence: high
+
+  - id: Disbursement
+    rationale: Ejecución y programación de pagos a proveedores
+    confidence: high
+
+  - id: FinancialAccounting
+    rationale: Registro de asientos contables en ERP
+    confidence: medium
+
+  - id: FinancialGateway
+    rationale: Integración con sistema bancario externo
+    confidence: high
+
+  - id: ContractorandSupplierAgreement
+    rationale: Validación de proveedores en ERP
+    confidence: medium

@@ -1,0 +1,118 @@
+integrationInventory:
+  metadata:
+    functionality: "Digital Personal Loan Origination"
+    created: "2026-06-24"
+    source: "GHCopilot-Haiku45"
+
+  externalSystems:
+    - id: "EXT-001"
+      name: "CREDIT_BUREAU"
+      description: "Buró de crédito externo para historial crediticio"
+      integrationPattern: "REST sync"
+      criticality: "HIGH"
+      appliedToUseCases: ["UC-003"]
+      appliedToBusinessRules: ["BR-003"]
+      dataExchange:
+        - type: "Request"
+          description: "Consulta de historial crediticio por documento/email"
+        - type: "Response"
+          description: "Score, reporte de crédito, antecedentes de pago"
+      availability:
+        degradedModeAllowed: false
+        fallbackStrategy: "Defer decision to manual review (UC-006)"
+
+    - id: "EXT-002"
+      name: "SCORING_ENGINE"
+      description: "Motor de scoring interno/externo para evaluación de riesgo"
+      integrationPattern: "REST sync"
+      criticality: "HIGH"
+      appliedToUseCases: ["UC-003"]
+      appliedToBusinessRules: ["BR-002", "BR-004", "BR-005"]
+      dataExchange:
+        - type: "Request"
+          description: "Datos del cliente, ingresos, consulta de buró"
+        - type: "Response"
+          description: "Score numérico, decision (APPROVED/REFERRED/REJECTED), risk level"
+      availability:
+        degradedModeAllowed: false
+        fallbackStrategy: "Default to REFERRED (manual review)"
+
+    - id: "EXT-003"
+      name: "CORE_BANKING"
+      description: "Sistema core bancario para instrucción de desembolso y consulta de cuentas"
+      integrationPattern: "REST sync"
+      criticality: "HIGH"
+      appliedToUseCases: ["UC-001", "UC-007"]
+      appliedToBusinessRules: ["BR-001", "BR-011"]
+      dataExchange:
+        - type: "Request"
+          description: "Instrucción de transferencia, validación de cuenta, consulta de KYC"
+        - type: "Response"
+          description: "Confirmación de desembolso, saldo, estado de KYC"
+      availability:
+        degradedModeAllowed: false
+        fallbackStrategy: "Queue instruction for retry (deferred execution)"
+
+    - id: "EXT-004"
+      name: "DIGITAL_SIGNATURE_PROVIDER"
+      description: "Proveedor de firma electrónica avanzada"
+      integrationPattern: "REST sync"
+      criticality: "HIGH"
+      appliedToUseCases: ["UC-005"]
+      appliedToBusinessRules: ["BR-009"]
+      dataExchange:
+        - type: "Request"
+          description: "Documento a firmar, identidad del firmante"
+        - type: "Response"
+          description: "Firma digitalizada, certificado, timestamp"
+      availability:
+        degradedModeAllowed: false
+        fallbackStrategy: "None — signature is mandatory"
+
+    - id: "EXT-005"
+      name: "NOTIFICATION_SERVICE"
+      description: "Servicio de notificaciones multicanal (email, SMS, push)"
+      integrationPattern: "async events"
+      criticality: "MEDIUM"
+      appliedToUseCases: ["UC-008"]
+      dataExchange:
+        - type: "Request"
+          description: "Evento de cambio de estado, canal preferido"
+        - type: "Response"
+          description: "Confirmación de envío"
+      availability:
+        degradedModeAllowed: true
+        fallbackStrategy: "Log notification as pending; retry later"
+
+    - id: "EXT-006"
+      name: "DOCUMENT_STORAGE"
+      description: "Repositorio seguro de documentos"
+      integrationPattern: "REST sync"
+      criticality: "MEDIUM"
+      appliedToUseCases: ["UC-002", "UC-005"]
+      appliedToBusinessRules: ["BR-012"]
+      dataExchange:
+        - type: "Request"
+          description: "Almacenamiento de documentos, consulta de URL"
+        - type: "Response"
+          description: "ID de documento, URL firmada, confirmación"
+      availability:
+        degradedModeAllowed: false
+        fallbackStrategy: "None — document storage is mandatory"
+
+  internalSystems:
+    - id: "INT-001"
+      name: "Identity & KYC"
+      description: "Sistema de identidad y KYC existente"
+      integrationPattern: "API/Event"
+      criticality: "HIGH"
+      appliedToUseCases: ["UC-001"]
+      note: "Será evaluado en Phase 2 (existing-landscape-analyzer)"
+
+    - id: "INT-002"
+      name: "Audit & Compliance Log"
+      description: "Sistema de auditoría y cumplimiento normativo"
+      integrationPattern: "Event/Sync"
+      criticality: "HIGH"
+      appliedToBusinessRules: ["BR-010"]
+      note: "Registro obligatorio de todas las decisiones crediticias"

@@ -1,0 +1,35 @@
+release: string
+generated_at: string
+source_directories:
+  oas3: string
+  asyncapi_3x: string
+files:
+  type: array
+  item_required:
+    - api_style
+    - file_name
+    - service_domain_candidate
+    - source_url
+    - title
+    - version
+    - operations_or_channels
+    - component_schema_names
+    - retrieval_status
+  item_fields:
+    api_style:
+      enum: [oas3, asyncapi-3.x]
+    file_name: string
+    service_domain_candidate: string
+    source_url: string
+    local_copy_path: string_or_null
+    title: string
+    version: string
+    operations_or_channels: array
+    operation_ids: array
+    message_names: array
+    component_schema_names: array
+    tags: array
+    retrieval_status:
+      enum: [success, failed, skipped]
+    content_hash: string_or_null
+    notes: string

@@ -1,0 +1,237 @@
+# domain-model.yaml — credit-request-api
+# Layer: Business | BIAN: CustomerOffer
+component_id: COMP-LON-BUS-001
+name: credit-request-api
+generated_at: "2026-06-17"
+
+entities:
+
+  - name: CreditRequest
+    table: credit_requests
+    description: >
+      Solicitud de crédito principal. Representa el Control Record del SD CustomerOffer.
+      Contiene todos los datos de la solicitud y su estado actual en el workflow.
+    bian_cr_mapping: CustomerOffer
+    fields:
+      - name: id
+        type: UUID
+        pk: true
+        description: "BIAN: CustomerOffer.CustomerOfferReference"
+      - name: customer_id
+        type: VARCHAR(50)
+        nullable: false
+        indexed: true
+        description: "BIAN: CustomerOffer.CustomerReference — ID del cliente en Core Bancario"
+      - name: credit_type
+        type: ENUM
+        values: [PERSONAL, MORTGAGE, VEHICLE, BUSINESS]
+        nullable: false
+        description: "BIAN: CustomerOffer.ProductType — tipo de producto crediticio"
+      - name: requested_amount
+        type: DECIMAL(15,2)
+        nullable: false
+        description: "BIAN: CustomerOffer.ProductInstanceReference — monto solicitado"
+      - name: currency
+        type: CHAR(3)
+        default: USD
+        description: "ISO 4217 currency code"
+      - name: term_months
+        type: INTEGER
+        nullable: false
+        description: "Plazo en meses del crédito solicitado"
+      - name: purpose
+        type: TEXT
+        description: "Propósito o destino del crédito"
+      - name: status
+        type: ENUM
+        values: [DRAFT, SUBMITTED, UNDER_REVIEW, RISK_ASSESSED, PENDING_APPROVAL, PENDING_COMMITTEE, APPROVED, REJECTED, PENDING_DISBURSEMENT, DISBURSED, CANCELLED, EXPIRED]
+        nullable: false
+        indexed: true
+        description: "BIAN: CustomerOffer lifecycle status (extended)"
+      - name: assigned_officer_id
+        type: VARCHAR(50)
+        indexed: true
+        description: "ID del oficial de crédito asignado"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: NOW()
+      - name: updated_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+    indexes:
+      - "(status, created_at)"
+      - "(customer_id, status)"
+      - "(assigned_officer_id, status)"
+    partitioning: "RANGE (EXTRACT(YEAR FROM created_at)) — particiones anuales"
+    constraints:
+      - "UNIQUE (customer_id, credit_type) WHERE status NOT IN ('REJECTED','CANCELLED','EXPIRED','DISBURSED')"
+
+  - name: CreditDecision
+    table: credit_decisions
+    description: >
+      Registro de decisiones crediticias. Inmutable una vez creado.
+      Cubre aprobaciones, rechazos y escalados con trazabilidad completa.
+    fields:
+      - name: id
+        type: UUID
+        pk: true
+      - name: credit_request_id
+        type: UUID
+        fk: credit_requests.id
+        nullable: false
+        indexed: true
+      - name: decision
+        type: ENUM
+        values: [APPROVED, REJECTED, ESCALATED]
+        nullable: false
+      - name: decision_maker_id
+        type: VARCHAR(50)
+        nullable: false
+        description: "ID del actor que tomó la decisión"
+      - name: decision_maker_role
+        type: ENUM
+        values: [CREDIT_MANAGER, CREDIT_COMMITTEE]
+        nullable: false
+      - name: conditions
+        type: JSONB
+        description: "Condiciones de aprobación opcionales"
+      - name: rejection_reason
+        type: TEXT
+        description: "Motivo de rechazo (obligatorio si REJECTED)"
+      - name: decided_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+
+  - name: CreditDocument
+    table: credit_documents
+    description: >
+      Referencias a documentos del expediente almacenados en el DMS externo.
+      No almacena el contenido, solo la referencia DMS.
+    fields:
+      - name: id
+        type: UUID
+        pk: true
+      - name: credit_request_id
+        type: UUID
+        fk: credit_requests.id
+        nullable: false
+        indexed: true
+      - name: document_type
+        type: ENUM
+        values: [ID, INCOME_PROOF, FINANCIAL_STATEMENT, PROPERTY_APPRAISAL, OTHER]
+        nullable: false
+      - name: dms_reference
+        type: VARCHAR(255)
+        nullable: false
+        description: "Referencia única del documento en el DMS externo"
+      - name: uploaded_by
+        type: VARCHAR(50)
+        nullable: false
+      - name: uploaded_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+      - name: is_mandatory
+        type: BOOLEAN
+        default: false
+
+  - name: AuditLog
+    table: audit_logs
+    description: >
+      Registro inmutable (append-only) de todas las acciones del sistema.
+      Fuente de verdad para auditoría regulatoria (ISO 27001 / Basel III).
+    immutable: true
+    fields:
+      - name: id
+        type: BIGSERIAL
+        pk: true
+      - name: entity
+        type: VARCHAR(50)
+        nullable: false
+        indexed: true
+        description: "Nombre de la entidad afectada (ej: credit_request)"
+      - name: entity_id
+        type: UUID
+        nullable: false
+        indexed: true
+      - name: action
+        type: VARCHAR(100)
+        nullable: false
+        description: "Tipo de acción: STATUS_CHANGE, DOCUMENT_UPLOAD, DECISION, etc."
+      - name: previous_state
+        type: VARCHAR(50)
+        description: "Estado anterior (para STATUS_CHANGE)"
+      - name: new_state
+        type: VARCHAR(50)
+        description: "Estado nuevo (para STATUS_CHANGE)"
+      - name: actor_id
+        type: VARCHAR(50)
+        nullable: false
+      - name: actor_role
+        type: VARCHAR(50)
+        nullable: false
+      - name: timestamp
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: NOW()
+        indexed: true
+      - name: metadata
+        type: JSONB
+        description: "Contexto adicional: condiciones, motivos, IP, correlation_id"
+    retention: "7 años mínimo (compliance)"
+
+state_transitions:
+  description: "Tabla lógica de transiciones permitidas en CreditWorkflowService"
+  transitions:
+    - from: DRAFT
+      to: SUBMITTED
+      actor_role: CREDIT_OFFICER
+      conditions: ["all_mandatory_documents_present"]
+    - from: SUBMITTED
+      to: UNDER_REVIEW
+      actor_role: RISK_ANALYST
+      conditions: []
+    - from: UNDER_REVIEW
+      to: RISK_ASSESSED
+      actor_role: RISK_ANALYST
+      conditions: ["risk_assessment_registered"]
+    - from: RISK_ASSESSED
+      to: PENDING_APPROVAL
+      actor_role: system
+      conditions: []
+    - from: PENDING_APPROVAL
+      to: APPROVED
+      actor_role: CREDIT_MANAGER
+      conditions: ["amount_within_manager_limit"]
+    - from: PENDING_APPROVAL
+      to: PENDING_COMMITTEE
+      actor_role: CREDIT_MANAGER
+      conditions: ["amount_exceeds_manager_limit_or_high_risk"]
+    - from: PENDING_COMMITTEE
+      to: APPROVED
+      actor_role: CREDIT_COMMITTEE
+      conditions: []
+    - from: PENDING_APPROVAL
+      to: REJECTED
+      actor_role: CREDIT_MANAGER
+      conditions: ["rejection_reason_provided"]
+    - from: PENDING_COMMITTEE
+      to: REJECTED
+      actor_role: CREDIT_COMMITTEE
+      conditions: ["rejection_reason_provided"]
+    - from: APPROVED
+      to: PENDING_DISBURSEMENT
+      actor_role: system
+      conditions: []
+    - from: PENDING_DISBURSEMENT
+      to: DISBURSED
+      actor_role: DISBURSEMENT_OFFICER
+      conditions: ["disbursement_confirmed_by_core"]
+    - from: DRAFT
+      to: CANCELLED
+      actor_role: CREDIT_OFFICER
+      conditions: []
+    - from: SUBMITTED
+      to: EXPIRED
+      actor_role: system
+      conditions: ["submitted_gt_48h_without_assessment"]

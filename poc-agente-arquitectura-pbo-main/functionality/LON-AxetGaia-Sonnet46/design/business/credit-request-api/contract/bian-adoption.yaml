@@ -1,0 +1,109 @@
+# bian-adoption.yaml — credit-request-api
+# Evidence file for BIAN Release 14 contract adoption
+component: credit-request-api
+functionality_id: LON
+generated_at: "2026-06-17"
+validation_status: validated
+
+selected_service_domain: CustomerOffer
+
+source_oas3_files:
+  - architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml
+
+selected_paths:
+  - path: /CustomerOffer/Initiate
+    method: POST
+    bian_summary: "InCR Initiate a customer offer"
+    maps_to_lon_operation: initiateCustomerOffer
+    adaptation: >
+      Semantic alignment — CustomerOffer.Initiate maps to LON credit application creation.
+      Added: KYC validation trigger, duplicate check, credit-specific fields.
+
+  - path: "/CustomerOffer/{customerofferid}/Retrieve"
+    method: GET
+    bian_summary: "ReCR Retrieve details of a customer offer"
+    maps_to_lon_operation: retrieveCustomerOffer
+    adaptation: "Direct alignment — extended with documents, workflow_history, allowed_actions"
+
+  - path: "/CustomerOffer/{customerofferid}/Update"
+    method: PUT
+    bian_summary: "UpCR Update customer offer"
+    maps_to_lon_operation: updateCustomerOffer
+    adaptation: "Direct alignment — restricted to DRAFT status in LON"
+
+  - path: "/CustomerOffer/{customerofferid}/Exchange"
+    method: PUT
+    bian_summary: "EcCR Exchange/verify customer offer"
+    maps_to_lon_operation: exchangeCustomerOffer
+    adaptation: >
+      Extended to serve as the unified workflow transition endpoint.
+      BIAN Exchange is used for: submit, approve, reject, escalate, upload_document, disbursed.
+      LON-specific: state machine validation, role-based transition control.
+
+omitted_paths:
+  - path: "/CustomerOffer/{customerofferid}/Control"
+    reason: "Control of offer processing not required in LON origination scope"
+  - path: "/CustomerOffer/{customerofferid}/Request"
+    reason: "Manual intervention not exposed via API in LON; handled operationally"
+  - path: "/CustomerOffer/{customerofferid}/Grant"
+    reason: "Grant operations not applicable to LON credit origination workflow"
+
+selected_schemas:
+  - CustomerOffer (Control Record — base for CreditRequest entity)
+  - InitiateCustomerOfferRequest
+  - UpdateCustomerOfferRequest
+  - CustomerOfferExchangeNotification (LON extension of BIAN Exchange)
+  - CustomerOfferResponse
+  - CustomerOfferDetailResponse
+  - CustomerOfferListResponse
+  - CustomerOfferStatusEnum (LON-extended BIAN status lifecycle)
+  - CreditDocumentSummary (LON extension)
+  - WorkflowHistoryEntry (LON extension — AuditLog representation)
+
+omitted_schemas:
+  reason_CustomerOffer_complex_types: >
+    BIAN CustomerOffer CR contains complex nested types (Product, Agreement, Party).
+    Simplified to flat DTOs in LON for REST optimization.
+  reason_OfferProcessingTask: "BQ (Behavior Qualifier) not needed in LON origination scope"
+  reason_OfferAssessment: "Assessment is handled by risk-assessment-api (Underwriting SD)"
+
+field_mappings:
+  - bian_field: CustomerOffer.CustomerOfferReference
+    lon_field: id
+    type_adaptation: "BIAN Reference → UUID string"
+
+  - bian_field: CustomerOffer.CustomerReference
+    lon_field: customer_id
+    type_adaptation: "BIAN Party reference → string ID"
+
+  - bian_field: CustomerOffer.ProductType
+    lon_field: credit_type
+    type_adaptation: "BIAN ProductType → enum [PERSONAL, MORTGAGE, VEHICLE, BUSINESS]"
+
+  - bian_field: CustomerOffer.SalesPersonReference
+    lon_field: assigned_officer_id
+    type_adaptation: "BIAN employee reference → string ID"
+
+  - bian_field: "CustomerOffer status (lifecycle)"
+    lon_field: status
+    type_adaptation: >
+      BIAN standard CR states extended with LON-specific states:
+      DRAFT, SUBMITTED, UNDER_REVIEW, RISK_ASSESSED, PENDING_APPROVAL,
+      PENDING_COMMITTEE, APPROVED, REJECTED, PENDING_DISBURSEMENT, DISBURSED, CANCELLED, EXPIRED
+
+adaptation_rationale: >
+  BIAN CustomerOffer orquesta el procesamiento de una oferta de producto para un cliente,
+  incluyendo verificación documental, evaluaciones crediticias y decisiones de underwriting.
+  Esta es la alineación más directa disponible en BIAN R14 para el proceso de originación
+  de crédito de LON.
+
+  Extensiones de dominio LON no cubiertas por BIAN CustomerOffer:
+  1. State machine de 12 estados explícita (BIAN define un ciclo de vida más genérico)
+  2. Escalado multinivel Gerente → Comité (extensión de política bancaria)
+  3. Cálculo DTI y umbrales de atribución parametrizables
+  4. Integración KYC automática en el Initiate
+  5. Prevención de duplicados activos
+  6. AuditLog inmutable de todas las transiciones
+
+  Todos estos son extensiones LON dentro del marco CustomerOffer, justificadas por
+  la complejidad del proceso crediticio bancario.

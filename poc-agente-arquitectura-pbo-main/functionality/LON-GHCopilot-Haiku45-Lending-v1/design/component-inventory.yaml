@@ -1,0 +1,845 @@
+---
+# =============================================================================
+# COMPONENT INVENTORY — DRAFT (Phase 3: Solution Landscape)
+# Functionality: Digital Personal Loan Origination
+# =============================================================================
+
+schema_id: component-inventory
+artifact_version: "1.1"
+maturity: in-design
+validation_status: in-progress
+functionalityId: "LON-GHCopilot-Haiku45-Lending-v1"
+createdDate: "2026-06-24"
+createdBy: "backend-component-designer (Phase 3: solution-landscape mode)"
+lastUpdatedDate: "2026-06-25"
+lastUpdatedBy: "backend-component-designer (Phase 6: backend-component-design)"
+
+overview: |
+  Component Inventory for Digital Personal Loan Origination — UPDATED Phase 6.
+  
+  This document inventories 9 backend components sequenced by dependency
+  and criticality (from design/execution-plan.yaml).
+  
+  **Phase 6 Progress:**
+  ✓ RANK 1 (PartyLifecycleMgmt-Domain-API): COMPLETED
+    - Designed: component.yaml, readme.md, integration-model.yaml, domain-model.yaml
+    - Ready for Phase 7 (OpenAPI contract generation)
+  
+  ⏳ RANK 2–9: Awaiting Phase 6.2–6.9 design iterations
+  
+  Each component will be marked:
+  - status: DESIGNED (when detailed component artifacts are complete in Phase 6)
+  - validation: PENDING (will be validated in Phase 7 contract generation)
+
+# =============================================================================
+# COMPONENT INVENTORY (9 TOTAL)
+# =============================================================================
+
+components:
+  # =========================================================================
+  # DOMAIN LAYER (4 components)
+  # =========================================================================
+  
+  # ——— RANK 1: PartyLifecycleMgmt-Domain-API ———
+  - rank: 1
+    componentName: "PartyLifecycleMgmt-Domain-API"
+    componentType: "API (REST)"
+    layer: "Domain"
+    purpose: "KYC/Party data lookup; prerequisite validation for loan request"
+    description: |
+      Facade to external Identity & KYC system (INT-001).
+      Provides KYC status queries required before loan request acceptance.
+      Implements simple read-only operations mapping to BIAN PartyLifecycleManagement.
+    
+    bianAlignment:
+      aligned: true
+      serviceDomain: "PartyLifecycleManagement"
+      operations: ["Retrieve"]
+      alignmentType: "direct"
+      confidence: 0.95
+    
+    capability: "CAP-LOAN-001-REQUEST"
+    useCases: ["UC-001"]
+    businessRules: ["BR-001"]
+    
+    dependencies:
+      synchronous:
+        - "INT-001:Identity & KYC System"
+      asynchronous:
+        publishes: []
+        consumes: []
+    
+    consumers:
+      - "LoanOriginationOrchestrator-Business-API"
+    
+    externalIntegrations:
+      - "INT-001:Identity & KYC System (mandatory prerequisite)"
+    
+    internalIntegrations: []
+    
+    stateManagement:
+      hasStateLogic: false
+      rationale: "Read-only facade; no state ownership"
+    
+    persistence:
+      ownsPersistentData: false
+      rationale: "Read-only queries to external KYC system"
+    
+    cache:
+      usesCaching: true
+      cacheModel: "KYC status (TTL: 24h or policy-driven)"
+      rationale: "KYC approval status unlikely to change intra-day; cache reduces external calls"
+    
+    events:
+      publishes: []
+      consumes: []
+    
+    status: "designed"
+    validation: "pending-phase7"
+    priority: "P0 (blocker)"
+    complexity: "LOW (read-only facade)"
+    designSequencePhase: "Phase 6.1"
+    contractPhase: "Phase 7.1"
+    designCompletedDate: "2026-06-25"
+    
+    designArtifacts:
+      - "design/domain/partylifecyclemgmt/component.yaml"
+      - "design/domain/partylifecyclemgmt/readme.md"
+      - "design/domain/partylifecyclemgmt/integration/integration-model.yaml"
+      - "design/domain/partylifecyclemgmt/models/domain-model.yaml"
+    
+    adrsGenerated:
+      - "design/adr/tobe/ADR-PLM-001-ACL-Pattern.md"
+      - "design/adr/tobe/ADR-PLM-002-ReadOnly-Stateless-Design.md"
+      - "design/adr/tobe/ADR-PLM-003-FailSafe-KYC-Validation.md"
+    
+    rationale: |
+      ✓ COMPLETED Phase 6.1 — PartyLifecycleMgmt-Domain-API design finished.
+      MUST be designed first — blocks UC-001 loan request initiation.
+      Direct mapping to BIAN PartyLifecycleManagement.
+      Low complexity: read-only KYC status lookup.
+      Depends on INT-001; no internal component dependencies.
+      Ready for Phase 7 (OpenAPI contract generation).
+
+  # ——— RANK 2: CustomerOffer-Domain-API ———
+  - rank: 2
+    componentName: "CustomerOffer-Domain-API"
+    componentType: "API (REST)"
+    layer: "Domain"
+    purpose: "Loan request intake, offer generation, acceptance recording"
+    description: |
+      Core domain API managing full offer lifecycle: request creation → offer generation → acceptance → disbursement.
+      Implements stateful offer state machine with pricing logic.
+      Integrates with external digital signature provider and document storage.
+    
+    bianAlignment:
+      aligned: true
+      serviceDomain: "CustomerOffer"
+      operations: ["Create", "Update", "ExchangeFacilityApplication"]
+      alignmentType: "direct"
+      confidence: 0.95
+    
+    capability: "CAP-LOAN-001-REQUEST, CAP-LOAN-003-OFFER"
+    useCases: ["UC-001", "UC-002", "UC-004", "UC-005"]
+    businessRules: ["BR-001", "BR-006", "BR-007", "BR-009"]
+    
+    dependencies:
+      synchronous:
+        - "PartyLifecycleMgmt-Domain-API (UC-001: KYC prerequisite)"
+        - "EXT-004:Digital Signature Provider (UC-005: acceptance)"
+        - "EXT-006:Document Storage (UC-002: document upload)"
+      asynchronous:
+        publishes: []
+        consumes: []
+    
+    consumers:
+      - "LoanOriginationOrchestrator-Business-API"
+    
+    externalIntegrations:
+      - "EXT-004:Digital Signature Provider"
+      - "EXT-006:Document Storage"
+    
+    internalIntegrations:
+      - "INT-002:Audit & Compliance (event publishing, decision logging)"
+    
+    stateManagement:
+      hasStateLogic: true
+      stateMachine: "DRAFT → SUBMITTED → ACCEPTED → DISBURSED (+ REJECTED)"
+      rationale: "Manages full offer lifecycle"
+    
+    persistence:
+      ownsPersistentData: true
+      dataOwned:
+        - "Loan requests"
+        - "Offers (with pricing, terms, status)"
+        - "Acceptance records"
+        - "Contract documents (metadata)"
+      rationale: "State owner for offer lifecycle"
+    
+    cache:
+      usesCaching: true
+      cacheModel: "Offer expiration status (TTL: 72h per BR-007), customer offer cache"
+      rationale: "Offer expiration must be enforced; caching improves read performance"
+    
+    events:
+      publishes:
+        - "RequestCreated"
+        - "OfferGenerated"
+        - "OfferAccepted"
+        - "OfferRejected"
+        - "OfferExpired (timer-driven)"
+      consumes: []
+    
+    status: "designed"
+    validation: "pending-phase7"
+    priority: "P0 (core)"
+    complexity: "MODERATE-HIGH (stateful, pricing, signature handling)"
+    designSequencePhase: "Phase 6.2"
+    contractPhase: "Phase 7.2"
+    designCompletedDate: "2026-06-25"
+    
+    designArtifacts:
+      - "design/domain/customeroffer/component.yaml"
+      - "design/domain/customeroffer/readme.md"
+      - "design/domain/customeroffer/integration/integration-model.yaml"
+      - "design/domain/customeroffer/models/domain-model.yaml"
+      - "design/domain/customeroffer/data/persistence-model.yaml"
+      - "design/domain/customeroffer/events/event-model.yaml"
+    
+    adrsGenerated:
+      - "design/adr/tobe/ADR-CO-001-Stateful-Offer-Lifecycle.md"
+      - "design/adr/tobe/ADR-CO-002-72h-Expiration-Enforcement.md"
+      - "design/adr/tobe/ADR-CO-003-Event-Driven-Notifications.md"
+      - "design/adr/tobe/ADR-CO-004-PII-Encryption-Strategy.md"
+    
+    rationale: |
+      ✓ COMPLETED Phase 6.2 — CustomerOffer-Domain-API design finished.
+      Core domain API for loan origination; state owner for offer lifecycle.
+      Maps directly to BIAN CustomerOffer SD (Create, Update, ExchangeFacilityApplication).
+      Depends on PartyLifecycleMgmt (UC-001 prerequisite).
+      Moderate-to-high complexity: stateful offer lifecycle, 72h expiration, pricing logic, signature integration.
+      Implements event-driven architecture with 5 event types (RequestCreated, OfferGenerated, OfferAccepted, OfferRejected, OfferExpired).
+      Enforces business rules: BR-001 (KYC), BR-006 (max rates), BR-007 (72h), BR-009 (signatures), BR-010 (audit), BR-012 (encryption).
+      Ready for Phase 7 (OpenAPI contract generation).
+
+  # ——— RANK 3: Underwriting-Domain-API ———
+  - rank: 3
+    componentName: "Underwriting-Domain-API"
+    componentType: "API (REST + AsyncAPI)"
+    layer: "Domain"
+    purpose: "Automated and manual credit evaluation; decision recording"
+    description: |
+      Credit evaluation orchestrator: runs automated scoring, queries credit bureau,
+      implements decision logic (auto-approve/refer/reject), handles manual review workflows.
+      Integrates with external scoring engine and credit bureau.
+      Implements fallback logic for external service failures.
+    
+    bianAlignment:
+      aligned: true
+      serviceDomain: "Underwriting"
+      operations: ["ExecuteUnderwritingAssessment", "Update"]
+      alignmentType: "direct"
+      confidence: 0.95
+    
+    capability: "CAP-LOAN-002-UNDERWRITING"
+    useCases: ["UC-003", "UC-006"]
+    businessRules: ["BR-002", "BR-003", "BR-004", "BR-005", "BR-010"]
+    
+    dependencies:
+      synchronous:
+        - "EXT-001:Credit Bureau (BR-003: mandatory inquiry)"
+        - "EXT-002:Scoring Engine (credit score calculation)"
+      asynchronous:
+        publishes: []
+        consumes:
+          - "ManualUnderwritingDecision (from backoffice, UC-006)"
+    
+    consumers:
+      - "LoanOriginationOrchestrator-Business-API"
+    
+    externalIntegrations:
+      - "EXT-001:Credit Bureau"
+      - "EXT-002:Scoring Engine"
+    
+    internalIntegrations:
+      - "INT-002:Audit & Compliance (decision logging, BR-010)"
+    
+    stateManagement:
+      hasStateLogic: true
+      stateMachine: "Assessment (INITIATED → SCORED → DECIDED) + Referral (REFERRED → MANUAL_REVIEW → DECIDED)"
+      rationale: "Manages assessment and decision states"
+    
+    persistence:
+      ownsPersistentData: true
+      dataOwned:
+        - "Assessment records"
+        - "Scoring results"
+        - "Credit bureau queries (audit)"
+        - "Decision history"
+      rationale: "State owner for underwriting decisions"
+    
+    cache:
+      usesCaching: true
+      cacheModel: "Credit score cache (invalidate per request), bureau response cache (TTL: 24h)"
+      rationale: "Multiple assessments may need same bureau data; caching reduces external calls"
+    
+    events:
+      publishes:
+        - "AssessmentStarted"
+        - "ScoringCompleted"
+        - "DecisionMade (APPROVED | REFERRED | REJECTED)"
+      consumes:
+        - "ManualUnderwritingDecision (async callback from UC-006)"
+    
+    status: "draft"
+    validation: "pending"
+    priority: "P0 (core)"
+    complexity: "HIGH (external integrations, fallback logic, decision tree)"
+    designSequencePhase: "Phase 6.3"
+    contractPhase: "Phase 7.3"
+    
+    rationale: |
+      Core domain API for credit evaluation.
+      Maps directly to BIAN Underwriting SD.
+      High complexity: external integrations (EXT-001, EXT-002), fallback handling.
+      Implements complex decision logic (BR-002 through BR-005).
+      Handles both automated and manual (UC-006) review paths.
+
+  # ——— RANK 4: Disbursement-Domain-API ———
+  - rank: 4
+    componentName: "Disbursement-Domain-API"
+    componentType: "API (REST + AsyncAPI)"
+    layer: "Domain"
+    purpose: "Loan disbursement instruction and confirmation"
+    description: |
+      Orchestrates fund transfer from bank to customer account.
+      Initiates transfer via core banking system; handles async confirmations.
+      Tracks disbursement state; manages audit trail.
+      
+      **REUSE OPPORTUNITY**: DisbursementAPI v1.1 exists in catalog (85% fit).
+      Phase 4 will decide: REUSE existing or CREATE new.
+    
+    bianAlignment:
+      aligned: true
+      serviceDomain: "Disbursement"
+      operations: ["ExecuteDisbursement"]
+      alignmentType: "direct"
+      confidence: 0.90
+    
+    capability: "CAP-LOAN-004-DISBURSEMENT"
+    useCases: ["UC-007"]
+    businessRules: ["BR-011"]
+    
+    dependencies:
+      synchronous:
+        - "EXT-003:Core Banking System (fund transfer)"
+      asynchronous:
+        publishes: []
+        consumes:
+          - "DisbursementConfirmation (async callback from EXT-003)"
+    
+    consumers:
+      - "LoanOriginationOrchestrator-Business-API"
+    
+    externalIntegrations:
+      - "EXT-003:Core Banking System (critical dependency)"
+    
+    internalIntegrations:
+      - "INT-002:Audit & Compliance (transfer logging, BR-011)"
+    
+    stateManagement:
+      hasStateLogic: true
+      stateMachine: "Instruction (INITIATED → SENT → CONFIRMED) + Failure Path (FAILED → RETRY → CONFIRMED or ESCALATED)"
+      rationale: "Manages fund transfer state and retry logic"
+    
+    persistence:
+      ownsPersistentData: true
+      dataOwned:
+        - "Disbursement instructions"
+        - "Transfer status and history"
+        - "Confirmation records"
+      rationale: "State owner for disbursement execution"
+    
+    cache:
+      usesCaching: false
+      rationale: "No cache required for one-off fund transfers"
+    
+    events:
+      publishes:
+        - "DisbursementStarted"
+        - "DisbursementConfirmed"
+        - "DisbursementFailed (with retry policy)"
+      consumes:
+        - "DisbursementConfirmation (from EXT-003, async)"
+    
+    status: "draft"
+    validation: "pending"
+    priority: "P1 (high)"
+    complexity: "HIGH (fund orchestration, async confirmation, failure handling)"
+    designSequencePhase: "Phase 6.4"
+    contractPhase: "Phase 7.4"
+    
+    rationale: |
+      Critical domain API for disbursement execution.
+      Maps directly to BIAN Disbursement SD.
+      High complexity: fund transfer orchestration, async confirmation, audit trail.
+      **REUSE OPPORTUNITY**: DisbursementAPI v1.1 exists (Phase 4 decides).
+
+  # =========================================================================
+  # BUSINESS LAYER (1 component)
+  # =========================================================================
+  
+  # ——— RANK 5: LoanOriginationOrchestrator-Business-API ———
+  - rank: 5
+    componentName: "LoanOriginationOrchestrator-Business-API"
+    componentType: "API (REST + AsyncAPI)"
+    layer: "Business"
+    purpose: "Master workflow orchestrator; coordinates all domain APIs, external services, events"
+    description: |
+      Central orchestration engine managing multi-step loan origination workflow.
+      Coordinates domain APIs, manages workflow state machine, publishes domain events,
+      handles async callbacks from manual review and external confirmations.
+      Implements complex business rules and saga pattern for distributed workflow.
+    
+    bianAlignment:
+      aligned: false
+      rationale: "Orchestration layer is proprietary business logic; not BIAN-mapped"
+    
+    capability: "CAP-LOAN-ORIGINATION-CORE"
+    useCases: ["UC-001", "UC-002", "UC-003", "UC-004", "UC-005", "UC-006", "UC-007", "UC-008"]
+    businessRules: ["BR-001", "BR-002", "BR-003", "BR-004", "BR-005", "BR-006", "BR-007", "BR-008", "BR-009", "BR-010", "BR-011", "BR-012"]
+    
+    dependencies:
+      synchronous:
+        - "PartyLifecycleMgmt-Domain-API (UC-001 prerequisite)"
+        - "CustomerOffer-Domain-API (core offer management)"
+        - "Underwriting-Domain-API (credit evaluation)"
+        - "Disbursement-Domain-API (fund transfer)"
+      asynchronous:
+        publishes: ["All domain events"]
+        consumes:
+          - "ManualUnderwritingDecision (UC-006 callback)"
+          - "DisbursementConfirmation (UC-007 callback)"
+    
+    consumers:
+      - "LoanRequest-Experience-API"
+      - "LoanOffer-Experience-API"
+      - "LoanStatus-Experience-API"
+    
+    externalIntegrations:
+      - "EXT-005:Notification Service (async event consumer)"
+    
+    internalIntegrations:
+      - "INT-002:Audit & Compliance (state machine events)"
+    
+    stateManagement:
+      hasStateLogic: true
+      stateMachine: "Loan Origination Workflow (DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED → ACCEPTED → DISBURSED) + Exception paths (REFERRED, REJECTED, WITHDRAWN)"
+      rationale: "Manages complex multi-step workflow state machine"
+    
+    persistence:
+      ownsPersistentData: true
+      dataOwned:
+        - "Loan application master record"
+        - "Workflow state and transitions"
+        - "Integration state (for saga retry logic)"
+      rationale: "State owner for loan application workflow"
+    
+    cache:
+      usesCaching: true
+      cacheModel: "Application state cache, domain event cache (for event sourcing)"
+      rationale: "High-throughput state queries; event cache for saga pattern"
+    
+    events:
+      publishes:
+        - "LoanApplicationCreated"
+        - "DocumentsReceived"
+        - "UnderwritingStarted"
+        - "UnderwritingDecision (APPROVED | REFERRED | REJECTED)"
+        - "OfferGenerated"
+        - "OfferAccepted"
+        - "DisbursementStarted"
+        - "DisbursementConfirmed"
+        - "ApplicationCompleted" (or "ApplicationRejected")
+        - "StateTransition" (generic; consumed by INT-002 and EXT-005)
+      consumes:
+        - "ManualUnderwritingDecision (UC-006)"
+        - "DisbursementConfirmation (UC-007)"
+    
+    status: "draft"
+    validation: "pending"
+    priority: "P0 (core orchestrator)"
+    complexity: "VERY-HIGH (multi-step saga, async coordination, complex state machine)"
+    designSequencePhase: "Phase 6.5"
+    contractPhase: "Phase 7.5"
+    
+    rationale: |
+      Business API orchestrates all domain APIs and manages overall loan lifecycle.
+      Implements complex state machine (8+ states, multiple paths).
+      Handles workflow transitions, async callbacks, event publication.
+      Not directly BIAN-mapped (orchestration layer is proprietary).
+      Highest priority for Phase 6 design (foundation for experience APIs).
+
+  # =========================================================================
+  # EXPERIENCE LAYER (3 components)
+  # =========================================================================
+  
+  # ——— RANK 6: LoanRequest-Experience-API ———
+  - rank: 6
+    componentName: "LoanRequest-Experience-API"
+    componentType: "API (REST)"
+    layer: "Experience"
+    purpose: "Initiate loan request; upload supporting documents"
+    description: |
+      Customer-facing API for loan request initiation (UC-001) and document upload (UC-002).
+      Stateless BFF delegating all orchestration to LoanOriginationOrchestrator-Business-API.
+      
+      **COLLISION**: CreditApplicationAPI v1.3 exists in catalog (75% fit).
+      Phase 4 will decide: EXTEND v1.3 (backward compatible) OR CREATE new.
+    
+    bianAlignment:
+      aligned: false
+      rationale: "Experience layer does not map to BIAN SD"
+    
+    capability: "CAP-LOAN-001-REQUEST"
+    useCases: ["UC-001", "UC-002"]
+    businessRules: ["BR-001", "BR-002", "BR-008"]
+    
+    dependencies:
+      synchronous:
+        - "LoanOriginationOrchestrator-Business-API (all operations delegated)"
+      asynchronous:
+        publishes: []
+        consumes: []
+    
+    consumers:
+      - "Web Banking (web channel)"
+      - "Mobile App (mobile channel)"
+    
+    externalIntegrations: []
+    internalIntegrations: []
+    
+    stateManagement:
+      hasStateLogic: false
+      rationale: "Stateless BFF; state managed by orchestrator"
+    
+    persistence:
+      ownsPersistentData: false
+      rationale: "Delegates persistence to orchestrator"
+    
+    cache:
+      usesCaching: false
+      rationale: "Stateless; no caching needed"
+    
+    events:
+      publishes: []
+      consumes: []
+    
+    status: "draft"
+    validation: "pending"
+    priority: "P0 (customer-facing)"
+    complexity: "LOW (stateless BFF)"
+    designSequencePhase: "Phase 6.6"
+    contractPhase: "Phase 7.6"
+    apiStyle: "REST"
+    
+    phase4_decision_point: "CreditApplicationAPI v1.3 collision → EXTEND vs. CREATE"
+    
+    rationale: |
+      Customer-facing API for loan request initiation.
+      Simple CRUD + document upload.
+      Delegates orchestration to LoanOriginationOrchestrator-Business-API.
+      **COLLISION**: CreditApplicationAPI v1.3 exists in catalog.
+      Phase 4 will decide: EXTEND v1.3 or CREATE new.
+
+  # ——— RANK 7: LoanOffer-Experience-API ———
+  - rank: 7
+    componentName: "LoanOffer-Experience-API"
+    componentType: "API (REST)"
+    layer: "Experience"
+    purpose: "Retrieve personalized loan offer; submit acceptance"
+    description: |
+      Customer-facing API for offer retrieval (UC-004) and acceptance (UC-005).
+      Stateless BFF delegating orchestration and state management to LoanOriginationOrchestrator-Business-API.
+      Integrates with digital signature provider via orchestrator.
+    
+    bianAlignment:
+      aligned: false
+      rationale: "Experience layer does not map to BIAN SD"
+    
+    capability: "CAP-LOAN-003-OFFER"
+    useCases: ["UC-004", "UC-005"]
+    businessRules: ["BR-006", "BR-007", "BR-009"]
+    
+    dependencies:
+      synchronous:
+        - "LoanOriginationOrchestrator-Business-API (all operations delegated)"
+      asynchronous:
+        publishes: []
+        consumes: []
+    
+    consumers:
+      - "Web Banking (web channel)"
+      - "Mobile App (mobile channel)"
+    
+    externalIntegrations: []
+    internalIntegrations: []
+    
+    stateManagement:
+      hasStateLogic: false
+      rationale: "Stateless BFF; state managed by orchestrator"
+    
+    persistence:
+      ownsPersistentData: false
+      rationale: "Delegates persistence to orchestrator"
+    
+    cache:
+      usesCaching: false
+      rationale: "Stateless; no caching needed"
+    
+    events:
+      publishes: []
+      consumes: []
+    
+    status: "draft"
+    validation: "pending"
+    priority: "P0 (customer-facing)"
+    complexity: "LOW (stateless BFF)"
+    designSequencePhase: "Phase 6.7"
+    contractPhase: "Phase 7.7"
+    apiStyle: "REST"
+    
+    rationale: |
+      Customer-facing API for offer retrieval and acceptance.
+      Stateful offer handling (expiration, signature) delegated to orchestrator.
+      Integrates with digital signature provider (EXT-004) via orchestrator.
+
+  # ——— RANK 8: LoanStatus-Experience-API ———
+  - rank: 8
+    componentName: "LoanStatus-Experience-API"
+    componentType: "API (REST)"
+    layer: "Experience"
+    purpose: "Retrieve loan request status and timeline"
+    description: |
+      Customer-facing read-only API for status polling (UC-008) and transparency.
+      Stateless BFF providing query interface to orchestrator's state.
+      High customer value (transparency); low complexity.
+    
+    bianAlignment:
+      aligned: false
+      rationale: "Experience layer does not map to BIAN SD"
+    
+    capability: "CAP-LOAN-001-REQUEST"
+    useCases: ["UC-008"]
+    businessRules: []
+    
+    dependencies:
+      synchronous:
+        - "LoanOriginationOrchestrator-Business-API (read-only queries)"
+      asynchronous:
+        publishes: []
+        consumes: []
+    
+    consumers:
+      - "Web Banking (web channel)"
+      - "Mobile App (mobile channel)"
+    
+    externalIntegrations: []
+    internalIntegrations: []
+    
+    stateManagement:
+      hasStateLogic: false
+      rationale: "Stateless BFF; read-only"
+    
+    persistence:
+      ownsPersistentData: false
+      rationale: "Read-only queries to orchestrator"
+    
+    cache:
+      usesCaching: true
+      cacheModel: "Application state cache (short TTL, ~5s for real-time feel)"
+      rationale: "Frequently polled; light caching improves performance without stale data risk"
+    
+    events:
+      publishes: []
+      consumes: []
+    
+    status: "draft"
+    validation: "pending"
+    priority: "P1 (customer-facing)"
+    complexity: "LOW (read-only BFF)"
+    designSequencePhase: "Phase 6.8"
+    contractPhase: "Phase 7.8"
+    apiStyle: "REST"
+    
+    rationale: |
+      Customer-facing read-only API for status polling and transparency.
+      Simple queries to orchestrator state.
+      Low complexity; high customer value.
+
+  # =========================================================================
+  # SUPPORT LAYER (1 component)
+  # =========================================================================
+  
+  # ——— RANK 9: LoanAuditLog-Support-API ———
+  - rank: 9
+    componentName: "LoanAuditLog-Support-API"
+    componentType: "API (AsyncAPI — Event Publisher)"
+    layer: "Support"
+    purpose: "Log loan events for compliance and audit"
+    description: |
+      Cross-cutting compliance API.
+      Publishes loan events asynchronously to audit broker (INT-002).
+      Ensures all decisions logged with audit trail (BR-010).
+      Not a traditional REST API — event publisher for async integration.
+    
+    bianAlignment:
+      aligned: false
+      rationale: "Support layer does not map to BIAN SD"
+    
+    capability: "All (cross-cutting)"
+    useCases: ["All"]
+    businessRules: ["BR-010"]
+    
+    dependencies:
+      synchronous: []
+      asynchronous:
+        publishes:
+          - "All loan events (request, documents, evaluation, offer, acceptance, disbursement)"
+        consumes: []
+    
+    consumers:
+      - "INT-002:Audit & Compliance Event Broker"
+      - "EXT-005:Notification Service (event subscriber)"
+    
+    externalIntegrations: []
+    internalIntegrations:
+      - "INT-002:Audit & Compliance"
+    
+    stateManagement:
+      hasStateLogic: false
+      rationale: "Event publisher; no state"
+    
+    persistence:
+      ownsPersistentData: false
+      rationale: "Event publishing; persistence delegated to event broker"
+    
+    cache:
+      usesCaching: false
+      rationale: "Async publisher; no cache needed"
+    
+    events:
+      publishes:
+        - "All domain events (RequestCreated, DocumentsUploaded, AssessmentStarted, DecisionMade, OfferGenerated, OfferAccepted, DisbursementStarted, DisbursementConfirmed, etc.)"
+      consumes: []
+    
+    status: "draft"
+    validation: "pending"
+    priority: "P1 (compliance)"
+    complexity: "LOW (event schema definition + pub/sub infrastructure)"
+    designSequencePhase: "Phase 6.9"
+    contractPhase: "Phase 7.9 (AsyncAPI contract)"
+    apiStyle: "AsyncAPI (Kafka/RabbitMQ)"
+    
+    rationale: |
+      Support API for async event publishing to audit log.
+      Not a traditional REST API — event publisher.
+      Ensures compliance with BR-010 (audit trail).
+      Low complexity; critical for governance.
+
+# =============================================================================
+# COMPONENT DEPENDENCY MATRIX
+# =============================================================================
+
+dependencyMatrix:
+  description: "Synchronous call graph between components (design input for Phase 6)"
+  
+  graph:
+    "PartyLifecycleMgmt-Domain-API":
+      calls: []
+      calledBy:
+        - "CustomerOffer-Domain-API"
+        - "LoanOriginationOrchestrator-Business-API"
+    
+    "CustomerOffer-Domain-API":
+      calls:
+        - "PartyLifecycleMgmt-Domain-API"
+      calledBy:
+        - "LoanOriginationOrchestrator-Business-API"
+    
+    "Underwriting-Domain-API":
+      calls: []
+      calledBy:
+        - "LoanOriginationOrchestrator-Business-API"
+    
+    "Disbursement-Domain-API":
+      calls: []
+      calledBy:
+        - "LoanOriginationOrchestrator-Business-API"
+    
+    "LoanOriginationOrchestrator-Business-API":
+      calls:
+        - "PartyLifecycleMgmt-Domain-API"
+        - "CustomerOffer-Domain-API"
+        - "Underwriting-Domain-API"
+        - "Disbursement-Domain-API"
+      calledBy:
+        - "LoanRequest-Experience-API"
+        - "LoanOffer-Experience-API"
+        - "LoanStatus-Experience-API"
+    
+    "LoanRequest-Experience-API":
+      calls:
+        - "LoanOriginationOrchestrator-Business-API"
+      calledBy: ["Web Banking", "Mobile App"]
+    
+    "LoanOffer-Experience-API":
+      calls:
+        - "LoanOriginationOrchestrator-Business-API"
+      calledBy: ["Web Banking", "Mobile App"]
+    
+    "LoanStatus-Experience-API":
+      calls:
+        - "LoanOriginationOrchestrator-Business-API"
+      calledBy: ["Web Banking", "Mobile App"]
+    
+    "LoanAuditLog-Support-API":
+      calls: []
+      calledBy:
+        - "LoanOriginationOrchestrator-Business-API (publishes all domain events)"
+
+# =============================================================================
+# PHASE 3 → PHASE 6 HANDOFF
+# =============================================================================
+
+phase3_completion:
+  date: "2026-06-24"
+  
+  status: "DRAFT (all components marked status=draft, validation=pending)"
+  
+  phase6_next_steps: |
+    Phase 6 (backend-component-design) will:
+    
+    1. For each component in this inventory (Rank 1–9):
+       a. Create design/<layer>/<component>/ folder
+       b. Create design/<layer>/<component>/component.yaml (detailed spec)
+       c. Create design/<layer>/<component>/readme.md (component documentation)
+       d. Create design/<layer>/<component>/integration/integration-model.yaml (external/internal integrations)
+       e. For domain APIs: create design/<layer>/<component>/models/domain-model.yaml (entity model)
+       f. Decide persistence/cache/event/state models
+       g. Document ADRs for significant decisions
+    
+    2. Sequencing:
+       - Domain layer (Ranks 1–4): foundation layer, no interdependencies
+       - Business layer (Rank 5): depends on domain layer
+       - Experience layer (Ranks 6–8): depends on business layer
+       - Support layer (Rank 9): event publisher, low priority
+    
+    3. Technology & Infrastructure decisions:
+       - Framework selection (Spring Boot, Quarkus, Microprofile)
+       - Database selection (PostgreSQL, MySQL, etc.)
+       - Cache selection (Redis, Memcached, etc.)
+       - Event broker selection (Kafka, RabbitMQ, etc.)
+    
+    4. Mark each component status → "complete" after Phase 6 design
+    5. Update state.yaml → Phase 6: COMPLETED; Phase 7: READY

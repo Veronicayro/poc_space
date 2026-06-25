@@ -1,0 +1,28 @@
+schema_id: state-map
+artifact_path_pattern: design/<layer>/<component>/state/state-map.yaml
+required_fields:
+  - state_machine_name
+  - state_owner
+  - states
+  - transitions
+  - persistence_of_state
+fields:
+  state_machine_name: string
+  state_owner: string
+  states: array
+  transitions:
+    type: array
+    item_fields:
+      from: string
+      to: string
+      trigger: string
+      guard: string_or_null
+      action: string_or_null
+  triggers: array
+  guards: array
+  timeouts: array
+  retries: array
+  failure_states: array
+  compensation_states: array
+  emitted_events: array
+  persistence_of_state: string

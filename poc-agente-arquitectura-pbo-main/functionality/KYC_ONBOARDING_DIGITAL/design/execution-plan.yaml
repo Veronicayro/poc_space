@@ -1,0 +1,196 @@
+functionality_id: KYC_ONBOARDING_DIGITAL
+phase: scope-and-execution-planning
+generated_at: "2026-06-22"
+
+inferred_execution_mode: standard
+execution_mode_override: standard
+execution_mode_rationale: >
+  Standard execution mode confirmed by user override and validated against constraints:
+  no cloud-provider restriction declared; technology is Java; scope covers one new Business API
+  (kyc-onboarding-api) orchestrating three existing Published catalog APIs and three external
+  integrations. Full mode is not warranted (single component, no multi-runtime placement).
+  Minimal mode is insufficient (BIAN alignment, persistence, events, and security/NFR views
+  are required). Standard is the correct fit.
+
+domain_standard_profile:
+  provider: BIAN
+  version: "14.0.0"
+  rationale: >
+    BIAN Release 14 PartyLifecycleManagement selected with 0.92 confidence in Phase 1.
+    Contracts for kyc-onboarding-api (Business layer) will be BIAN-derived per Phase 7 rules.
+
+# ─── Target components to design ────────────────────────────────────────────
+# Derived from: context-pack + enterprise-capability-map + user target component override.
+
+target_components:
+  - component_id: kyc-onboarding-api
+    layer: business
+    description: >
+      Business API orchestrator for the digital KYC onboarding lifecycle.
+      Manages OnboardingCase state machine, coordinates downstream catalog APIs
+      (CustomerProfileAPI, CustomerIdentityAPI, KYCScreeningAPI), calls external
+      AML_SERVICE and ID_VERIFICATION_PROVIDER, and emits OnboardingStatusChanged
+      domain events to NOTIFICATION_SERVICE.
+    technology: Java
+    bian_service_domain: PartyLifecycleManagement
+    capabilities: [CAP-001, CAP-002, CAP-003, CAP-004, CAP-005]
+    phase_priority: 1
+    design_phases_required: [backend-component-design, backend-contract-design]
+
+  - component_id: kyc-onboarding-event-adapter
+    layer: support
+    description: >
+      Lightweight async event publisher that converts internal domain events
+      (OnboardingStatusChanged, OnboardingApproved, OnboardingRejected) into the
+      format expected by NOTIFICATION_SERVICE. Optional — may be implemented as
+      an internal module of kyc-onboarding-api rather than a separate deployable.
+    technology: Java
+    bian_service_domain: null
+    capabilities: [CAP-005]
+    phase_priority: 2
+    design_phases_required: [backend-component-design]
+    notes: >
+      To be confirmed in solution-landscape phase: separate component vs. internal adapter.
+      Treated as CREATE_DEPENDENCY (not blocking Phase 3+).
+
+# ─── Required design views ───────────────────────────────────────────────────
+
+required_design_views:
+  enterprise_capability_alignment: true     # completed in Phase 1
+  backend_tobe: true                        # primary deliverable
+  frontend: false                           # out of scope; channels (Web/Mobile) exist
+  backend_transition: false                 # new API — no migration path required
+  cloud_logical: false                      # no cloud provider specified
+  cloud_azure: false
+  cloud_aws: false
+  cloud_gcp: false
+  cloud_on_premise: false
+  multicloud: false
+  hybrid: false
+  bigdata: false
+
+# ─── Required layers ─────────────────────────────────────────────────────────
+
+required_layers:
+  - business        # kyc-onboarding-api (primary)
+  - support         # event adapter (async notification)
+  - data            # OnboardingCase, KYCResult, IdentityDocument persistence
+  - events          # OnboardingStatusChanged domain events
+
+# Layers NOT required for this functionality
+excluded_layers:
+  - experience      # No new Experience API needed; kyc-onboarding-api IS the Business API
+                    # consumed by channel teams. Customer-facing experience is via existing
+                    # Web/Mobile channels — out of scope for this package.
+  - domain          # Atomic domain APIs (CustomerProfileAPI, CustomerIdentityAPI,
+                    # KYCScreeningAPI) are Published in catalog and reused as-is.
+  - cache           # No caching requirement identified for MVP; may be revisited post-MVP.
+  - frontend        # Out of scope.
+  - cloud           # No cloud placement requirement specified.
+
+# ─── Required skills (remaining phases) ──────────────────────────────────────
+
+required_skills:
+  - skill_name: backend-component-designer
+    phase: solution-landscape
+    reason: "Draft component inventory and architecture overview"
+
+  - skill_name: api-landscape-designer
+    phase: api-landscape-design
+    reason: "Name and layer target API(s); validate against catalog governance"
+
+  - skill_name: backend-component-designer
+    phase: backend-component-design
+    reason: "Design kyc-onboarding-api component: component.yaml, domain-model, integration-model, readme"
+
+  - skill_name: data-cache-event-state-designer
+    phase: backend-component-design
+    reason: >
+      Persistence model for OnboardingCase + KYCResult entities;
+      event model for OnboardingStatusChanged; state map for onboarding lifecycle
+
+  - skill_name: security-nfr-observability-designer
+    phase: backend-component-design
+    reason: "OAuth2/OIDC, RBAC, TLS, ISO27001, GDPR, structured logging, distributed tracing, metrics"
+
+  - skill_name: bian-contract-deriver
+    phase: backend-contract-design
+    reason: >
+      kyc-onboarding-api is a Business API with BIAN selected → contract MUST be
+      derived from PartyLifecycleManagement baseline (BLOCK-01/02/03 gates apply)
+
+  - skill_name: experience-contract-designer
+    phase: backend-contract-design
+    reason: "N/A for this functionality (no Experience API layer). Skip."
+
+  - skill_name: diagram-generator
+    phase: backend-diagram-design
+    reason: "Architecture diagram (component + sequence diagrams for key journeys)"
+
+  - skill_name: architecture-standards-validator
+    phase: validation-and-state-update
+    reason: "Final validation of all artifacts against governance rules"
+
+# ─── Phase gates ─────────────────────────────────────────────────────────────
+
+phase_gates:
+  - gate_name: "enterprise-capability-alignment-complete"
+    blocking: true
+    required_artifacts:
+      - "functionality/KYC_ONBOARDING_DIGITAL/design/enterprise-capability-map.yaml"
+      - "functionality/KYC_ONBOARDING_DIGITAL/design/domain-standard-alignment.yaml"
+      - "functionality/KYC_ONBOARDING_DIGITAL/design/bian/bian-service-domain-evaluation.yaml"
+    status: PASSED
+
+  - gate_name: "solution-landscape-before-component-design"
+    blocking: true
+    required_artifacts:
+      - "functionality/KYC_ONBOARDING_DIGITAL/design/api-landscape.yaml"
+      - "functionality/KYC_ONBOARDING_DIGITAL/design/component-inventory.yaml"
+      - "functionality/KYC_ONBOARDING_DIGITAL/design/architecture-overview.md"
+    status: PENDING
+
+  - gate_name: "api-landscape-before-contracts"
+    blocking: true
+    required_artifacts:
+      - "functionality/KYC_ONBOARDING_DIGITAL/design/api-landscape.yaml"
+    status: PENDING
+
+  - gate_name: "bian-baseline-accessible-before-contract"
+    blocking: true
+    required_artifacts:
+      - "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+    status: PASSED
+
+  - gate_name: "component-design-complete-before-contract"
+    blocking: true
+    required_artifacts:
+      - "functionality/KYC_ONBOARDING_DIGITAL/design/business/kyc-onboarding-api/component.yaml"
+    status: PENDING
+
+# ─── Gaps ────────────────────────────────────────────────────────────────────
+
+blocking_gaps: []
+
+non_blocking_gaps:
+  - gap_id: G-001
+    description: "Document storage mechanism (object store vs inline) not confirmed"
+    recommended_action: "Confirm with product owner before Phase 6; default assumption: external object store with signed URL"
+
+  - gap_id: G-002
+    description: "AML_SERVICE OpenAPI spec not provided; integration adapter will use generic REST pattern"
+    recommended_action: "Provide spec before Phase 7 (backend-contract-design)"
+
+  - gap_id: G-003
+    description: "Idempotency semantics for onboarding re-submission not defined"
+    recommended_action: "Clarify before Phase 3 (solution-landscape)"
+
+  - gap_id: G-005
+    description: "Async notification (UC-005) not modeled in BIAN baseline; requires AP-specific event adapter"
+    recommended_action: "Design event channel in Phase 7; low severity, no impact on Phases 3–6"
+
+  - gap_id: G-006
+    description: >
+      kyc-onboarding-event-adapter: decision on whether this is a separate deployable
+      component or an internal module of kyc-onboarding-api is deferred to Phase 3 (solution-landscape).
+    recommended_action: "Decide in Phase 3 architecture-overview based on team/deployment constraints"

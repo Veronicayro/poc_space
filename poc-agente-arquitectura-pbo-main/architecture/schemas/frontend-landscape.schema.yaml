@@ -1,0 +1,34 @@
+schema_id: frontend-landscape
+artifact_path: design/frontend-landscape.yaml
+required_fields:
+  - shell
+  - microfrontends
+  - routes
+  - composition_model
+  - ownership_boundaries
+  - session_strategy
+  - shared_state_strategy
+  - inter_mfe_communication_model
+  - experience_apis_consumed
+  - rendering_mode_per_component
+  - bundle_naming_strategy
+fields:
+  shell: object
+  microfrontends: array
+  routes: array
+  composition_model: string
+  ownership_boundaries: array
+  session_strategy: string
+  shared_state_strategy: string
+  inter_mfe_communication_model: string
+  experience_apis_consumed: array
+  cross_mfe_data_sharing_rules: array
+  rendering_mode_per_component:
+    type: array
+    item_fields:
+      component_name: string
+      rendering_mode:
+        enum: [csr, ssr, mixed]
+      rationale: string
+  bundle_naming_strategy: string
+  cdn_distribution_strategy: string_or_null

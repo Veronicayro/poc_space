@@ -1,0 +1,67 @@
+schema_version: "1.0"
+functionality_id: CXP-GHCopilot-Sonnet46
+
+external_systems:
+  - id: ERP
+    name: Sistema ERP Contable
+    description: Sistema contable central para registro financiero
+    integration_type: "REST API / Batch Sync"
+    responsibilities:
+      - registrar asientos contables
+      - validar proveedores
+      - reconciliación financiera
+    status: active
+    gap_status: pending_confirmation
+
+  - id: BANKING
+    name: Sistema Bancario
+    description: Plataforma externa para ejecución de pagos
+    integration_type: "REST API / Secure Webhooks"
+    responsibilities:
+      - transferencias bancarias
+      - confirmación de pagos
+      - notificaciones de estado
+    status: active
+    gap_status: pending_confirmation
+
+internal_modules:
+  - id: FRONTEND_WEB
+    name: Frontend Web
+    technology: React (SPA)
+    responsibilities:
+      - UI/UX de gestión de facturas
+      - validación básica de formularios
+      - consumo de APIs
+    security:
+      - OAuth2 / OpenID Connect
+      - RBAC por rol
+
+  - id: BACKEND_API
+    name: Backend API
+    technology: Node.js (Express) / Java (Spring Boot)
+    responsibilities:
+      - exposición de endpoints REST
+      - orquestación de lógica de negocio
+      - control transaccional
+    patterns:
+      - Layered Architecture
+      - DTO / Mapper
+      - Validation Pipeline
+
+  - id: DATABASE
+    name: Base de Datos
+    technology: PostgreSQL
+    responsibilities:
+      - persistencia de facturas, estados y pagos
+    characteristics:
+      - ACID compliance
+      - índices por estado y proveedor
+      - auditoría (audit trail tables)
+
+  - id: INTEGRATION_SERVICE
+    name: Integration Service
+    technology: REST / Webhooks / Message Broker
+    responsibilities:
+      - comunicación con ERP y banco
+      - transformación de mensajes (DTO ↔ External Schema)
+      - reintentos y manejo de errores (retry policy)

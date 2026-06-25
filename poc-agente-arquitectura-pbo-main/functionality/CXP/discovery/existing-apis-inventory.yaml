@@ -1,0 +1,50 @@
+# Discovery: Existing APIs Inventory - Cuentas por Pagar (CXP)
+schema_version: "1.0"
+functionality_id: CXP
+generated_at: "2026-06-17"
+
+greenfield: true
+note: >
+  El sistema de Cuentas por Pagar es desarrollo nuevo (greenfield).
+  No existen APIs internas previas para este dominio.
+  Las interfaces externas (ERP, Banking) se modelan como sistemas de integración.
+
+existing_apis: []
+
+external_system_interfaces:
+  - system: ERP
+    description: "Sistema ERP contable central"
+    known_endpoints:
+      - description: "Validación de proveedor"
+        method: GET
+        path_pattern: "/suppliers/{supplierId}"
+        auth: "API Key / OAuth2 (por confirmar)"
+        status: placeholder
+      - description: "Registro de asientos contables"
+        method: POST
+        path_pattern: "/accounting/entries"
+        auth: "API Key / OAuth2 (por confirmar)"
+        status: placeholder
+    integration_type: "REST API / Batch Sync"
+    gap_ref: GAP-002
+
+  - system: Banking
+    description: "Plataforma bancaria para ejecución de pagos"
+    known_endpoints:
+      - description: "Crear orden de pago"
+        method: POST
+        path_pattern: "/payments/orders"
+        auth: "mTLS + API Key (por confirmar)"
+        status: placeholder
+      - description: "Consultar estado de pago"
+        method: GET
+        path_pattern: "/payments/orders/{orderId}"
+        auth: "mTLS + API Key (por confirmar)"
+        status: placeholder
+      - description: "Webhook de confirmación de pago"
+        direction: inbound
+        path_pattern: "/webhooks/payment-confirmation"
+        auth: "HMAC signature (por confirmar)"
+        status: placeholder
+    integration_type: "REST API / Secure Webhooks"
+    gap_ref: GAP-003

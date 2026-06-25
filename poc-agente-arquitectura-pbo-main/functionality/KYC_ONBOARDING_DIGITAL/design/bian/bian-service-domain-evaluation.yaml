@@ -1,0 +1,79 @@
+functionality_id: KYC_ONBOARDING_DIGITAL
+generated_at: "2026-06-22"
+bian_release: "14.0.0"
+source_index: "functionality/KYC_ONBOARDING_DIGITAL/design/bian/bian-release14-source-index.yaml"
+
+evaluations:
+  - target_api_name: kyc-onboarding-api
+    target_layer: business
+    orchestration_role: orchestrating
+    functional_capabilities:
+      - CAP-001
+      - CAP-002
+      - CAP-003
+      - CAP-004
+      - CAP-005
+
+    candidate_service_domains_evaluated:
+      - service_domain: PartyLifecycleManagement
+        source_file: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+        fit_score: 0.92
+        fit_rationale: >
+          PartyLifecycleManagement is the primary BIAN SD for this functionality.
+          Its Control Record "PartyLifecycleManagement" manages the state of a
+          party's relationship with the bank from initial checks (Initiate, Qualification,
+          IdentityProofing, Documentation) through lifecycle maintenance.
+          Direct mappings:
+            - BIAN Initiate → UC-001 (register customer / initiate onboarding case)
+            - BIAN Documentation sub-behavior → UC-002 (document upload)
+            - BIAN Qualification + IdentityProofing sub-behaviors → UC-003 (KYC auto-validation)
+            - BIAN Control → UC-004 (manual review override / analyst decision)
+            - BIAN Exchange → UC-005 (status exchange / notification trigger)
+            - BIAN Retrieve → GET case status
+          Confidence: 92% (high). Adaptation required: AP-specific field naming,
+          AML_SERVICE and ID_VERIFICATION_PROVIDER integration as Implementation Detail,
+          custom state enum for onboarding lifecycle.
+
+      - service_domain: CustomerOffer
+        source_file: "architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml"
+        fit_score: 0.45
+        fit_rationale: >
+          CustomerOffer orchestrates product offer processing including document checks
+          and eligibility. Partially relevant but scope is product-centric (offer → sales product
+          agreement), not identity/KYC/compliance-centric. Does not cover AML screening,
+          manual review queue, or identity proofing semantics.
+
+      - service_domain: PartyReferenceDataDirectory
+        source_file: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyReferenceDataDirectory.yaml"
+        fit_score: 0.35
+        fit_rationale: >
+          Reference data directory for party demographics. Relevant only for the data model
+          of UC-001 as a downstream store; not an orchestration fit for the onboarding workflow.
+
+    selected_service_domain: PartyLifecycleManagement
+    selected_bian_file_oas3: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+    selected_bian_file_asyncapi: null
+    confidence: 0.92
+    rationale: >
+      PartyLifecycleManagement is the canonical BIAN SD for managing the complete lifecycle
+      of a party relationship including initial KYC/AML checks, document collection, identity
+      proofing, manual review control, and status exchange. It provides all major behavioral
+      primitives needed to map the 5 use cases and 7 business rules of KYC_ONBOARDING_DIGITAL.
+      The 8% confidence gap reflects AP adaptations needed: custom onboarding state enum,
+      integration adapter fields for AML_SERVICE and ID_VERIFICATION_PROVIDER, and
+      condensed path structure.
+
+    rejected_candidates:
+      - service_domain: CustomerOffer
+        reason: "Product lifecycle scope; does not cover AML, identity proofing, or manual review queue semantics"
+      - service_domain: PartyReferenceDataDirectory
+        reason: "Reference data directory concern; downstream dependency, not an orchestrator"
+
+    unresolved_gaps:
+      - id: GAP-BIAN-001
+        description: >
+          BIAN PartyLifecycleManagement does not model the async notification trigger to an
+          external notification service. UC-005 (NOTIFICATION_SERVICE via async event) is an
+          AP-specific extension not covered by BIAN Initiate/Control/Exchange semantics directly.
+        severity: low
+        action: "Model as AP-specific async event adapter; not blocking for Phase 1 BIAN alignment"

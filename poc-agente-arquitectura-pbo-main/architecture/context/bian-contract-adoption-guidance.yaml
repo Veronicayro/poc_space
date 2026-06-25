@@ -1,0 +1,107 @@
+# bian-contract-adoption-guidance.yaml
+# Backend-agnostic guidance for BIAN contract adoption (not tied to any single solution or functionality).
+#
+# Objective:
+# - Avoid making BIAN adoption dependent on a specific backend or a single functionality.
+# - Standardize how an organization demonstrates BIAN alignment when:
+#   (A) it exposes "BIAN-like" APIs (BIAN paths/operations), or
+#   (B) it exposes internal APIs (resource-oriented, experience APIs, etc.) and uses "mapped adoption".
+
+domain_standard:
+  provider: BIAN
+  release: "14.0.0"
+
+adoption_models:
+  - id: bian_like_contract
+    name: "BIAN-like contract (surface compatible)"
+    description: >
+      The API exposes paths and operationIds equivalent to those in the BIAN Service Domain
+      (e.g., /<SD>/Initiate, /<SD>/{id}/Retrieve, /<SD>/{id}/Execute, etc.).
+    evidence_required:
+      - "Exposed OpenAPI/AsyncAPI uses the same operation pattern names (InCR, ReCR, ExCR...)"
+      - "Payloads are aligned (or use controlled extensions) to the SD schemas"
+    tradeoffs:
+      - pros:
+          - "High interoperability with consumers expecting BIAN"
+          - "Lower mapping ambiguity"
+      - cons:
+          - "Less natural for UX/Front and internal bounded contexts"
+          - "More friction if the business uses entities that differ from the BIAN CR"
+
+  - id: mapped_adoption
+    name: "Mapped adoption (traceability mapping)"
+    description: >
+      The internal API keeps its own resources/paths (for example, /invoices, /payments),
+      and BIAN alignment is demonstrated through explicit mappings to BIAN Service Domains and operations.
+    evidence_required:
+      - "Per-contract mapping file: bian-adoption.yaml (backend-agnostic)"
+      - "Global matrix: bian-contract-adoption-matrix.yaml"
+      - "References to BIAN sources (links to SD OAS/AsyncAPI)"
+    tradeoffs:
+      - pros:
+          - "More flexible and intuitive design for internal teams"
+          - "Supports multiple styles (REST resource, CQRS, event-driven)"
+      - cons:
+          - "Requires governance and auditability of mappings"
+          - "May introduce interpretation; mitigated with criteria and examples"
+
+artifacts:
+  # Recommended (backend-agnostic) artifacts to demonstrate contractual alignment with BIAN
+  per_contract:
+    bian_adoption:
+      filename: "bian-adoption.yaml"
+      placement: "<any>/contract/bian-adoption.yaml"
+      schema:
+        domain_standard: { provider: "BIAN", release: "14.0.0" }
+        primary_service_domain:
+          name: "<ServiceDomainName>"
+          oas3_source_link: "<repo-path>"
+          asyncapi_source_link: "<repo-path|optional>"
+        adoption_strategy:
+          type: "bian_like_contract | mapped_adoption"
+          description: "<why/how>"
+        operation_mappings:
+          - internal:
+              spec: "<repo-path-to-openapi-or-asyncapi>"
+              operation: "<METHOD path | channel>"
+              operationId: "<optional>"
+            bian:
+              service_domain: "<ServiceDomainName>"
+              operation: "<METHOD /SD/...>"
+              operationId: "<BIAN operationId>"
+              pattern: "<InCR|UpCR|CoCR|EcCR|ExCR|RqCR|ReCR>"
+              notes: "<optional>"
+        gap_notes:
+          - "<optional gaps/limitations>"
+
+  global:
+    bian_contract_adoption_matrix:
+      filename: "bian-contract-adoption-matrix.yaml"
+      placement: "architecture/context/bian-contract-adoption-matrix.yaml"
+      description: >
+        Global index listing all internal contracts (OpenAPI/AsyncAPI) for the organization/solution
+        and their BIAN alignment (Service Domain, pattern, adoption model) for audit and governance.
+      minimal_schema:
+        domain_standard: { provider: "BIAN", release: "14.0.0" }
+        contracts:
+          - contract_ref: "<repo-path-to-openapi/asyncapi>"
+            contract_type: "oas3|asyncapi"
+            service_domains:
+              - name: "<ServiceDomainName>"
+                adoption_model: "bian_like_contract|mapped_adoption"
+                primary: true
+                references:
+                  - "<repo-path-to-bian-spec>"
+                notes: "<optional>"
+
+indexing_support:
+  spec_index:
+    filename: "bian-spec-index.yaml"
+    placement: "architecture/context/bian-spec-index.yaml"
+    purpose: >
+      Index cached BIAN specifications in the repo by type (oas3/asyncapi),
+      including title/description/link to support discovery and automation.
+
+notes:
+  - "These artifacts are backend-agnostic; they only require contract paths (OpenAPI/AsyncAPI) and BIAN source references."
+  - "A specific functionality can reference this guidance without modifying it."

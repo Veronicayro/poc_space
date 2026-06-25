@@ -1,0 +1,98 @@
+# Phase 5 Output: Component Design - invoice-management-api
+schema_version: "1.0"
+functionality_id: CXP
+component_id: invoice-management-api
+phase: backend-component-design
+generated_at: "2026-06-17"
+
+name: "Invoice Management API"
+layer: business
+pattern: "Business Service"
+type: REST API
+version: "v1"
+technology: "Node.js / Java Spring Boot"
+base_path: "/api/v1/invoices"
+
+description: >
+  Servicio de negocio que implementa el ciclo de vida de facturas de proveedores.
+  Orquesta validaciones de negocio (proveedor, duplicados), persiste facturas
+  y delega gestión de estados a invoice-lifecycle-api.
+
+bian_alignment:
+  service_domain: AccountsReceivable
+  adoption: semantic_alignment
+  control_record: InvoiceLifecycleProcedure
+
+responsibilities:
+  - "Registrar facturas con validación de proveedor (vía ERP)"
+  - "Prevenir facturas duplicadas (BR-CXP-002)"
+  - "Orquestar aprobación/rechazo/cancelación"
+  - "Delegar transiciones de estado a invoice-lifecycle-api"
+  - "Persistir entidad Invoice en PostgreSQL"
+
+capabilities: [CAP-CXP-001]
+use_cases: [UC-CXP-001, UC-CXP-002, UC-CXP-003, UC-CXP-006]
+business_rules: [BR-CXP-001, BR-CXP-002, BR-CXP-003, BR-CXP-004, BR-CXP-005, BR-CXP-006]
+
+endpoints:
+  - method: POST
+    path: /invoices
+    description: "Crear factura — valida proveedor + duplicado, persiste PENDING"
+    business_rules: [BR-CXP-001, BR-CXP-002, BR-CXP-003]
+
+  - method: GET
+    path: /invoices
+    description: "Listar facturas con filtros"
+
+  - method: GET
+    path: /invoices/{id}
+    description: "Obtener detalle de factura"
+
+  - method: PUT
+    path: /invoices/{id}
+    description: "Editar factura (solo estado PENDING)"
+
+  - method: POST
+    path: /invoices/{id}/approve
+    description: "Aprobar factura"
+    business_rules: [BR-CXP-004, BR-CXP-005]
+
+  - method: POST
+    path: /invoices/{id}/reject
+    description: "Rechazar factura con motivo obligatorio"
+    business_rules: [BR-CXP-004, BR-CXP-006]
+
+  - method: POST
+    path: /invoices/{id}/cancel
+    description: "Cancelar factura"
+    business_rules: [BR-CXP-010]
+
+persistence:
+  database: PostgreSQL
+  schema: cxp_invoices
+  tables:
+    - name: invoices
+      key_columns: [id, supplier_id, invoice_number]
+      unique_constraint: "(supplier_id, invoice_number)"
+      indexes: [status, supplier_id, due_date, created_at]
+    - name: invoice_state_history
+      description: "Historial inmutable de transiciones de estado"
+
+downstream_dependencies:
+  - api: invoice-lifecycle-api
+    operations: [transition, get_history, get_current_state]
+  - api: erp-integration-api
+    operations: [validate_supplier]
+
+security:
+  auth: "JWT Bearer (propagado desde exp-api)"
+  rbac: "Verificación de roles por operación"
+
+nfr:
+  sla_ms: 300
+  observability: true
+  audit: true
+  circuit_breaker_on: [erp-integration-api]
+  retry_on: [erp-integration-api]
+
+maturity: draft

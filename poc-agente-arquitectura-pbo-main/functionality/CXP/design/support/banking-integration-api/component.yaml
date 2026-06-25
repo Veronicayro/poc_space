@@ -1,0 +1,90 @@
+# Phase 5 Output: Component Design - banking-integration-api
+schema_version: "1.0"
+functionality_id: CXP
+component_id: banking-integration-api
+phase: backend-component-design
+generated_at: "2026-06-17"
+
+name: "Banking Integration API"
+layer: support
+pattern: "Adapter / Webhook Handler"
+type: REST API
+version: "v1"
+technology: "Node.js / Java Spring Boot"
+base_path: "/api/v1/banking"
+
+bian_alignment:
+  service_domain: FinancialGateway
+  adoption: reference
+  bian_operation: BankingPaymentOrder
+
+description: >
+  Adaptador para integración con el Banking System externo. Envía órdenes de pago,
+  gestiona la recepción de webhooks de confirmación con validación HMAC-SHA256,
+  implementa idempotencia y circuit breaker para pagos seguros.
+
+responsibilities:
+  - "Enviar órdenes de pago al Banking System"
+  - "Consultar estado de pagos"
+  - "Recibir y validar webhooks de confirmación bancaria (HMAC-SHA256)"
+  - "Garantizar idempotencia en envío de pagos"
+  - "Implementar circuit breaker y retry para resiliencia"
+
+capabilities: [CAP-CXP-003]
+use_cases: [UC-CXP-005]
+business_rules: [BR-CXP-009]
+
+endpoints:
+  - method: POST
+    path: /banking/payment-orders
+    description: "Enviar orden de pago al banco"
+    headers: ["X-Idempotency-Key"]
+    business_rules: [BR-CXP-009]
+
+  - method: GET
+    path: /banking/payment-orders/{orderId}
+    description: "Consultar estado de orden de pago"
+
+  - method: POST
+    path: /banking/webhooks/inbound
+    description: "Recibir confirmación bancaria"
+    security: "Validar firma HMAC-SHA256 antes de procesar"
+    idempotency: "Almacenar event_id para prevenir duplicados"
+
+external_system:
+  id: Banking
+  integration_type: "REST API + Webhooks"
+  auth: "mTLS + API Key"
+  transport: "TLS 1.2+"
+  webhook_security: "HMAC-SHA256 signature validation"
+
+resilience:
+  retry:
+    enabled: true
+    max_retries: 3
+    backoff: exponential
+    initial_delay_ms: 1000
+    idempotent: true
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 3
+    timeout_seconds: 60
+    half_open_calls: 1
+
+persistence:
+  database: PostgreSQL
+  schema: cxp_banking
+  tables:
+    - name: banking_idempotency_log
+      description: "Log de event_id de webhooks para idempotencia"
+      immutable: true
+    - name: payment_orders_log
+      description: "Log de órdenes enviadas al banco"
+
+nfr:
+  observability: true
+  circuit_breaker: true
+  idempotency: true
+  sla_ms: 300
+
+maturity: draft

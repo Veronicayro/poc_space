@@ -1,0 +1,59 @@
+# Discovery: Integration Inventory - Cuentas por Pagar (CXP)
+schema_version: "1.0"
+functionality_id: CXP
+generated_at: "2026-06-17"
+
+integrations:
+  - id: INT-CXP-001
+    name: "ERP Integration"
+    system: ERP
+    direction: bidirectional
+    integration_type: "REST API"
+    sync_mode: "synchronous + async batch"
+    responsibilities:
+      - "Validar existencia y estado activo de proveedores"
+      - "Registrar asientos contables tras ejecución de pagos"
+      - "Reconciliación financiera periódica"
+    retry_policy:
+      enabled: true
+      max_retries: 3
+      backoff: exponential
+      initial_delay_ms: 500
+    circuit_breaker:
+      enabled: true
+      threshold_failures: 5
+      timeout_seconds: 30
+    security:
+      auth_type: "OAuth2 client credentials (por confirmar)"
+      transport: "TLS 1.2+"
+    gap_ref: GAP-002
+
+  - id: INT-CXP-002
+    name: "Banking System Integration"
+    system: Banking
+    direction: bidirectional
+    integration_type: "REST API + Webhooks"
+    sync_mode: asynchronous
+    responsibilities:
+      - "Enviar órdenes de pago al banco"
+      - "Recibir confirmaciones de pago via webhook"
+      - "Consultar estado de pagos en curso"
+    webhook_config:
+      inbound_endpoint: "/api/v1/webhooks/banking/payment-status"
+      signature_validation: HMAC-SHA256
+      idempotency: true
+      idempotency_key_header: "X-Idempotency-Key"
+    retry_policy:
+      enabled: true
+      max_retries: 3
+      backoff: exponential
+      initial_delay_ms: 1000
+    circuit_breaker:
+      enabled: true
+      threshold_failures: 3
+      timeout_seconds: 60
+    security:
+      auth_type: "mTLS + API Key (por confirmar)"
+      transport: "TLS 1.2+"
+      webhook_signing: HMAC-SHA256
+    gap_ref: GAP-003

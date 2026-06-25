@@ -1,0 +1,121 @@
+---
+internalModuleInventory:
+  metadata:
+    functionalityId: "LON-GHCopilot-Haiku45-Lending-v1"
+    inventoryDate: "2026-06-24"
+    source: "discovery/integration-inventory.yaml + domain knowledge"
+    purpose: "Identify reuse/extend/create opportunities for internal systems"
+
+  internalSystems:
+    # —— IDENTITY & KYC (INT-001) ——
+    - id: "INT-001"
+      name: "Identity & KYC"
+      systemType: "Shared Service"
+      description: |
+        Sistema de identidad y KYC existente.
+        Mandatory prerequisite for loan request initiation.
+      
+      integration:
+        pattern: "API/Event"
+        protocol: "REST sync (inferred) / Event-driven (backup)"
+      
+      criticality: "HIGH"
+      appliedToUseCases: ["UC-001"]
+      appliedToBusinessRules: ["BR-001"]
+      
+      operationalScope:
+        - "Validate KYC status for applicant (BR-001)"
+        - "Lookup existing KYC record before loan request intake"
+        - "Trigger KYC review if status is incomplete/expired"
+      
+      reuseAssessment:
+        reuseScore: 1.0  # 100% reuse — system is mandatory
+        recommendation: "MANDATORY_REUSE"
+        rationale: |
+          BR-001 requires KYC approval before request acceptance.
+          INT-001 is the authoritative source for KYC status.
+          No alternative; this system must be integrated.
+        
+        implementationNotes:
+          - "Phase 3 (solution-landscape) must define KYC lookup pattern"
+          - "Phase 6 (backend-component-design) must design PartyLifecycleManagement integration"
+          - "Consider caching KYC status for performance (cached validity: TBD by security/compliance)"
+        
+        riskFactors:
+          - "KYC lookup failure blocks loan request (no fallback)"
+          - "KYC status changes must be reflected in real-time (async event vs. sync check)"
+
+    # —— AUDIT & COMPLIANCE LOG (INT-002) ——
+    - id: "INT-002"
+      name: "Audit & Compliance Log"
+      systemType: "Shared Service"
+      description: |
+        Sistema de auditoría y cumplimiento normativo.
+        Mandatory record-keeping for all credit decisions and state transitions.
+      
+      integration:
+        pattern: "Event/Sync"
+        protocol: "Event-driven (async) with sync fallback"
+      
+      criticality: "HIGH"
+      appliedToBusinessRules: ["BR-010"]
+      
+      operationalScope:
+        - "Record all credit decision events (UC-003, UC-006)"
+        - "Log state transitions (DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED/REJECTED)"
+        - "Capture analyst justification for manual reviews (UC-006)"
+        - "Maintain audit trail for regulatory compliance"
+      
+      bianAlignment:
+        serviceDomain: "Underwriting"
+        operation: "ExecuteUnderwritingAssessment (with audit logging)"
+        rationale: |
+          BIAN Underwriting includes decision recording and audit trail as core capability.
+          INT-002 implements the persistent audit layer.
+      
+      reuseAssessment:
+        reuseScore: 1.0  # 100% reuse — system is mandatory
+        recommendation: "MANDATORY_REUSE"
+        rationale: |
+          BR-010 requires audit trail for all credit decisions.
+          INT-002 is the authoritative compliance log.
+          All components in this functionality must publish audit events.
+        
+        implementationNotes:
+          - "Phase 6 (backend-component-design) must design event publishing to INT-002"
+          - "Consider event batching and eventual consistency model"
+          - "Define retry strategy if audit service is temporarily unavailable (should be rare)"
+        
+        riskFactors:
+          - "Audit service unavailability should not block loan processing (deferred logging acceptable)"
+          - "Long-term compliance: ensure audit events are immutable and tamper-proof"
+
+  systemCoverageAnalysis:
+    totalInternalSystems: 2
+    mandatory_reuse: 2  # INT-001, INT-002
+    extend_or_create: 0
+    not_applicable: 0
+    
+    assessmentSummary: |
+      All identified internal systems are mandatory reuse candidates.
+      No new internal modules need to be created for this functionality.
+      Both systems are pre-existing and production-ready.
+
+  integrationDependencyMap:
+    capability: "CAP-LOAN-001-REQUEST"
+    dependencies:
+      - internalSystem: "INT-001"
+        role: "prerequisite"
+        useCases: ["UC-001"]
+        phase: "Phase 6: backend-component-design"
+      
+      - internalSystem: "INT-002"
+        role: "supporting"
+        useCases: ["UC-003", "UC-006", "UC-007"]
+        phase: "Phase 6: backend-component-design"
+
+  technicalImplementationNotes:
+    - "Phase 6 must design integration APIs or event contracts for INT-001 and INT-002"
+    - "Phase 7 (backend-contract-design) must produce OpenAPI or AsyncAPI contracts for internal integrations"
+    - "Consider whether INT-001 and INT-002 expose public APIs or require internal adapters"
+    - "Define SLA and retry policies for mandatory internal dependencies"

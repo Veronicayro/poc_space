@@ -1,0 +1,273 @@
+openapi: 3.0.3
+info:
+  title: Payment Management API
+  description: >
+    Business API para programación y ejecución de pagos a proveedores.
+    Alineado semánticamente con BIAN Disbursement.
+  version: "1.0.0"
+
+servers:
+  - url: /api/v1/payments
+
+tags:
+  - name: payments
+  - name: webhooks
+
+paths:
+  /payments:
+    get:
+      tags: [payments]
+      operationId: listPayments
+      summary: Listar pagos con filtros
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: invoice_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lista de pagos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentListResponse"
+      security:
+        - bearerAuth: []
+
+    post:
+      tags: [payments]
+      operationId: schedulePayment
+      summary: Programar pago para factura APPROVED
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchedulePaymentRequest"
+      responses:
+        "201":
+          description: Pago programado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+        "422":
+          description: Factura no APPROVED o fecha inválida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+      security:
+        - bearerAuth: []
+
+  /payments/{id}:
+    get:
+      tags: [payments]
+      operationId: getPayment
+      summary: Obtener detalle de pago
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Detalle de pago
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentDetailResponse"
+        "404":
+          description: Pago no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+      security:
+        - bearerAuth: []
+
+  /payments/{id}/execute:
+    post:
+      tags: [payments]
+      operationId: executePayment
+      summary: Ejecutar pago programado
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Pago enviado al banco
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+        "422":
+          description: Estado inválido para ejecución
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+      security:
+        - bearerAuth: []
+
+  /webhooks/banking/payment-status:
+    post:
+      tags: [webhooks]
+      operationId: receiveBankingConfirmation
+      summary: Recibir confirmación bancaria de pago
+      description: "Requiere validación HMAC-SHA256. Idempotente por event_id."
+      parameters:
+        - name: X-Banking-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankingWebhookPayload"
+      responses:
+        "200":
+          description: Confirmación procesada
+        "400":
+          description: Firma inválida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SchedulePaymentRequest:
+      type: object
+      required: [invoice_id, scheduled_date]
+      properties:
+        invoice_id:
+          type: string
+          format: uuid
+        scheduled_date:
+          type: string
+          format: date
+          description: "Debe ser >= fecha actual"
+
+    PaymentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        scheduled_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [SCHEDULED, PROCESSING, PAID, FAILED, CANCELLED]
+        idempotency_key:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    PaymentDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/PaymentResponse"
+        - type: object
+          properties:
+            execution_date:
+              type: string
+              format: date-time
+            banking_reference:
+              type: string
+            amount:
+              type: number
+            currency:
+              type: string
+
+    PaymentListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentResponse"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    BankingWebhookPayload:
+      type: object
+      required: [event_id, payment_order_id, status]
+      properties:
+        event_id:
+          type: string
+          description: "Identificador único del evento (idempotencia)"
+        payment_order_id:
+          type: string
+        status:
+          type: string
+          enum: [CONFIRMED, FAILED, REJECTED]
+        banking_reference:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        next_cursor:
+          type: string
+        limit:
+          type: integer
+        total:
+          type: integer
+
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        correlation_id:
+          type: string

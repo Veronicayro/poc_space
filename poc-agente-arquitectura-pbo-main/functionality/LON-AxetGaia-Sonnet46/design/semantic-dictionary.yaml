@@ -1,0 +1,148 @@
+# semantic-dictionary.yaml — LON (Sistema de Originación de Créditos)
+# Phase 1 output: semantic-dictionary-builder skill
+functionality_id: LON
+
+terms:
+  - term: CreditRequest
+    domain_name: CustomerOffer (BIAN CR)
+    definition: >
+      Solicitud formal de un cliente para obtener un producto de crédito.
+      Representa el expediente crediticio con todos sus datos, documentos
+      y el estado actual en el ciclo de vida de originación.
+    lob_alias: "Solicitud de Crédito"
+    data_type: entity
+    key_fields: [id, customer_id, credit_type, requested_amount, currency, term_months, status]
+    states: [DRAFT, SUBMITTED, UNDER_REVIEW, RISK_ASSESSED, PENDING_APPROVAL, PENDING_COMMITTEE, APPROVED, REJECTED, PENDING_DISBURSEMENT, DISBURSED, CANCELLED, EXPIRED]
+    bian_ref: CustomerOffer.CustomerOfferProcedure
+
+  - term: RiskAssessment
+    domain_name: Underwriting (BIAN CR)
+    definition: >
+      Evaluación del perfil crediticio del solicitante, incluyendo el score
+      del bureau, cálculo de DTI ratio, nivel de riesgo asignado y recomendación
+      de decisión (APPROVE / REJECT / ESCALATE).
+    lob_alias: "Evaluación de Riesgo"
+    data_type: entity
+    key_fields: [id, credit_request_id, bureau_score, risk_level, dti_ratio, recommendation, analyst_id]
+    bian_ref: Underwriting.UnderwritingAssessment
+
+  - term: CreditDecision
+    domain_name: CustomerOffer / Underwriting (BIAN)
+    definition: >
+      Decisión formal de aprobación, rechazo o escalado tomada por el Gerente
+      de Créditos o el Comité de Créditos. Registro inmutable con actor, rol,
+      timestamp y condiciones o motivo de rechazo.
+    lob_alias: "Decisión Crediticia"
+    data_type: entity
+    key_fields: [id, credit_request_id, decision, decision_maker_id, decision_maker_role, decided_at]
+    bian_ref: CustomerOffer.CustomerOfferDecision
+
+  - term: Disbursement
+    domain_name: Disbursement (BIAN CR)
+    definition: >
+      Instrucción y ejecución de la transferencia de fondos del crédito aprobado
+      hacia la cuenta destino del cliente. Incluye referencia del core bancario
+      y generación de tabla de amortización.
+    lob_alias: "Desembolso"
+    data_type: entity
+    key_fields: [id, credit_request_id, destination_account, amount, currency, status, core_reference]
+    bian_ref: Disbursement.DisbursementTransaction
+
+  - term: CreditDocument
+    domain_name: CustomerOffer (BIAN — verificación documental)
+    definition: >
+      Documento adjunto a una solicitud de crédito (cédula, estados financieros,
+      prueba de ingresos, etc.). Almacenado en el DMS externo; LON guarda la
+      referencia y metadata.
+    lob_alias: "Documento de Crédito"
+    data_type: entity
+    key_fields: [id, credit_request_id, document_type, dms_reference, is_mandatory]
+    bian_ref: CustomerOffer.CustomerOfferDocumentDirectory
+
+  - term: AuditLog
+    domain_name: LON (extensión de dominio — no mapeado directamente a BIAN SD)
+    definition: >
+      Registro inmutable de todas las acciones realizadas sobre una solicitud:
+      transiciones de estado, decisiones, carga de documentos. Cada entrada
+      contiene entidad, acción, estado anterior/nuevo, actor y timestamp.
+    lob_alias: "Log de Auditoría"
+    data_type: entity
+    key_fields: [entity, entity_id, action, previous_state, new_state, actor_id, actor_role, timestamp]
+    bian_ref: null
+
+  - term: BureauReport
+    domain_name: CustomerCreditRating (BIAN CR)
+    definition: >
+      Reporte emitido por una agencia externa de crédito (bureau) que contiene
+      el historial crediticio del cliente, score calculado, deudas vigentes/vencidas
+      y verificación en listas de riesgo.
+    lob_alias: "Reporte Bureau de Crédito"
+    data_type: value_object
+    key_fields: [customer_id, score, risk_indicators, active_debts, blacklist_status, issued_at]
+    bian_ref: CustomerCreditRating.CreditAssessmentRecord
+    cache_policy: "Redis TTL 24h por customer_id (ADR-005)"
+
+  - term: CreditType
+    domain_name: CustomerOffer (BIAN)
+    definition: >
+      Categoría del producto de crédito solicitado. Determina los documentos
+      obligatorios, las políticas de evaluación y los límites de atribución.
+    lob_alias: "Tipo de Crédito"
+    data_type: enum
+    values: [PERSONAL, MORTGAGE, VEHICLE, BUSINESS]
+    bian_ref: CustomerOffer.ProductType
+
+  - term: RiskLevel
+    domain_name: Underwriting (BIAN)
+    definition: >
+      Clasificación del nivel de riesgo crediticio del solicitante determinada
+      por el Analista de Riesgo con base en el score del bureau y políticas internas.
+    lob_alias: "Nivel de Riesgo"
+    data_type: enum
+    values: [LOW, MEDIUM, HIGH, CRITICAL]
+    bian_ref: Underwriting.CreditRiskClassification
+
+  - term: DTI
+    domain_name: Underwriting (BIAN — Debt-to-Income ratio)
+    definition: >
+      Ratio Deuda/Ingreso (Debt-to-Income). Indica qué porcentaje del ingreso
+      mensual del cliente se destina al servicio de deudas actuales y la nueva
+      cuota solicitada. Umbral máximo es configurable por política crediticia.
+    lob_alias: "Ratio DTI"
+    data_type: decimal
+    unit: percentage
+    bian_ref: Underwriting.DebtServiceCoverageRatio
+
+  - term: CreditWorkflow
+    domain_name: CustomerOffer (BIAN — lifecycle management)
+    definition: >
+      State machine explícita que controla las transiciones válidas entre los
+      12 estados del ciclo de vida de una solicitud de crédito. Valida actor,
+      rol y umbrales de monto/riesgo en cada transición.
+    lob_alias: "Flujo de Trabajo Crediticio"
+    data_type: service
+    states_count: 12
+    bian_ref: CustomerOffer.CustomerOfferProcedure (extended)
+
+  - term: AttributionLimit
+    domain_name: LON (extensión de política interna)
+    definition: >
+      Monto máximo que un Gerente de Créditos puede aprobar sin escalar al
+      Comité. Parámetro externalizable en tabla de configuración. Cuando el
+      monto solicitado supera este límite, el escalado a comité es automático.
+    lob_alias: "Límite de Atribución"
+    data_type: decimal
+    unit: currency
+    bian_ref: null
+    config_key: "credit.approval.manager.attribution_limit"
+
+  - term: DisbursementInstruction
+    domain_name: Disbursement (BIAN)
+    definition: >
+      Instrucción formal enviada al core bancario para ejecutar la transferencia
+      de fondos del crédito aprobado. Incluye cuenta destino, monto, moneda
+      y clave de idempotencia.
+    lob_alias: "Instrucción de Desembolso"
+    data_type: command
+    key_fields: [credit_request_id, destination_account, amount, currency, idempotency_key]
+    bian_ref: Disbursement.DisbursementTransaction.Execute

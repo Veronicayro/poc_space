@@ -1,0 +1,238 @@
+domain:
+  name: "Loans"
+  description: "Créditos, originación, desembolso y servicing."
+
+  capabilities:
+
+    LoanOrigination:
+      apiProducts:
+
+        CreditApplicationAPI:
+          metadata:
+            name: "Credit Application API"
+            description: "Captura y gestión de solicitudes de crédito (personal/auto), estado, condiciones y verificación documental."
+            owner: "Lending Origination Squad"
+            sla: "99.9%"
+            dataClassification: ["PII", "Confidential"]
+            criticalityTier: "Tier 1"
+            region: "global"
+            tags: ["loans", "origination", "applications"]
+          apiType: "Internal"
+          versions:
+            - version: "1.3.0"
+              status: "Published"
+              x-contract-version: "2026-06-01"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/credit-application/v1"
+                qa: "https://api.qa.globalbank.example.com/credit-application/v1"
+                uat: "https://api.uat.globalbank.example.com/credit-application/v1"
+                prod: "https://api.globalbank.example.com/credit-application/v1"
+              consumers:
+                - "Web Banking"
+                - "Mobile Banking App"
+              dependencies:
+                - api: "Customers/CustomerOnboarding/CustomerProfileAPI"
+                  reason: "Datos del solicitante."
+                - api: "Risk/CreditRisk/CreditDecisioningAPI"
+                  reason: "Decisión crediticia."
+                - api: "Compliance/Records/DocumentArchiveAPI"
+                  reason: "Documentación soporte."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code"]
+                scopes:
+                  - "loans.applications.read"
+                  - "loans.applications.write"
+                  - "loans.applications.submit"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "application_conversion_rate"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "applicationId", "customerId", "status"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Credit policy review for major changes."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Credit Application API"
+              version: "v1"
+            paths:
+              /credit-applications:
+                post:
+                  summary: "Crear solicitud"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Creada"
+                      schemaRef: "#/components/schemas/CreditApplication"
+                get:
+                  summary: "Buscar solicitudes"
+                  queryParams: ["customerId", "status", "cursor", "limit"]
+                  responses:
+                    "200":
+                      description: "Solicitudes"
+                      schemaRef: "#/components/schemas/CreditApplicationList"
+              /credit-applications/{applicationId}/submit:
+                post:
+                  summary: "Enviar solicitud a evaluación"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "202":
+                      description: "Enviada"
+                      schemaRef: "#/components/schemas/WorkflowJob"
+
+        LoanServicingAPI:
+          metadata:
+            name: "Loan Servicing API"
+            description: "Consulta y servicing de préstamos: calendario, cuotas, pagos, saldo y reestructuraciones."
+            owner: "Lending Servicing Squad"
+            sla: "99.95%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 0"
+            region: "global"
+            tags: ["loans", "servicing", "repayments"]
+          apiType: "Internal"
+          versions:
+            - version: "2.2.0"
+              status: "Published"
+              x-contract-version: "2026-06-11"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/loan-servicing/v2"
+                qa: "https://api.qa.globalbank.example.com/loan-servicing/v2"
+                uat: "https://api.uat.globalbank.example.com/loan-servicing/v2"
+                prod: "https://api.globalbank.example.com/loan-servicing/v2"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Accounts/AccountServicing/AccountManagementAPI"
+                  reason: "Cuenta de débito para pagos."
+                - api: "Payments/PaymentsProcessing/PaymentsProcessingAPI"
+                  reason: "Ejecución de pagos de cuotas."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code"]
+                scopes:
+                  - "loans.read"
+                  - "loans.repayments.initiate"
+                  - "loans.restructures.request"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "repayment_success_rate"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "loanId", "customerId", "action", "status"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "E2E servicing regression tests required."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Loan Servicing API"
+              version: "v2"
+            paths:
+              /loans:
+                get:
+                  summary: "Listar préstamos del cliente"
+                  queryParams: ["customerId", "cursor", "limit"]
+                  responses:
+                    "200":
+                      description: "Préstamos"
+                      schemaRef: "#/components/schemas/LoanList"
+              /loans/{loanId}/repayments:
+                post:
+                  summary: "Iniciar pago de cuota"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Pago iniciado"
+                      schemaRef: "#/components/schemas/Repayment"
+              /loans/{loanId}/schedule:
+                get:
+                  summary: "Obtener cronograma"
+                  responses:
+                    "200":
+                      description: "Cronograma"
+                      schemaRef: "#/components/schemas/AmortizationSchedule"
+
+        DisbursementAPI:
+          metadata:
+            name: "Disbursement API"
+            description: "Orquestación del desembolso, instrucción al core y confirmación de abono."
+            owner: "Lending Disbursement Squad"
+            sla: "99.9%"
+            dataClassification: ["Confidential"]
+            criticalityTier: "Tier 1"
+            region: "global"
+            tags: ["loans", "disbursement", "orchestration"]
+          apiType: "Internal"
+          versions:
+            - version: "1.1.0"
+              status: "Published"
+              x-contract-version: "2026-05-25"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/disbursement/v1"
+                qa: "https://api.qa.globalbank.example.com/disbursement/v1"
+                uat: "https://api.uat.globalbank.example.com/disbursement/v1"
+                prod: "https://api.globalbank.example.com/disbursement/v1"
+              consumers:
+                - "Web Banking"
+              dependencies:
+                - api: "Loans/LoanOrigination/CreditApplicationAPI"
+                  reason: "Validar aprobación y condiciones."
+                - api: "Accounts/AccountServicing/AccountManagementAPI"
+                  reason: "Cuenta destino para desembolso."
+                - api: "Compliance/Records/AuditTrailAPI"
+                  reason: "Trazabilidad de desembolso."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials"]
+                scopes:
+                  - "loans.disbursement.initiate"
+                  - "loans.disbursement.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "disbursement_cycle_time_ms_p95"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: false
+                  fields: ["timestamp", "correlationId", "disbursementId", "loanId", "amount", "currency", "status"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Treasury and accounting sign-off for changes."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Disbursement API"
+              version: "v1"
+            paths:
+              /disbursements:
+                post:
+                  summary: "Iniciar desembolso"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Desembolso iniciado"
+                      schemaRef: "#/components/schemas/Disbursement"
+              /disbursements/{disbursementId}:
+                get:
+                  summary: "Consultar desembolso"
+                  responses:
+                    "200":
+                      description: "Desembolso"
+                      schemaRef: "#/components/schemas/Disbursement"

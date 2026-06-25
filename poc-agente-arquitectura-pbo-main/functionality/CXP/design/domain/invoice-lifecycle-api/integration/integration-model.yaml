@@ -1,0 +1,24 @@
+# Component Integration Model - invoice-lifecycle-api
+schema_version: "1.0"
+component_id: invoice-lifecycle-api
+generated_at: "2026-06-17"
+
+note: >
+  invoice-lifecycle-api es un servicio de dominio puro.
+  No tiene integraciones salientes con sistemas externos.
+  Solo expone endpoints REST consumidos por invoice-management-api y payment-management-api.
+
+integrations:
+  - id: INT-LFC-001
+    target: invoice-management-api
+    type: REST HTTP (inbound consumer)
+    direction: inbound
+    description: "invoice-management-api consume endpoints de transición y consulta"
+
+  - id: INT-LFC-002
+    target: payment-management-api
+    type: REST HTTP (inbound consumer)
+    direction: inbound
+    description: "payment-management-api consume endpoints de transición para SCHEDULED y PAID"
+
+outbound_integrations: []

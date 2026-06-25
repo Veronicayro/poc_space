@@ -1,0 +1,60 @@
+functionality_id: KYC_ONBOARDING_DIGITAL
+functionality_name: "Digital KYC Onboarding"
+feature_principal: Onboarding
+execution_mode: standard
+technology: Java
+target_component: kyc-onboarding-api
+phase0_decision: CREATE_ANYWAY
+phase0_decision_file: architecture/context/api-governance/phase0/decisions/KYC_ONBOARDING_DIGITAL.md
+
+summary: >
+  Proceso digital de validación de identidad de clientes para apertura de cuentas
+  bancarias. Permite capturar datos personales, validar documentos y realizar
+  verificaciones contra listas regulatorias. Reduce fricción en el alta de clientes
+  y asegura cumplimiento normativo.
+
+scope:
+  in:
+    - Captura y validación de datos personales del cliente
+    - Verificación de identidad mediante documentos y validación contra listas AML
+  out:
+    - Aprobación de crédito o scoring financiero
+
+actors:
+  - id: CUSTOMER
+    description: Proporciona datos personales y documentos
+    channels: [Web, Mobile]
+  - id: KYC_ANALYST
+    description: Revisa casos fallidos o manuales
+    channels: [Backoffice]
+  - id: SYSTEM
+    description: Ejecuta validaciones automáticas
+    channels: [Backoffice]
+
+external_integrations:
+  - id: AML_SERVICE
+    description: Servicio AML externo
+    integration: REST sync
+    criticality: HIGH
+  - id: ID_VERIFICATION_PROVIDER
+    description: Proveedor de validación de identidad
+    integration: REST sync
+    criticality: HIGH
+  - id: NOTIFICATION_SERVICE
+    description: Servicio de notificaciones
+    integration: async events
+    criticality: MEDIUM
+
+nfrs:
+  security:
+    authn: OAuth2/OIDC
+    authz: RBAC
+    encryption: TLS1.2+
+  performance:
+    latency: "<2s para validaciones síncronas"
+    concurrency: "500 req/s"
+  observability:
+    logging: structured
+    tracing: distributed
+    metrics: real-time
+  compliance: [ISO27001, GDPR]

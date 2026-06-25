@@ -1,0 +1,36 @@
+functionality:
+  id: string
+  name: string
+  business_goal: string
+  scope_in: array
+  scope_out: array
+actors: array
+business_capabilities: array
+user_journeys: array
+business_intent:
+  primary_outcome: string
+  secondary_outcomes: array
+  business_objects: array
+  business_actions: array
+  lifecycle_states: array
+  business_events: array
+  decision_points: array
+  regulatory_drivers: array
+known_constraints:
+  cloud: array
+  deployment: array
+  security: array
+  compliance: array
+  integration: array
+  data: array
+architecture_dimensions: array
+existing_landscape_refs:
+  apis: array
+  frontend_modules: array
+  services: array
+  events: array
+  databases: array
+  caches: array
+architecture_assumptions: array
+open_questions: array
+risk_flags: array

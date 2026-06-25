@@ -1,0 +1,67 @@
+# bian-release14-source-index.yaml — LON (Sistema de Originación de Créditos)
+# Phase 1 output: bian-baseline-indexer skill
+# Índice local de Service Domains BIAN seleccionados para LON
+# Fuente: architecture/cache/bian/release14.0.0/oas3/yamls/
+functionality_id: LON
+bian_release: "14.0.0"
+spec_type: oas3
+global_index_ref: architecture/context/bian-spec-index-oas3.yaml
+
+selected_service_domains:
+  - name: CustomerOffer
+    description: >
+      Orquesta el procesamiento de una oferta de producto para un cliente nuevo
+      o existente. Incluye verificaciones documentales, evaluaciones crediticias,
+      decisiones de underwriting y revisiones regulatorias/de elegibilidad.
+    oas3_path: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml
+    file_size_bytes: 234184
+    mapped_capabilities: [CAP-LON-001, CAP-LON-005]
+    mapped_apis:
+      - credit-request-api (business)
+      - credit-workflow-api (domain)
+    primary_cr: CustomerOfferProcedure
+    verified: true
+
+  - name: Underwriting
+    description: >
+      Gestiona el proceso de decisión de underwriting para productos apropiados,
+      incluyendo múltiples tipos de préstamos e instrumentos de seguro.
+    oas3_path: architecture/cache/bian/release14.0.0/oas3/yamls/Underwriting.yaml
+    file_size_bytes: 83660
+    mapped_capabilities: [CAP-LON-003]
+    mapped_apis:
+      - risk-assessment-api (business)
+    primary_cr: UnderwritingAssessment
+    verified: true
+
+  - name: CustomerCreditRating
+    description: >
+      Mantiene y administra la evaluación crediticia del banco para clientes,
+      basada en datos internos consolidados y reportes de agencias externas.
+    oas3_path: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerCreditRating.yaml
+    file_size_bytes: 53858
+    mapped_capabilities: [CAP-LON-004]
+    mapped_apis:
+      - risk-assessment-api (business) — bureau integration aspect
+    primary_cr: CustomerCreditRatingState
+    verified: true
+
+  - name: Disbursement
+    description: >
+      Maneja el desembolso de fondos a préstamos/facilidades recién establecidos
+      según sea necesario.
+    oas3_path: architecture/cache/bian/release14.0.0/oas3/yamls/Disbursement.yaml
+    file_size_bytes: 155700
+    mapped_capabilities: [CAP-LON-007]
+    mapped_apis:
+      - disbursement-api (business)
+    primary_cr: DisbursementTransaction
+    verified: true
+
+rejected_service_domains:
+  - name: ConsumerLoan
+    reason: "LON es pre-producto (originación). Fulfillment delegado al Core Bancario externo."
+  - name: CorporateLoan
+    reason: "Misma razón que ConsumerLoan."
+  - name: PartyLifecycleManagement
+    reason: "KYC delegado al Core Bancario externo vía integración."

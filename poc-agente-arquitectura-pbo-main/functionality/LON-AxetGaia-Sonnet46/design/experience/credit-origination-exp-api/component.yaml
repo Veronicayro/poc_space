@@ -1,0 +1,78 @@
+# component.yaml — credit-origination-exp-api
+# Layer: Experience (BFF) | BIAN: N/A
+component_id: COMP-LON-EXP-001
+name: credit-origination-exp-api
+functionality_id: LON
+layer: experience
+type: BFF (Backend for Frontend)
+version: "1.0.0"
+status: design_complete
+generated_at: "2026-06-17"
+
+bian:
+  service_domain: "N/A"
+  note: "Experience APIs no requieren alineación BIAN directa"
+
+description: >
+  BFF para la SPA React de originación de créditos. Agrega y orquesta
+  llamadas a las APIs de capas inferiores, adaptando respuestas según el
+  rol del usuario. Implementa vistas específicas por actor y calcula las
+  acciones disponibles según estado actual + permisos del rol.
+
+responsibilities:
+  - Agregar respuestas de credit-request-api, risk-assessment-api, disbursement-api
+  - Adaptar modelos de dominio a DTOs optimizados para frontend
+  - Orquestar flujos multi-step (submit, approve, reject, escalate, disburse)
+  - Calcular allowed_actions según rol + estado actual (evita lógica en frontend)
+  - Gestionar paginación cursor-based para listados
+  - Propagar correlation_id para trazabilidad distribuida
+
+technology:
+  runtime: "Node.js (Express) / Java (Spring Boot)"
+  patterns:
+    - BFF Pattern
+    - DTO/Mapper por rol
+    - Correlation ID propagation
+
+api:
+  style: REST
+  versioning: URI (/v1)
+  base_path: /v1
+  error_format: "RFC 7807 Problem Details"
+
+key_endpoints:
+  - "GET  /v1/credit-applications"
+  - "POST /v1/credit-applications"
+  - "GET  /v1/credit-applications/{id}"
+  - "GET  /v1/credit-applications/{id}/timeline"
+  - "POST /v1/credit-applications/{id}/documents"
+  - "POST /v1/credit-applications/{id}/submit"
+  - "POST /v1/credit-applications/{id}/approve"
+  - "POST /v1/credit-applications/{id}/reject"
+  - "POST /v1/credit-applications/{id}/escalate"
+  - "POST /v1/credit-applications/{id}/disburse"
+
+security:
+  authentication: "OAuth2 / OpenID Connect / JWT"
+  authorization: RBAC
+  roles: [CREDIT_OFFICER, RISK_ANALYST, CREDIT_MANAGER, CREDIT_COMMITTEE, DISBURSEMENT_OFFICER]
+  scopes: [credit:read, credit:write, credit:approve, risk:read, disbursement:execute]
+
+dependencies:
+  - name: credit-request-api
+    purpose: CRUD y workflow de solicitudes
+    type: synchronous
+  - name: risk-assessment-api
+    purpose: Evaluaciones de riesgo
+    type: synchronous
+  - name: disbursement-api
+    purpose: Ejecución de desembolsos
+    type: synchronous
+
+consumers:
+  - Frontend React SPA
+
+nfr:
+  sla_ms: 500
+  idempotency: "POST /submit, /approve, /reject, /escalate, /disburse"
+  pagination: cursor-based

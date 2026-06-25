@@ -1,0 +1,146 @@
+# Phase 3 Output: Component Inventory - Cuentas por Pagar (CXP)
+schema_version: "1.0"
+functionality_id: CXP
+phase: solution-landscape
+generated_at: "2026-06-17"
+maturity: draft
+validation: pending
+
+components:
+  - id: accounts-payable-exp-api
+    name: "Accounts Payable Experience API"
+    layer: experience
+    type: BFF
+    technology: "Node.js (Express)"
+    version: "v1"
+    status: draft
+    capabilities: [CAP-CXP-005]
+    use_cases: [UC-CXP-001, UC-CXP-002, UC-CXP-003, UC-CXP-004, UC-CXP-007]
+    database: none
+    persistence: false
+    cache: optional
+    security:
+      auth: OAuth2/OIDC
+      rbac_roles: [ANALYST, MANAGER, TREASURER]
+    nfr:
+      sla_ms: 300
+      observability: true
+    design_path: functionality/CXP/design/experience/accounts-payable-exp-api/
+
+  - id: invoice-management-api
+    name: "Invoice Management API"
+    layer: business
+    type: "Business Service"
+    technology: "Node.js / Java Spring Boot"
+    version: "v1"
+    status: draft
+    capabilities: [CAP-CXP-001]
+    use_cases: [UC-CXP-001, UC-CXP-002, UC-CXP-003, UC-CXP-006]
+    bian_alignment:
+      service_domain: AccountsReceivable
+      adoption: semantic_alignment
+    database: PostgreSQL
+    schema: cxp_invoices
+    persistence: true
+    cache: false
+    stateful: true
+    nfr:
+      sla_ms: 300
+      observability: true
+      audit: true
+    design_path: functionality/CXP/design/business/invoice-management-api/
+
+  - id: payment-management-api
+    name: "Payment Management API"
+    layer: business
+    type: "Business Service"
+    technology: "Node.js / Java Spring Boot"
+    version: "v1"
+    status: draft
+    capabilities: [CAP-CXP-002]
+    use_cases: [UC-CXP-004, UC-CXP-005, UC-CXP-007]
+    bian_alignment:
+      service_domain: Disbursement
+      adoption: semantic_alignment
+    database: PostgreSQL
+    schema: cxp_payments
+    persistence: true
+    cache: false
+    stateful: true
+    nfr:
+      sla_ms: 300
+      observability: true
+      idempotency: true
+    design_path: functionality/CXP/design/business/payment-management-api/
+
+  - id: invoice-lifecycle-api
+    name: "Invoice Lifecycle API"
+    layer: domain
+    type: "Domain Service / State Machine"
+    technology: "Node.js / Java Spring Boot"
+    version: "v1"
+    status: draft
+    capabilities: [CAP-CXP-001, CAP-CXP-004]
+    bian_alignment:
+      service_domain: AccountsReceivable
+      control_record: InvoiceLifecycleProcedure
+    database: PostgreSQL
+    schema: cxp_lifecycle
+    persistence: true
+    cache: false
+    stateful: true
+    state_model:
+      states: [PENDING, APPROVED, REJECTED, SCHEDULED, PAID, CANCELLED]
+      rule_ref: BR-CXP-004
+    nfr:
+      observability: true
+      audit: true
+    design_path: functionality/CXP/design/domain/invoice-lifecycle-api/
+
+  - id: erp-integration-api
+    name: "ERP Integration API"
+    layer: support
+    type: "Adapter / Anti-Corruption Layer"
+    technology: "Node.js / Java Spring Boot"
+    version: "v1"
+    status: draft
+    capabilities: [CAP-CXP-003]
+    bian_alignment:
+      service_domains: [FinancialAccounting, ContractorandSupplierAgreement]
+    database: none
+    persistence: false
+    cache: true
+    cache_note: "Cache corta para validación de proveedores (TTL: 5min)"
+    external_system: ERP
+    nfr:
+      circuit_breaker: true
+      retry: true
+      observability: true
+    design_path: functionality/CXP/design/support/erp-integration-api/
+
+  - id: banking-integration-api
+    name: "Banking Integration API"
+    layer: support
+    type: "Adapter / Webhook Handler"
+    technology: "Node.js / Java Spring Boot"
+    version: "v1"
+    status: draft
+    capabilities: [CAP-CXP-003]
+    bian_alignment:
+      service_domain: FinancialGateway
+    database: PostgreSQL
+    schema: cxp_banking
+    persistence: true
+    persistence_note: "Idempotency log para prevenir pagos duplicados"
+    cache: false
+    external_system: Banking
+    webhook:
+      inbound: true
+      signature: HMAC-SHA256
+      idempotency: true
+    nfr:
+      circuit_breaker: true
+      retry: true
+      idempotency: true
+      observability: true
+    design_path: functionality/CXP/design/support/banking-integration-api/

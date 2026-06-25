@@ -1,0 +1,33 @@
+schema_id: event-model
+artifact_path_pattern: design/<layer>/<component>/events/event-model.yaml
+required_fields:
+  - events
+fields:
+  events:
+    type: array
+    item_required:
+      - event_name
+      - producer
+      - consumers
+      - schema_format
+      - rationale_for_format
+      - payload_model
+      - keying_strategy
+      - ordering_needs
+      - delivery_semantics
+      - idempotency_expectations
+      - replay_or_retention_notes
+    item_fields:
+      event_name: string
+      producer: string
+      consumers: array
+      schema_format:
+        enum: [avro, json, protobuf]
+      rationale_for_format: string
+      payload_model: object
+      keying_strategy: string
+      ordering_needs: string
+      delivery_semantics:
+        enum: [at-least-once, at-most-once, exactly-once-where-supported]
+      idempotency_expectations: string
+      replay_or_retention_notes: string

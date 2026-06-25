@@ -1,0 +1,136 @@
+openapi: 3.0.1
+info:
+  title: DMS Adapter API — LON
+  description: >
+    Adaptador de integración con el Document Management System (DMS).
+    Gestiona almacenamiento, recuperación y validación de documentos
+    del expediente crediticio.
+  version: 1.0.0
+  contact:
+    name: LON Architecture Team
+servers:
+  - url: https://api.bank.internal/lon-dms/v1
+    description: Producción (internal)
+
+tags:
+  - name: Documents
+    description: Gestión de documentos del expediente crediticio en DMS externo
+
+paths:
+  /documents:
+    get:
+      tags: [Documents]
+      summary: List documents by credit request ID
+      operationId: listDocuments
+      parameters:
+        - name: creditRequestId
+          in: query
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: List of documents for the credit request
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentResponse'
+    post:
+      tags: [Documents]
+      summary: Store document in DMS
+      operationId: storeDocument
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [credit_request_id, document_type, file]
+              properties:
+                credit_request_id: {type: string, format: uuid}
+                document_type:
+                  type: string
+                  enum: [ID, INCOME_PROOF, FINANCIAL_STATEMENT, PROPERTY_APPRAISAL, OTHER]
+                file: {type: string, format: binary}
+                filename: {type: string}
+      responses:
+        '200':
+          description: Document stored in DMS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '503':
+          description: DMS unavailable — fallback to local storage
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HTTPError'}
+
+  /documents/{documentId}:
+    get:
+      tags: [Documents]
+      summary: Retrieve document by ID
+      operationId: getDocument
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Document metadata and content URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HTTPError'}
+
+    delete:
+      tags: [Documents]
+      summary: Delete document from DMS
+      operationId: deleteDocument
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Document deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted: {type: boolean}
+                  document_id: {type: string}
+
+
+components:
+  schemas:
+    DocumentResponse:
+      type: object
+      properties:
+        dms_reference: {type: string, description: "Unique DMS document ID for retrieval"}
+        document_id: {type: string, format: uuid}
+        credit_request_id: {type: string, format: uuid}
+        document_type: {type: string}
+        filename: {type: string}
+        content_url: {type: string, format: uri, description: "Presigned URL for document download"}
+        checksum: {type: string, description: "SHA-256 integrity checksum"}
+        stored_at: {type: string, format: date-time}
+        source: {type: string, enum: [DMS, LOCAL_FALLBACK]}
+
+    HTTPError:
+      type: object
+      properties:
+        type: {type: string}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        correlation_id: {type: string}

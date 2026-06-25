@@ -1,0 +1,49 @@
+# execution-plan.schema.yaml
+functionality_id: string
+phase: string
+inferred_execution_mode: minimal | standard | full | azure-only | aws-only | gcp-only | provider-comparison | hybrid | multicloud | on-premise
+execution_mode_override: null | minimal | standard | full | azure-only | aws-only | gcp-only | provider-comparison | hybrid | multicloud | on-premise
+execution_mode_rationale: string
+domain_standard_profile:
+  provider: BIAN | ACORD | TMForum | EnterpriseCapabilityMap | Other
+  version: string
+  rationale: string
+required_design_views:
+  enterprise_capability_alignment: boolean
+  frontend: boolean
+  backend_tobe: boolean
+  backend_transition: boolean
+  cloud_logical: boolean
+  cloud_azure: boolean
+  cloud_aws: boolean
+  cloud_gcp: boolean
+  cloud_on_premise: boolean
+  multicloud: boolean
+  hybrid: boolean
+  bigdata: boolean
+required_layers:
+  - experience
+  - business
+  - domain
+  - support
+  - frontend
+  - cloud
+  - data
+  - cache
+  - events
+required_skills:
+  - skill_name: string
+    phase: string
+    reason: string
+phase_gates:
+  - gate_name: string
+    blocking: boolean
+    required_artifacts: []
+blocking_gaps:
+  - gap_id: string
+    description: string
+    required_action: string
+non_blocking_gaps:
+  - gap_id: string
+    description: string
+    recommended_action: string

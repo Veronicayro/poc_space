@@ -1,0 +1,269 @@
+target_api_name: kyc-onboarding-api
+target_layer: business
+generated_at: "2026-06-22"
+
+bian_adoption:
+  bian_release: "14.0.0"
+  selected_service_domain: PartyLifecycleManagement
+  source_oas3_files:
+    - "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+  source_asyncapi_files: []
+
+  # ─── Selected paths ────────────────────────────────────────────────────────
+
+  selected_paths:
+    - bian_path: "/PartyLifecycleManagement/Initiate"
+      ap_path: "/onboarding-cases"
+      method: POST
+      rationale: "Maps to UC-001 onboarding case initiation — Initiate behavior"
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Retrieve"
+      ap_path: "/onboarding-cases/{partylifecyclemanagementid}"
+      method: GET
+      rationale: "Maps to case status retrieval (all UCs)"
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Control"
+      ap_path: "/onboarding-cases/{partylifecyclemanagementid}/control"
+      method: PUT
+      rationale: "Maps to UC-004 analyst review decision"
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Execute"
+      ap_path: "/onboarding-cases/{partylifecyclemanagementid}/documents/{documentationid}/execute"
+      method: PUT
+      rationale: "Maps to UC-002 document submission"
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Qualification/{qualificationid}/Retrieve"
+      ap_path: "/onboarding-cases/{partylifecyclemanagementid}/qualification/{qualificationid}"
+      method: GET
+      rationale: "Maps to UC-003 KYC qualification result retrieval"
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/IdentityProofing/{identityproofingid}/Retrieve"
+      ap_path: "/onboarding-cases/{partylifecyclemanagementid}/identity-proofing/{identityproofingid}"
+      method: GET
+      rationale: "Maps to UC-003 identity proofing result retrieval"
+
+  # ─── Selected operations ──────────────────────────────────────────────────
+
+  selected_operations:
+    - bian_operation_id: Initiate
+      bian_pattern: InCR
+      ap_operation_id: initiatePartyRelationshipAdministrativePlan
+      maps_to_cxp_operation: "POST /onboarding-cases"
+      adaptation: >
+        Initiate behavior adapted to REST POST on /onboarding-cases resource.
+        Request wraps PartyRelationshipAdministrativePlan.PartyReference with AP party fields.
+        Response adds AP-specific fields: customer_id, initiated_at, updated_at.
+        BIAN path /PartyLifecycleManagement/Initiate → AP /onboarding-cases.
+    - bian_operation_id: Retrieve
+      bian_pattern: ReCR
+      ap_operation_id: retrievePartyRelationshipAdministrativePlan
+      maps_to_cxp_operation: "GET /onboarding-cases/{partylifecyclemanagementid}"
+      adaptation: >
+        Retrieve behavior adapted to standard REST GET. Path parameter
+        partylifecyclemanagementid preserved per BIAN naming convention.
+    - bian_operation_id: Control
+      bian_pattern: CoCR
+      ap_operation_id: controlPartyRelationshipAdministrativePlan
+      maps_to_cxp_operation: "PUT /onboarding-cases/{partylifecyclemanagementid}/control"
+      adaptation: >
+        Control behavior adapted for analyst review decision (UC-004).
+        Request uses party_lifecycle_maintenance_task_result as APPROVED/REJECTED enum.
+        BIAN Control is a general lifecycle control; AP adaptation scopes it to
+        manual review decisions only (task_type=analyst_review_decision).
+    - bian_operation_id: ExecuteDocumentation
+      bian_pattern: ExBQ
+      ap_operation_id: executeDocumentation
+      maps_to_cxp_operation: "PUT /onboarding-cases/{partylifecyclemanagementid}/documents/{documentationid}/execute"
+      adaptation: >
+        Documentation/Execute adapted for identity document reference submission (UC-002).
+        DocumentDirectoryEntryInstanceReference directly reused from BIAN schema.
+        AP adds document_expires_at for BR-002 validation.
+        Sub-behavior path adapted from /Documentation/{id}/Execute to /documents/{id}/execute.
+    - bian_operation_id: RetrieveQualification
+      bian_pattern: ReBQ
+      ap_operation_id: retrieveQualification
+      maps_to_cxp_operation: "GET /onboarding-cases/{partylifecyclemanagementid}/qualification/{qualificationid}"
+      adaptation: >
+        Qualification/Retrieve adapted for KYC screening result (UC-003).
+        SpecialistAgencyRegulatorServiceRequestResult reused directly for AML result enum.
+        Path adapted: /Qualification/{id}/Retrieve → /qualification/{qualificationid}.
+    - bian_operation_id: RetrieveIdentityProofing
+      bian_pattern: ReBQ
+      ap_operation_id: retrieveIdentityProofing
+      maps_to_cxp_operation: "GET /onboarding-cases/{partylifecyclemanagementid}/identity-proofing/{identityproofingid}"
+      adaptation: >
+        IdentityProofing/Retrieve adapted for ID_VERIFICATION_PROVIDER result (UC-003).
+        SpecialistAgencyServiceRequestResult reused directly for identity verification result enum.
+        DocumentDirectoryEntryInstanceReference reused to link to document evidence.
+
+  # ─── AP-specific additions (no BIAN analog) ───────────────────────────────
+
+  ap_extensions:
+    - ap_operation_id: listPartyRelationshipAdministrativePlans
+      ap_path: "GET /onboarding-cases"
+      rationale: >
+        Analyst review queue list — no direct BIAN analog. Required to support UC-004
+        (KYC_ANALYST browses cases in REVIEW_REQUIRED state). Tagged as Query extension.
+
+  # ─── Selected channels (AsyncAPI) ─────────────────────────────────────────
+
+  selected_channels: []
+  selected_messages: []
+
+  # ─── Selected schemas ────────────────────────────────────────────────────
+
+  selected_schemas:
+    - bian_schema: PartyRelationshipAdministrativePlan
+      ap_schema: InitiatePartyRelationshipAdministrativePlanRequest
+      usage: request_body
+      fields_used: [CustomerReference, PartyReference, PartyLife-cycleMaintenanceTaskType]
+    - bian_schema: PartyRelationshipAdministrativePlan
+      ap_schema: PartyRelationshipAdministrativePlanResponse
+      usage: response_body
+      fields_used: [CustomerReference, PartyRelationshipLifecycleStatus, PartyRelationshipLifecyclePhase, PartyLife-cycleMaintenanceTaskResult]
+    - bian_schema: PartyRelationshipAdministrativePlan
+      ap_schema: ControlPartyRelationshipAdministrativePlanRequest
+      usage: request_body
+      fields_used: [PartyLife-cycleMaintenanceTaskType, PartyLife-cycleMaintenanceTaskResult]
+    - bian_schema: Documentation
+      ap_schema: ExecuteDocumentationRequest
+      usage: request_body
+      fields_used: [PartyLife-cycleRequiredDocumentation, DocumentDirectoryEntryInstanceReference]
+    - bian_schema: Documentation
+      ap_schema: DocumentationResponse
+      usage: response_body
+      fields_used: [PartyLife-cycleRequiredDocumentation, DocumentDirectoryEntryInstanceReference]
+    - bian_schema: Qualification
+      ap_schema: QualificationResponse
+      usage: response_body
+      fields_used: [QualificationType, SpecialistAgencyRegulatorServiceRequestResult, QualificationTaskWorkProducts, SpecialistAgencyServiceReference]
+    - bian_schema: IdentityProofing
+      ap_schema: IdentityProofingResponse
+      usage: response_body
+      fields_used: [IdentityProofingType, SpecialistAgencyServiceRequestResult, DocumentDirectoryEntryInstanceReference, IdentityProofingTaskWorkProducts]
+    - bian_schema: Party
+      ap_schema: PartyReference
+      usage: nested_schema
+      fields_used: [PartyName, PartyType, PartyIdentification]
+    - bian_schema: Partyidentification
+      ap_schema: PartyIdentification
+      usage: nested_schema
+      fields_used: [PartyIdentificationType, PartyIdentification]
+    - bian_schema: PartyRelationshipLifecyclePhase
+      ap_schema: PartyRelationshipLifecyclePhase
+      usage: nested_schema
+      fields_used: [PhaseName, IsCurrentPhase, PhaseStatus]
+    - bian_schema: Status
+      ap_schema: PartyRelationshipAdministrativePlanStatusEnum
+      usage: enum_derived
+      fields_used: [StatusReason]
+
+  # ─── Omitted paths ───────────────────────────────────────────────────────
+
+  omitted_paths:
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Update"
+      reason: "CR update not needed — lifecycle is managed via state machine; partial updates via Control"
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Exchange"
+      reason: "Exchange behavior replaced by async event model (OnboardingStatusChanged → NOTIFICATION_SERVICE)"
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Execute"
+      reason: "Direct CR Execute not exposed; validation is triggered internally after document submission"
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Request"
+      reason: "Manual intervention request not applicable — handled via Control behavior (analyst review)"
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Update"
+      reason: "Document update not needed — documents are immutable once submitted"
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Request"
+      reason: "Manual document request not needed in this workflow"
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Retrieve"
+      reason: "Document status retrieved via CustomerIdentityAPI (delegate); not duplicated here"
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Precedents/{precedentsid}/Update"
+      reason: "Customer precedents management is out of scope for onboarding MVP"
+    - bian_path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Precedents/{precedentsid}/Retrieve"
+      reason: "Customer precedents retrieval is out of scope for onboarding MVP"
+
+  # ─── Omitted operations ───────────────────────────────────────────────────
+
+  omitted_operations:
+    - bian_operation_id: Update
+      reason: "See omitted_paths: /Update"
+    - bian_operation_id: Exchange
+      reason: "Replaced by async event adapter (OnboardingStatusChanged); BIAN Exchange is synchronous"
+    - bian_operation_id: Execute
+      reason: "Validation execution is internal; not exposed as a CR-level operation"
+    - bian_operation_id: Request
+      reason: "Not applicable — covered by Control (analyst review)"
+    - bian_operation_id: UpdateDocumentation
+      reason: "Documents are immutable after submission"
+    - bian_operation_id: RequestDocumentation
+      reason: "Not needed — document handling is direct via executeDocumentation"
+    - bian_operation_id: RetrieveDocumentation
+      reason: "Document status delegated to CustomerIdentityAPI"
+    - bian_operation_id: UpdatePrecedents
+      reason: "Out of scope for MVP"
+    - bian_operation_id: RetrievePrecedents
+      reason: "Out of scope for MVP"
+
+  # ─── Omitted schemas ─────────────────────────────────────────────────────
+
+  omitted_schemas:
+    reason_Precedents: "Precedents sub-behavior out of scope for MVP"
+    reason_PartyPrecedent: "Precedents sub-behavior out of scope for MVP"
+    reason_Log: "Customer precedent profile update log — out of scope"
+    reason_Action: "Event action tracking — replaced by audit_entries table in AP persistence"
+    reason_Assessment: "Assessment schema — not needed in onboarding MVP; KYC result uses Qualification directly"
+    reason_Model: "Model schema — not applicable to onboarding use case"
+    reason_Workproduct: "WorkProduct schema — captured internally; not exposed in AP contract"
+    reason_Schedule: "Schedule schema — onboarding is on-demand; no schedule applicable"
+    reason_Instruction: "Instruction schema — not applicable; Control behavior adapted with simplified request"
+
+  # ─── Field mappings ──────────────────────────────────────────────────────
+
+  field_mappings:
+    - bian_field: "PartyRelationshipAdministrativePlan.CustomerReference (Involvedparty.PartyReference)"
+      ap_field: "PartyRelationshipAdministrativePlanResponse.customer_id"
+      type_adaptation: "Involvedparty object → UUID scalar (AP references CustomerProfileAPI id directly)"
+    - bian_field: "PartyRelationshipAdministrativePlan.PartyRelationshipLifecycleStatus (Status)"
+      ap_field: "PartyRelationshipAdministrativePlanResponse.party_relationship_lifecycle_status"
+      type_adaptation: "Status object → AP enum (INITIATED|DOCS_SUBMITTED|UNDER_VALIDATION|REVIEW_REQUIRED|APPROVED|REJECTED)"
+    - bian_field: "PartyRelationshipAdministrativePlan.PartyLife-cycleMaintenanceTaskType"
+      ap_field: "InitiatePartyRelationshipAdministrativePlanRequest.party_lifecycle_maintenance_task_type"
+      type_adaptation: "Free text → AP enum (digital_kyc_onboarding | analyst_review_decision)"
+    - bian_field: "PartyRelationshipAdministrativePlan.PartyLife-cycleMaintenanceTaskResult"
+      ap_field: "ControlPartyRelationshipAdministrativePlanRequest.party_lifecycle_maintenance_task_result"
+      type_adaptation: "Free text → AP enum (APPROVED | REJECTED)"
+    - bian_field: "Party.PartyName"
+      ap_field: "PartyReference.party_name"
+      type_adaptation: "Name object → String (PII — encrypted at rest)"
+    - bian_field: "Partyidentification.PartyIdentification"
+      ap_field: "PartyIdentification.party_identification_value"
+      type_adaptation: "Direct string mapping (PII — encrypted at rest)"
+    - bian_field: "Documentation.PartyLife-cycleRequiredDocumentation"
+      ap_field: "ExecuteDocumentationRequest.party_lifecycle_required_documentation"
+      type_adaptation: "Free text → AP enum (CEDULA | PASAPORTE | OTRO)"
+    - bian_field: "Documentation.DocumentDirectoryEntryInstanceReference"
+      ap_field: "ExecuteDocumentationRequest.document_directory_entry_instance_reference"
+      type_adaptation: "Direct UUID reference (BIAN field name preserved)"
+    - bian_field: "Qualification.SpecialistAgencyRegulatorServiceRequestResult"
+      ap_field: "QualificationResponse.specialist_agency_regulator_service_request_result"
+      type_adaptation: "Free text → AP enum (CLEAR | MATCH | PENDING | ERROR)"
+    - bian_field: "IdentityProofing.SpecialistAgencyServiceRequestResult"
+      ap_field: "IdentityProofingResponse.specialist_agency_service_request_result"
+      type_adaptation: "Free text → AP enum (PASSED | FAILED | PENDING | ERROR)"
+
+  adaptation_rationale: >
+    The kyc-onboarding-api contract is structurally derived from BIAN PartyLifecycleManagement
+    Release 14. The primary Control Record (PartyRelationshipAdministrativePlan) and four
+    sub-behaviors (Documentation, Qualification, IdentityProofing, Control) are adapted to
+    the Produbanco AP digital KYC onboarding context.
+
+    Key adaptations:
+    1. Path simplification: BIAN verbose paths (/PartyLifecycleManagement/Initiate) adapted
+       to resource-oriented REST paths (/onboarding-cases) while preserving BIAN path parameter
+       naming convention ({partylifecyclemanagementid}, {documentationid}, etc.).
+    2. Status enum: BIAN open Status type constrained to AP onboarding lifecycle states
+       (6 values) with explicit BIAN behavior→AP state mapping documented in the enum description.
+    3. Field flattening: BIAN nested objects (Involvedparty, Party) adapted to AP scalar fields
+       (customer_id as UUID) while preserving BIAN field semantics in descriptions.
+    4. Exchange replaced by async: BIAN Exchange behavior (synchronous bilateral exchange) is
+       replaced by async event publication (OnboardingStatusChanged) via the outbox pattern —
+       a deliberate AP architectural decision for UC-005 notification.
+    5. PII handling: PartyName and PartyIdentification fields include explicit PII encryption
+       notices not present in BIAN baseline (BR-007 compliance).
+    6. AP extension: GET /onboarding-cases list endpoint added for analyst review queue
+       (UC-004 operational requirement) — no BIAN analog; tagged as Query extension.
+
+  validation_status: validated

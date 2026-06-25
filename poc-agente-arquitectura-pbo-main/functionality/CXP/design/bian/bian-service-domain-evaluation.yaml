@@ -1,0 +1,95 @@
+# Phase 1 Output: BIAN Service Domain Evaluation - Cuentas por Pagar (CXP)
+schema_version: "1.0"
+functionality_id: CXP
+phase: enterprise-capability-alignment
+generated_at: "2026-06-17"
+bian_release: "14.0.0"
+
+evaluation_summary:
+  status: completed
+  overall_fit: high
+  primary_sds_selected: 2
+  secondary_sds_selected: 3
+  adoption_approach: semantic_alignment
+  bian_gate_status: pass
+
+evaluations:
+  - service_domain: AccountsReceivable
+    selected: true
+    role: primary
+    local_cache: architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls/AccountsReceivable.yaml
+    fit_score: high
+    adoption_level: semantic_alignment
+    evidence:
+      control_record: AccountsReceivableProcedure
+      behavior_qualifiers: [Fulfill, Update, Retrieve, Notify]
+    mapped_capabilities: [CAP-CXP-001, CAP-CXP-004]
+    mapped_use_cases: [UC-CXP-001, UC-CXP-002, UC-CXP-003, UC-CXP-006]
+    semantic_adaptations:
+      - from: AccountsReceivableProcedure
+        to: InvoiceLifecycleProcedure
+      - from: "Debtor (owes money to org)"
+        to: "Organization (owes money to Supplier)"
+
+  - service_domain: Disbursement
+    selected: true
+    role: primary
+    local_cache: architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls/Disbursement.yaml
+    fit_score: high
+    adoption_level: semantic_alignment
+    evidence:
+      control_record: DisbursementProcedure
+      behavior_qualifiers: [Initiate, Update, Retrieve, Exchange]
+    mapped_capabilities: [CAP-CXP-002]
+    mapped_use_cases: [UC-CXP-004, UC-CXP-005, UC-CXP-007]
+    semantic_adaptations:
+      - from: DisbursementTransaction
+        to: PaymentOrder
+      - from: DisbursementProcedure
+        to: PaymentSchedule
+
+  - service_domain: FinancialAccounting
+    selected: true
+    role: secondary
+    local_cache: architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls/FinancialAccounting.yaml
+    fit_score: high
+    adoption_level: reference
+    evidence:
+      control_record: FinancialBooksProcedure
+      behavior_qualifiers: [LedgerPosting]
+    mapped_capabilities: [CAP-CXP-003]
+    semantic_adaptations:
+      - from: LedgerPosting
+        to: AccountingEntry
+
+  - service_domain: ContractorandSupplierAgreement
+    selected: true
+    role: secondary
+    local_cache: architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls/ContractorandSupplierAgreement.yaml
+    fit_score: medium
+    adoption_level: reference
+    evidence:
+      control_record: ContractorandSupplierAgreementProcedure
+    mapped_capabilities: [CAP-CXP-003]
+    gaps:
+      - "Solo se usa estructura de directorio de proveedores; no el dominio completo de acuerdos"
+
+  - service_domain: FinancialGateway
+    selected: true
+    role: secondary
+    local_cache: architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls/FinancialGateway.yaml
+    fit_score: high
+    adoption_level: reference
+    evidence:
+      control_record: FinancialGatewayProcedure
+      behavior_qualifiers: [Initiate, Retrieve, Notify]
+    mapped_capabilities: [CAP-CXP-003]
+    semantic_adaptations:
+      - from: FinancialGatewayTransaction
+        to: BankingPaymentOrder
+
+not_selected:
+  - service_domain: CreditManagement
+    reason: "No aplica; CXP no gestiona crédito a clientes"
+  - service_domain: CurrentAccount
+    reason: "No aplica; CXP no gestiona cuentas corrientes propias"

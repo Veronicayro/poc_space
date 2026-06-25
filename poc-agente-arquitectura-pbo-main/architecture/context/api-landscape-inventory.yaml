@@ -1,0 +1,405 @@
+# =============================================================================
+# API LANDSCAPE — INVENTARIO DE COMPONENTES POR CAPA
+# Versión: 1.0 | Fecha: 2026-06
+# =============================================================================
+#
+# PROPÓSITO: Inventario de todas las APIs disponibles por capa, con su
+# estado de reutilización para nuevas funcionalidades.
+# Este archivo NO contiene escenarios — solo el inventario base del catálogo.
+#
+# DECISIONES POSIBLES:
+#   reutilizar → cubre completamente el caso; usar tal cual
+#   extender   → cubre parcialmente; agregar endpoint/campo backward-compatible
+#   crear      → no existe; GAP confirmado en catálogo
+#
+# COBERTURA BIAN (solo aplica en capa domain):
+#   A = aligned   → cobertura completa del SD
+#   P = partial   → cobertura parcial del SD (faltan BQs o endpoints)
+#   N = no-match  → sin cobertura; capacidad propietaria o GAP
+# =============================================================================
+
+schema_version: "1.0"
+schema_id: api-landscape-inventory
+
+layers:
+
+  # ---------------------------------------------------------------------------
+  # CAPA DE EXPERIENCIA — BFF / Experience APIs
+  # Fuente de contrastación: catalog/domains/*.yaml (BFF/Channel APIs)
+  # ---------------------------------------------------------------------------
+  experience:
+
+    - api_name: ChannelSessionAPI
+      version: "v2.1"
+      capability: CAP-CHAN-001
+      action: reutilizar
+      reusable_endpoints:
+        - "POST /sessions"
+        - "DELETE /sessions/{id}"
+        - "GET /sessions/{id}"
+      catalog_ref: "catalog/domains/channels.yaml#ChannelSessionAPI"
+      notes: "BFF de autenticación y sesión digital. Cubre PartyAuthentication SD."
+
+    - api_name: CardManagementAPI         # actúa también como BFF en canal
+      version: "v1.5"
+      capability: CAP-CARD-001
+      action: reutilizar
+      reusable_endpoints:
+        - "GET /cards/{id}"
+        - "GET /cards/{id}/status"
+        - "POST /cards/{id}/block"
+        - "POST /cards/{id}/unblock"
+      catalog_ref: "catalog/domains/cards.yaml#CardManagementAPI"
+      notes: "BFF de tarjetas. Cobertura completa (cov:A) — reutilizar sin cambios."
+
+    - api_name: CustomerNotificationPreferencesAPI
+      version: "v1.1"
+      capability: CAP-CHAN-003
+      action: reutilizar
+      reusable_endpoints:
+        - "GET /customers/{id}/notification-preferences"
+        - "PUT /customers/{id}/notification-preferences"
+      catalog_ref: "catalog/domains/channels.yaml#CustomerNotificationPreferencesAPI"
+
+    - api_name: "[BFF genérico por funcionalidad]"
+      action: crear
+      notes: >
+        Cuando no existe BFF en catálogo para el flujo específico,
+        se crea una nueva Experience API siguiendo la convención:
+        pbco-bmo-api-experience-<flujo-kebab>
+
+  # ---------------------------------------------------------------------------
+  # CAPA DE NEGOCIO — Business/Process APIs (orquestación)
+  # Fuente de contrastación: catalog/domains/*.yaml (Process APIs)
+  # ---------------------------------------------------------------------------
+  business:
+
+    - api_name: CustomerProfileAPI
+      version: "v1.2"
+      capability: CAP-PARTY-001
+      action: reutilizar
+      reusable_endpoints:
+        - "GET /customers/{id}"
+        - "PUT /customers/{id}"
+        - "GET /customers"
+      extendable_with: []
+      catalog_ref: "catalog/domains/customers.yaml#CustomerProfileAPI"
+
+    - api_name: CustomerIdentityAPI
+      version: "v1.1"
+      capability: CAP-PARTY-002
+      action: reutilizar
+      reusable_endpoints:
+        - "POST /customers/{id}/identity-verification"
+        - "GET /customers/{id}/identity-status"
+      catalog_ref: "catalog/domains/customers.yaml#CustomerIdentityAPI"
+      notes: "Owner stateful de KYC lifecycle. Ver OVL-002."
+
+    - api_name: AccountManagementAPI
+      version: "v1.3"
+      capability: CAP-ACC-001
+      action: extender
+      reusable_endpoints:
+        - "GET /accounts/{id}"
+        - "GET /accounts"
+        - "POST /accounts"
+        - "PUT /accounts/{id}/status"
+      extendable_with:
+        - endpoint: "GET /accounts/{id}/summary"
+          rationale: >
+            Agrega saldo + últimos movimientos en un solo payload.
+            Backward-compatible (campo adicional opcional).
+      catalog_ref: "catalog/domains/accounts.yaml#AccountManagementAPI"
+      notes: "CAP-ACC-001 (cov:P) — orquesta CurrentAccount + SavingsAccount."
+
+    - api_name: PaymentsProcessingAPI
+      version: "v2.4"
+      capability: CAP-PAY-001
+      action: reutilizar
+      reusable_endpoints:
+        - "POST /payments"
+        - "GET /payments/{id}"
+        - "GET /payments"
+        - "POST /payments/{id}/cancel"
+      catalog_ref: "catalog/domains/payments.yaml#PaymentsProcessingAPI"
+      notes: "⚠ OVL-001: solapamiento con InstantTransfersAPI. Ver colisiones."
+
+    - api_name: InstantTransfersAPI
+      version: "v1.6"
+      capability: CAP-PAY-001
+      action: reutilizar
+      reusable_endpoints:
+        - "POST /transfers"
+        - "GET /transfers/{id}"
+      catalog_ref: "catalog/domains/payments.yaml#InstantTransfersAPI"
+      notes: "⚠ OVL-001: mismo SD que PaymentsProcessingAPI. Ejecutar Phase 0 antes de usar."
+
+    - api_name: LoanServicingAPI
+      version: "v2.2"
+      capability: CAP-LOAN-002
+      action: reutilizar
+      reusable_endpoints:
+        - "GET /loans/{id}"
+        - "GET /loans/{id}/schedule"
+        - "POST /loans/{id}/payment"
+      catalog_ref: "catalog/domains/loans.yaml#LoanServicingAPI"
+
+    - api_name: CreditApplicationAPI
+      version: "v1.3"
+      capability: CAP-LOAN-001
+      action: extender
+      reusable_endpoints:
+        - "POST /credit-applications"
+        - "GET /credit-applications/{id}"
+        - "PUT /credit-applications/{id}/status"
+      extendable_with:
+        - endpoint: "POST /credit-applications/{id}/submit-documents"
+          rationale: "Subida de documentos durante originación — no existe actualmente."
+      catalog_ref: "catalog/domains/loans.yaml#CreditApplicationAPI"
+
+    - api_name: NotificationDispatchAPI
+      version: "v1.7"
+      capability: CAP-CHAN-002
+      action: reutilizar
+      reusable_endpoints:
+        - "POST /notifications/dispatch"
+        - "GET /notifications/{id}/status"
+      catalog_ref: "catalog/domains/channels.yaml#NotificationDispatchAPI"
+      notes: "Capacidad propietaria — sin SD BIAN (cov:N). Cloud-native."
+
+    - api_name: "[Business API nueva por funcionalidad]"
+      action: crear
+      notes: >
+        Cuando no existe orquestación en catálogo para la capacidad de negocio,
+        se crea siguiendo la convención:
+        pbco-bmo-api-business-<capacidad-kebab>
+
+  # ---------------------------------------------------------------------------
+  # CAPA DE DOMINIO — Domain APIs alineadas a BIAN R14 Service Domains
+  # Fuente de contrastación: catalog/bian-capability-index.yaml
+  # ---------------------------------------------------------------------------
+  domain:
+
+    - api_name: AccountTransactionsAPI
+      version: "v2.1"
+      service_domain: PositionKeeping
+      bian_capability: CAP-ACC-002
+      bian_coverage: A
+      action: reutilizar
+      reusable_endpoints:
+        - "GET /accounts/{id}/transactions"
+        - "GET /accounts/{id}/transactions/{txId}"
+      bian_baseline_ref: "architecture/cache/bian/release14.0.0/index/PositionKeeping.json"
+      catalog_ref: "catalog/domains/accounts.yaml#AccountTransactionsAPI"
+
+    - api_name: AccountManagementAPI      # también en capa domain como SD CurrentAccount
+      version: "v1.3"
+      service_domain: CurrentAccount
+      bian_capability: CAP-ACC-001
+      bian_coverage: P
+      action: extender
+      reusable_endpoints:
+        - "GET /accounts/{id}"
+        - "GET /accounts"
+      extendable_with:
+        - endpoint: "GET /current-accounts/{crRef}/retrieve"
+          bian_operation: Retrieve
+          rationale: >
+            Exponer el BQ CurrentAccountFulfillmentArrangement que falta
+            en la cobertura actual (cov:P).
+      bian_baseline_ref: "architecture/cache/bian/release14.0.0/index/CurrentAccount.json"
+      catalog_ref: "catalog/domains/accounts.yaml#AccountManagementAPI"
+
+    - api_name: StatementDeliveryAPI
+      version: "v1.0"
+      service_domain: Correspondence
+      bian_capability: CAP-ACC-003
+      bian_coverage: P
+      action: extender
+      reusable_endpoints:
+        - "GET /statements/{id}"
+        - "POST /statements/generate"
+      extendable_with:
+        - endpoint: "GET /statements/{id}/download-url"
+          rationale: "URL firmada para descarga digital — extensión propietaria no cubierta por BIAN."
+      catalog_ref: "catalog/domains/accounts.yaml#StatementDeliveryAPI"
+
+    - api_name: CardAuthorizationAPI
+      version: "v2.0"
+      service_domain: CardAuthorization
+      bian_capability: CAP-CARD-002
+      bian_coverage: A
+      action: reutilizar
+      reusable_endpoints:
+        - "POST /card-authorizations"
+        - "GET /card-authorizations/{id}"
+        - "POST /card-authorizations/{id}/reverse"
+      catalog_ref: "catalog/domains/cards.yaml#CardAuthorizationAPI"
+
+    - api_name: FXRatesAPI
+      version: "v1.4"
+      service_domain: CurrencyExchange
+      bian_capability: CAP-PAY-004
+      bian_coverage: P
+      action: reutilizar
+      reusable_endpoints:
+        - "GET /fx-rates/{currencyPair}"
+        - "GET /fx-rates"
+      catalog_ref: "catalog/domains/payments.yaml#FXRatesAPI"
+
+    - api_name: KYCScreeningAPI
+      version: "v3.0"
+      service_domain: PartyLifecycleManagement
+      bian_capability: CAP-COMP-001
+      bian_coverage: P
+      action: reutilizar
+      reusable_endpoints:
+        - "POST /kyc-screenings"
+        - "GET /kyc-screenings/{id}"
+        - "GET /kyc-screenings/{id}/result"
+      catalog_ref: "catalog/domains/compliance.yaml#KYCScreeningAPI"
+      notes: "Evaluador stateless KYC. Ver OVL-002."
+
+    - api_name: FraudDecisioningAPI
+      version: "v1.8"
+      service_domain: FraudEvaluation
+      bian_capability: CAP-RISK-001
+      bian_coverage: A
+      action: reutilizar
+      reusable_endpoints:
+        - "POST /fraud-evaluations"
+        - "GET /fraud-evaluations/{id}"
+      bian_baseline_ref: "architecture/cache/bian/release14.0.0/index/FraudEvaluation.json"
+      catalog_ref: "catalog/domains/risk.yaml#FraudDecisioningAPI"
+
+    - api_name: CreditDecisioningAPI
+      version: "v2.0"
+      service_domain: CustomerCreditRating
+      bian_capability: CAP-RISK-003
+      bian_coverage: A
+      action: reutilizar
+      reusable_endpoints:
+        - "POST /credit-decisions"
+        - "GET /credit-decisions/{id}"
+        - "GET /customers/{id}/credit-rating"
+      catalog_ref: "catalog/domains/risk.yaml#CreditDecisioningAPI"
+      notes: "⚠ OVL-003: mismo SD que CustomerRiskScoringAPI. Verificar límites de responsabilidad."
+
+    - api_name: DisbursementAPI
+      version: "v1.1"
+      service_domain: Disbursement
+      bian_capability: CAP-LOAN-003
+      bian_coverage: A
+      action: reutilizar
+      reusable_endpoints:
+        - "POST /disbursements"
+        - "GET /disbursements/{id}"
+        - "PUT /disbursements/{id}/confirm"
+      catalog_ref: "catalog/domains/loans.yaml#DisbursementAPI"
+
+    # --- GAPS — Service Domains sin cobertura en catálogo → acción: crear ---
+
+    - api_name: "[pbco-api-domain-standingorder]"
+      service_domain: StandingOrder
+      bian_capability: GAP-001
+      bian_coverage: N
+      action: crear
+      bian_baseline_ref: "architecture/cache/bian/release14.0.0/index/StandingOrder.json"
+      notes: "Sin cobertura. Pagos programados/recurrentes — debe crearse desde cero."
+
+    - api_name: "[pbco-api-domain-servicing-mandate]"
+      service_domain: ServicingMandate
+      bian_capability: GAP-002
+      bian_coverage: N
+      action: crear
+      notes: "Sin cobertura. Open Banking / PSD2 TPP — debe crearse desde cero."
+
+    - api_name: "[pbco-api-domain-termdeposit]"
+      service_domain: TermDeposit
+      bian_capability: GAP-003
+      bian_coverage: N
+      action: crear
+      bian_baseline_ref: "architecture/cache/bian/release14.0.0/index/TermDeposit.json"
+      notes: "Sin cobertura. Depósito a Plazo Fijo — debe crearse desde cero."
+
+  # ---------------------------------------------------------------------------
+  # CAPA DE SOPORTE — Adaptadores / ACL a sistemas legados y externos
+  # Fuente de contrastación: discovery/integration-inventory.yaml
+  # ---------------------------------------------------------------------------
+  support:
+
+    - api_name: pbco-adp-core-accounts
+      pattern: Adapter/ACL
+      target_system: CoreBancario
+      legacy_operations:
+        - ObtenerCuentas
+        - ObtenerMovimientos
+        - ConsultarSaldo
+      action: reutilizar
+      notes: "Adaptador SOAP→REST al módulo de cuentas del core bancario. Existente."
+
+    - api_name: pbco-adp-core-payments
+      pattern: Adapter/ACL
+      target_system: CoreBancario
+      legacy_operations:
+        - ProcesarPago
+        - ConsultarEstadoPago
+        - RevertirPago
+      action: reutilizar
+      notes: "Adaptador al módulo de pagos del core. Existente."
+
+    - api_name: pbco-adp-core-loans
+      pattern: Adapter/ACL
+      target_system: CoreBancario
+      legacy_operations:
+        - ConsultarPrestamo
+        - RegistrarPago
+        - DesembolsarPrestamo
+      action: reutilizar
+      notes: "Adaptador al módulo de créditos del core. Existente."
+
+    - api_name: pbco-adp-notification-gateway
+      pattern: Adapter/ACL
+      target_system: NotificationGateway
+      external_operations:
+        - SendPushNotification
+        - SendSMS
+        - SendEmail
+      action: reutilizar
+      notes: "Adaptador a proveedor cloud de notificaciones (ej. Firebase/AWS SNS). Existente."
+
+    - api_name: pbco-adp-kyc-provider
+      pattern: Adapter/ACL
+      target_system: KYCProvider
+      external_operations:
+        - VerifyIdentity
+        - CheckPEP
+        - CheckSanctions
+      action: reutilizar
+      notes: "Adaptador a proveedor externo de verificación de identidad. Existente."
+
+    - api_name: "[pbco-adp-<sistema>-<dominio>]"
+      action: crear
+      notes: >
+        Cuando no existe adaptador para el sistema legado requerido,
+        se crea siguiendo la convención:
+        pbco-adp-<sistema-kebab>-<dominio-kebab>
+
+# =============================================================================
+# COLISIONES ACTIVAS — Verificar antes de reutilizar o extender
+# =============================================================================
+collisions_active:
+  - id: OVL-001
+    severity: HIGH
+    apis: [PaymentsProcessingAPI, InstantTransfersAPI]
+    action: "Ejecutar Phase 0 antes de agregar cualquier API de pagos"
+
+  - id: OVL-002
+    severity: MEDIUM
+    apis: [CustomerIdentityAPI, KYCScreeningAPI]
+    action: "CustomerIdentityAPI=owner stateful; KYCScreeningAPI=evaluador stateless"
+
+  - id: OVL-003
+    severity: MEDIUM
+    apis: [CreditDecisioningAPI, CustomerRiskScoringAPI]
+    action: "Alinear modelo de datos — decisión puntual vs. perfil continuo"

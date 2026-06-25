@@ -1,0 +1,76 @@
+# component.yaml — credit-bureau-adapter-api
+# Layer: Support | External: Bureau de Crédito (Equifax/TransUnion/Experian)
+component_id: COMP-LON-SUP-001
+name: credit-bureau-adapter-api
+functionality_id: LON
+layer: support
+type: Integration Adapter
+version: "1.0.0"
+status: design_complete
+generated_at: "2026-06-17"
+
+description: >
+  Adaptador de integración con el Bureau de Crédito externo. Abstrae la
+  comunicación con proveedores (Equifax, TransUnion, Experian), gestiona
+  el caché Redis TTL 24h para reducir costos de consulta, e implementa
+  retry y circuit breaker para resiliencia.
+
+responsibilities:
+  - Abstraer comunicación con proveedores de bureau
+  - Gestionar caché Redis Cache-Aside con TTL 24h por cliente
+  - Implementar retry con backoff exponencial (máx 3 reintentos)
+  - Implementar circuit breaker (umbral: 5 fallos en 30s)
+  - Transformar formatos externos a DTOs internos de LON
+
+technology:
+  runtime: "Node.js (Express) / Java (Spring Boot)"
+  cache: Redis (TTL 86400s)
+  patterns:
+    - Adapter Pattern
+    - Cache-Aside Pattern
+    - Circuit Breaker
+    - Retry with Exponential Backoff
+
+api:
+  style: REST
+  versioning: URI (/v1)
+  base_path: /v1
+
+key_endpoints:
+  - "GET /v1/credit-reports/{customerId}"
+  - "POST /v1/credit-reports/query"
+  - "DELETE /v1/credit-reports/{customerId}/cache"
+
+external_system:
+  name: Bureau de Crédito
+  providers: [Equifax, TransUnion, Experian]
+  integration_type: "REST API / Synchronous"
+  latency_range_ms: "200-800"
+
+cache:
+  technology: Redis
+  key: "bureau_report:{customerId}"
+  ttl_seconds: 86400
+  invalidation: "Manual via DELETE endpoint (requiere justificación)"
+  fallback: "Consulta directa al bureau si Redis no disponible"
+
+resilience:
+  circuit_breaker:
+    threshold: 5
+    window_seconds: 30
+  retry:
+    max_attempts: 3
+    backoff: exponential
+  timeout_ms: 800
+
+consumers:
+  - risk-assessment-api
+
+security:
+  authentication: "API Key / OAuth2 client credentials hacia bureau externo"
+  internal_auth: "JWT Bearer (inter-service)"
+
+nfr:
+  cost_optimization: "Reducción de consultas al bureau vía caché"
+  sla_cache_hit_ms: 10
+  sla_cache_miss_ms: 800

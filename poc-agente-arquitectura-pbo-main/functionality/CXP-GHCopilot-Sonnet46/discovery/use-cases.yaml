@@ -1,0 +1,50 @@
+schema_version: "1.0"
+functionality_id: CXP-GHCopilot-Sonnet46
+source: problem-statement-input
+
+use_cases:
+  - id: HU-CXP-001
+    title: Registrar factura
+    actor: Analista Financiero
+    description: Registrar una factura de proveedor en el sistema
+    acceptance_criteria:
+      - Debe validar proveedor existente
+      - Debe prevenir duplicados por número de factura
+      - Estado inicial = PENDING
+
+  - id: HU-CXP-002
+    title: Aprobar factura
+    actor: Gerente Financiero
+    description: Aprobar una factura previamente registrada
+    acceptance_criteria:
+      - Solo facturas en estado PENDING pueden aprobarse
+      - Debe registrarse usuario y timestamp
+      - Transición a estado APPROVED
+
+  - id: HU-CXP-003
+    title: Programar pago
+    actor: Tesorero
+    description: Programar el pago de una factura aprobada
+    acceptance_criteria:
+      - Solo facturas APPROVED pueden programarse
+      - Debe definirse fecha de pago
+      - Estado cambia a SCHEDULED
+
+actors:
+  - id: ANALYST
+    name: Analista Financiero
+    description: Responsable del registro inicial y validación de facturas
+    permissions: [create_invoice, view_invoice, edit_invoice]
+    channels: [Web]
+
+  - id: MANAGER
+    name: Gerente Financiero
+    description: Responsable de la aprobación o rechazo de facturas
+    permissions: [approve_invoice, reject_invoice, view_invoice]
+    channels: [Web]
+
+  - id: TREASURER
+    name: Tesorero
+    description: Responsable de la programación y ejecución del pago
+    permissions: [schedule_payment, execute_payment, view_payment_status]
+    channels: [Web]

@@ -1,0 +1,1086 @@
+# =============================================================================
+# BIAN Capability Alignment Map — GlobalBank Mock API Catalog
+# =============================================================================
+#
+# Purpose:
+#   Maps every API product in catalog/domains/*.yaml to its corresponding
+#   BIAN R14 Service Domain and enterprise capability area. Enables:
+#     - Pre-implementation collision detection (does this capability already exist?)
+#     - Governance decisions (REUSE / EXTEND / CREATE)
+#     - TOGAF-aligned capability model for the bank's API landscape
+#
+# Framework references:
+#   - BIAN Release 14.0.0  (258 Service Domains, cached locally)
+#   - TOGAF 10 (Business Architecture: Capability Map)
+#   - Catalog source: catalog/api-catalog-index.yaml
+#
+# Coverage legend:
+#   aligned   -> API maps cleanly to one BIAN SD; contract should derive from it
+#   partial   -> API partially covered; some operations fall outside BIAN scope
+#   no-match  -> No BIAN SD covers this capability; treat as proprietary
+#
+# Overlap risk:
+#   HIGH   -> Two or more APIs target the same BIAN SD — review for duplication
+#   MEDIUM -> Partial semantic overlap; monitor as catalog evolves
+#   LOW    -> No significant overlap detected
+#   NONE   -> No BIAN reference; overlap not applicable
+# =============================================================================
+
+meta:
+  catalog_id: "gbank-mock-api-catalog"
+  catalog_version: "2026-06"
+  bian_release: "14.0.0"
+  framework: "TOGAF 10 + BIAN Release 14"
+  generated: "2026-06-23"
+  maintainer: "Enterprise Architecture / API Governance"
+  source_index: "catalog/api-catalog-index.yaml"
+  total_capabilities: 20
+  total_catalog_apis: 22
+  aligned_count: 8
+  partial_count: 10
+  no_match_count: 2
+
+# =============================================================================
+# SECTION 1 — Enterprise Capability Areas
+#
+# Structure (top-down):
+#   capability_area  (TOGAF Business Capability Group)
+#     capability     (BIAN Service Domain level)
+#       catalog_apis (implementation references in this catalog)
+# =============================================================================
+
+capability_areas:
+
+  # ---------------------------------------------------------------------------
+  # 1. PARTY & CUSTOMER MANAGEMENT
+  #    BIAN Business Area: Business Development > Party Management
+  #    Catalog domain: Customers
+  # ---------------------------------------------------------------------------
+  - area_id: "CAP-PARTY"
+    area_name: "Party & Customer Management"
+    bian_business_area: "Business Development"
+    togaf_layer: "Business"
+    catalog_domain: "Customers"
+    description: >
+      Gestión del ciclo de vida completo del cliente (persona natural y juridica):
+      datos maestros, identidad, verificacion KYC y consentimientos regulatorios.
+      Capacidad fundacional: todas las areas de producto dependen de ella.
+
+    capabilities:
+
+      - capability_id: "CAP-PARTY-001"
+        capability_name: "Customer Profile & Master Data"
+        description: >
+          Creacion y mantenimiento del perfil del cliente: datos demograficos,
+          contacto, direcciones y preferencias. Fuente unica de verdad (party
+          reference data) consumida por productos, canales y compliance.
+        bian_service_domain: "PartyReferenceDataDirectory"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyReferenceDataDirectory.yaml"
+        bian_sd_description: >
+          Maintains party reference information: general reference details,
+          contacts, associations and demographic information.
+        bian_coverage: partial
+        overlap_risk: MEDIUM
+        governance_note: >
+          Datos demograficos pertenecen a PartyRefereVnceDataDirectory.
+          El estado KYC/lifecycle del cliente corresponde a PartyLifecycleManagement.
+          Esta API combina ambos conceptos BIAN en un unico contrato; evaluar separacion
+          en futuras versiones. Posible solapamiento con CustomerIdentityAPI.
+        catalog_apis:
+          - api_ref: "Customers/CustomerOnboarding/CustomerProfileAPI"
+            api_version: "1.2.0"
+            criticality: "Tier 1"
+            key_operations: ["POST /customers", "GET /customers/{id}", "PATCH /customers/{id}", "GET/POST /customers/{id}/addresses"]
+
+      - capability_id: "CAP-PARTY-002"
+        capability_name: "Customer Identity & Lifecycle Verification"
+        description: >
+          Registro y verificacion de documentos de identidad, validacion biometrica
+          y estado SCA del cliente. Cubre el ciclo de vida KYC desde el onboarding
+          hasta la re-verificacion periodica exigida por regulacion.
+        bian_service_domain: "PartyLifecycleManagement"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+        bian_sd_description: >
+          Tracks the state of a party relationship from initial checks (KYC, AML,
+          regulatory compliance) through the full duration of the relationship.
+        bian_coverage: aligned
+        overlap_risk: MEDIUM
+        governance_note: >
+          Match directo con PartyLifecycleManagement. Monitorear solapamiento con
+          KYCScreeningAPI (Compliance/KYC) que invoca el mismo SD desde el lado
+          operativo. Estos dos APIs son complementarios: CustomerIdentityAPI gestiona
+          el estado, KYCScreeningAPI ejecuta el screening puntual.
+        catalog_apis:
+          - api_ref: "Customers/CustomerOnboarding/CustomerIdentityAPI"
+            api_version: "1.1.0"
+            criticality: "Tier 0"
+            key_operations: ["GET /customers/{id}/identities", "POST /customers/{id}/identities", "POST /customers/{id}/identities/{id}/verify"]
+
+      - capability_id: "CAP-PARTY-003"
+        capability_name: "Customer Consent & Privacy Management"
+        description: >
+          Gestion de consentimientos digitales del cliente: open banking, marketing,
+          data sharing y revocaciones. Incluye registro de auditoria de consentimientos
+          exigido por normativas de privacidad (GDPR-like).
+        bian_service_domain: "CustomerAgreement"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/CustomerAgreement.yaml"
+        bian_sd_description: >
+          Maintains the master customer agreement/legal contract, linked to all
+          in-force product agreements.
+        bian_coverage: partial
+        overlap_risk: LOW
+        governance_note: >
+          BIAN CustomerAgreement cubre contratos maestros del cliente pero no modela
+          consentimientos digitales granulares (push/marketing/data-sharing).
+          Esta capacidad tiene componente propietario significativo. Se recomienda
+          extender el modelo BIAN para incluir consentimiento digital.
+        catalog_apis:
+          - api_ref: "Customers/CustomerOnboarding/CustomerConsentAPI"
+            api_version: "2.0.0"
+            criticality: "Tier 1"
+            key_operations: ["GET /customers/{id}/consents", "POST /customers/{id}/consents", "DELETE /customers/{id}/consents/{id}"]
+
+  # ---------------------------------------------------------------------------
+  # 2. DEPOSIT & ACCOUNT MANAGEMENT
+  #    BIAN Business Area: Retail Products > Deposits
+  #    Catalog domain: Accounts
+  # ---------------------------------------------------------------------------
+  - area_id: "CAP-ACCOUNTS"
+    area_name: "Deposit & Account Management"
+    bian_business_area: "Retail Products"
+    togaf_layer: "Business"
+    catalog_domain: "Accounts"
+    description: >
+      Apertura, mantenimiento y consulta de cuentas deposito (corriente y ahorro):
+      saldos, transacciones, extractos y limites operativos. Capa de producto
+      central del banco retail.
+
+    capabilities:
+
+      - capability_id: "CAP-ACC-001"
+        capability_name: "Account Servicing & Lifecycle"
+        description: >
+          Apertura, modificacion de estado, gestion de titulares y limites de cuentas
+          corrientes y de ahorro. Puerta de entrada al core bancario para operaciones
+          de deposito.
+        bian_service_domain: "CurrentAccount"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/CurrentAccount.yaml"
+        bian_sd_description: >
+          Orchestrates a consumer checking/demand deposit account. Covers payments,
+          deposits, standing orders, sweeps, liens, check and debit card access.
+        bian_coverage: partial
+        overlap_risk: LOW
+        governance_note: >
+          Un unico API cubre tanto CurrentAccount como SavingsAccount (dos Service
+          Domains BIAN distintos). Valido para una API de experiencia unificada, pero
+          los contratos de dominio deben derivarse de cada SD por separado.
+          Segundo SD aplicable: SavingsAccount.
+        secondary_bian_sd: "SavingsAccount"
+        catalog_apis:
+          - api_ref: "Accounts/AccountServicing/AccountManagementAPI"
+            api_version: "1.3.0"
+            criticality: "Tier 0"
+            key_operations: ["POST /accounts", "GET /accounts", "GET /accounts/{id}", "PATCH /accounts/{id}"]
+
+      - capability_id: "CAP-ACC-002"
+        capability_name: "Transaction Ledger & History"
+        description: >
+          Consulta de transacciones contabilizadas, preautorizaciones y movimientos
+          pendientes. Provee el registro de posicion financiera del cliente por cuenta,
+          con soporte a exportacion y categorizacion.
+        bian_service_domain: "PositionKeeping"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/PositionKeeping.yaml"
+        bian_sd_description: >
+          Maintains a log of monetary or value transactions and entitlements posted
+          to product facilities. Reconciled transactions used for accounting posting.
+        bian_coverage: aligned
+        overlap_risk: LOW
+        governance_note: >
+          Match semantico con PositionKeeping para el registro de transacciones.
+          AccountReconciliation es un SD complementario para reconciliacion periodica.
+        catalog_apis:
+          - api_ref: "Accounts/AccountServicing/AccountTransactionsAPI"
+            api_version: "2.1.0"
+            criticality: "Tier 1"
+            key_operations: ["GET /accounts/{id}/transactions", "GET /accounts/{id}/transactions/{txId}"]
+
+      - capability_id: "CAP-ACC-003"
+        capability_name: "Statement Generation & Delivery"
+        description: >
+          Generacion bajo demanda y entrega de extractos de cuenta (eStatement PDF),
+          con notificacion al cliente y archivado regulatorio. Reemplaza los extractos
+          fisicos por un canal digital auditado.
+        bian_service_domain: "Correspondence"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/Correspondence.yaml"
+        bian_sd_description: >
+          Orchestrates the production of pre-formatted correspondence and batches
+          of correspondence.
+        bian_coverage: partial
+        overlap_risk: LOW
+        governance_note: >
+          BIAN Correspondence modela correspondencia formal batch. La generacion
+          on-demand de extractos digitales con URLs firmadas es una extension
+          propietaria. DocumentServices es un SD complementario aplicable.
+        secondary_bian_sd: "DocumentServices"
+        catalog_apis:
+          - api_ref: "Accounts/AccountServicing/StatementDeliveryAPI"
+            api_version: "1.0.0"
+            criticality: "Tier 2"
+            key_operations: ["POST /accounts/{id}/statements", "GET /accounts/{id}/statements", "GET /accounts/{id}/statements/{id}/download"]
+
+  # ---------------------------------------------------------------------------
+  # 3. PAYMENTS & TRANSFERS
+  #    BIAN Business Area: Retail Products > Payments
+  #    Catalog domain: Payments
+  # ---------------------------------------------------------------------------
+  - area_id: "CAP-PAYMENTS"
+    area_name: "Payments & Transfers"
+    bian_business_area: "Retail Products"
+    togaf_layer: "Business"
+    catalog_domain: "Payments"
+    description: >
+      Iniciacion, enrutamiento y trazabilidad de pagos domesticos e internacionales,
+      transferencias instantaneas, gestion de beneficiarios, limites transaccionales
+      y tipos de cambio (FX). Area critica Tier 0 del banco.
+
+    capabilities:
+
+      - capability_id: "CAP-PAY-001"
+        capability_name: "Payment Initiation & Processing"
+        description: >
+          Iniciacion de pagos ISO 20022 con ciclo de vida completo: validacion,
+          enrutamiento al rail (ACH/SWIFT/local), seguimiento de estado y cancelacion.
+          Soporta pagos domesticos e internacionales.
+        bian_service_domain: "PaymentOrderInitiation"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/PaymentOrderInitiation.yaml"
+        bian_sd_description: >
+          Provides a customer payment service. Captures payer/payee details and
+          key payment properties. Initiates orchestration. Supports
+          repeating/scheduled payments.
+        bian_coverage: partial
+        overlap_risk: HIGH
+        governance_note: >
+          PaymentsProcessingAPI e InstantTransfersAPI AMBOS apuntan a PaymentOrderInitiation.
+          RIESGO DE COLISION INTERNO: evaluar si InstantTransfersAPI es una extension
+          (EXTEND) de PaymentsProcessingAPI o un canal diferenciado justificado por
+          SLA y rail distinto. Se recomienda ejecutar Phase 0 antes de crear nuevas
+          APIs de pagos. PaymentRail es el SD aplicable para la capa de ejecucion.
+        secondary_bian_sd: "PaymentRail"
+        catalog_apis:
+          - api_ref: "Payments/PaymentsProcessing/PaymentsProcessingAPI"
+            api_version: "2.4.0"
+            criticality: "Tier 0"
+            key_operations: ["POST /payments", "GET /payments", "GET /payments/{id}", "POST /payments/{id}/cancellation"]
+          - api_ref: "Payments/PaymentsProcessing/InstantTransfersAPI"
+            api_version: "1.6.0"
+            criticality: "Tier 0"
+            key_operations: ["POST /instant-transfers", "GET /instant-transfers/{id}"]
+
+      - capability_id: "CAP-PAY-002"
+        capability_name: "Beneficiary & Payee Directory"
+        description: >
+          Gestion del directorio de beneficiarios/destinatarios del cliente:
+          cuentas destino, alias, validacion de titularidad y activacion. Facilita
+          la reutilizacion de destinos de pago frecuentes.
+        bian_service_domain: null
+        bian_coverage: no-match
+        overlap_risk: NONE
+        classification: "proprietary-banking-capability"
+        governance_note: >
+          BIAN R14 no tiene un Service Domain especifico para el directorio de
+          beneficiarios del cliente. El concepto mas cercano es CorrespondentBankDirectory
+          (bancos corresponsales), pero no modela beneficiarios retail. Tratar como
+          capacidad propietaria del banco. No se requiere derivacion BIAN para el contrato.
+        catalog_apis:
+          - api_ref: "Payments/PayeeManagement/BeneficiaryDirectoryAPI"
+            api_version: "1.2.0"
+            criticality: "Tier 1"
+            key_operations: ["GET /customers/{id}/beneficiaries", "POST /customers/{id}/beneficiaries", "DELETE /customers/{id}/beneficiaries/{id}"]
+
+      - capability_id: "CAP-PAY-003"
+        capability_name: "Payment Limits & Controls"
+        description: >
+          Consulta y gestion de limites transaccionales por cliente, canal y producto
+          (diario/mensual). Permite ajustes dinamicos por perfil de riesgo y proporciona
+          controles operativos sobre el volumen de pagos.
+        bian_service_domain: "CustomerAccessEntitlement"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/CustomerAccessEntitlement.yaml"
+        bian_sd_description: >
+          Maintains the allowed channel/device-based access to products and services,
+          including customer preferences and access limits/constraints spanning
+          multiple products.
+        bian_coverage: partial
+        overlap_risk: LOW
+        governance_note: >
+          CustomerAccessEntitlement cubre entitlements y limites de acceso por canal,
+          pero no modela explicitamente limites monetarios por tipo de pago. Extension
+          propietaria necesaria para limites diarios/mensuales con ajuste dinamico
+          por riesgo.
+        catalog_apis:
+          - api_ref: "Payments/PayeeManagement/PaymentLimitsAPI"
+            api_version: "1.0.0"
+            criticality: "Tier 1"
+            key_operations: ["GET /customers/{id}/payment-limits", "PUT /customers/{id}/payment-limits"]
+
+      - capability_id: "CAP-PAY-004"
+        capability_name: "FX Rate Quotation"
+        description: >
+          Provision de tipos de cambio (mid, compra/venta) para pagos internacionales
+          y cambio de divisas. Incluye vigencia de cotizacion, fuente y spreads
+          determinados por indicadores de riesgo de mercado.
+        bian_service_domain: "CurrencyExchange"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/CurrencyExchange.yaml"
+        bian_sd_description: >
+          Service Domain supports over the counter currency exchange.
+        bian_coverage: partial
+        overlap_risk: LOW
+        governance_note: >
+          CurrencyExchange cubre cambio de divisas OTC. Para pricing de tasas en
+          contexto de pagos internacionales, CorporateTreasury es un SD complementario.
+          La provision de tasas via API REST con vigencia explicitita es una extension
+          propietaria del modelo BIAN.
+        secondary_bian_sd: "CorporateTreasury"
+        catalog_apis:
+          - api_ref: "Payments/PayeeManagement/FXRatesAPI"
+            api_version: "1.4.0"
+            criticality: "Tier 1"
+            key_operations: ["GET /fx/rates"]
+
+  # ---------------------------------------------------------------------------
+  # 4. CARD PRODUCTS
+  #    BIAN Business Area: Retail Products > Cards
+  #    Catalog domain: Cards
+  # ---------------------------------------------------------------------------
+  - area_id: "CAP-CARDS"
+    area_name: "Card Products & Authorization"
+    bian_business_area: "Retail Products"
+    togaf_layer: "Business"
+    catalog_domain: "Cards"
+    description: >
+      Emision, gestion y servicing de tarjetas debito/credito: ciclo de vida de la
+      tarjeta, autorizaciones en tiempo real y gestion de disputas/chargebacks.
+      Dominio PCI-DSS con requisitos de certificacion estrictos.
+
+    capabilities:
+
+      - capability_id: "CAP-CARD-001"
+        capability_name: "Card Issuance & Lifecycle Management"
+        description: >
+          Emision de tarjetas debito/credito, activacion, bloqueo temporal/definitivo
+          y reemplazo. Gestiona el ciclo de vida del plastico y su tokenizacion
+          para pagos digitales (HCE/NFC).
+        bian_service_domain: "CreditCard"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/CreditCard.yaml"
+        bian_sd_description: >
+          Orchestrates the scheduled maintenance and transactional activities
+          associated with credit card product fulfillment.
+        bian_coverage: aligned
+        overlap_risk: LOW
+        governance_note: >
+          CreditCard SD cubre el fulfillment y mantenimiento de tarjeta de credito.
+          Para tarjetas debito aplica CurrentAccount (debit card access incluido).
+          IssuedDeviceAdministration es el SD aplicable para la gestion del plastico
+          como dispositivo fisico emitido.
+        secondary_bian_sd: "IssuedDeviceAdministration"
+        catalog_apis:
+          - api_ref: "Cards/CardServicing/CardManagementAPI"
+            api_version: "1.5.0"
+            criticality: "Tier 0"
+            key_operations: ["GET /customers/{id}/cards", "POST /customers/{id}/cards", "GET /cards/{id}", "POST /cards/{id}/block"]
+
+      - capability_id: "CAP-CARD-002"
+        capability_name: "Card Transaction Authorization"
+        description: >
+          Procesamiento de autorizaciones de tarjeta en tiempo real: decisiones
+          approve/decline con reason codes, control de limites y scoring antifraude
+          integrado. Requiere latencia sub-200ms para cumplir SLA de red de tarjetas.
+        bian_service_domain: "CardAuthorization"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/CardAuthorization.yaml"
+        bian_sd_description: >
+          Responsible for real time card authorization decisions for
+          credit/charge cards.
+        bian_coverage: aligned
+        overlap_risk: LOW
+        governance_note: >
+          Match exacto con CardAuthorization SD. Es el Service Domain BIAN mas
+          especifico para esta capacidad. TransactionAuthorization es un SD
+          complementario para autorizacion basada en riesgo del canal.
+        catalog_apis:
+          - api_ref: "Cards/CardServicing/CardAuthorizationAPI"
+            api_version: "2.0.0"
+            criticality: "Tier 0"
+            key_operations: ["POST /authorizations", "GET /authorizations/{id}"]
+
+      - capability_id: "CAP-CARD-003"
+        capability_name: "Card Dispute & Chargeback Management"
+        description: >
+          Apertura, instruccion, seguimiento y resolucion de disputas y chargebacks
+          de tarjeta. Gestiona plazos regulatorios de red (Visa/Mastercard), evidencias
+          y comunicaciones con el cliente durante el proceso.
+        bian_service_domain: "CardCase"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/CardCase.yaml"
+        bian_sd_description: >
+          Handles the processing of a customer card case, typically a disputed charge.
+        bian_coverage: aligned
+        overlap_risk: LOW
+        governance_note: >
+          Match directo con CardCase SD para disputas de tarjeta. CustomerCase es
+          un SD complementario para casos generales de cliente. La integracion
+          con el archivo de evidencias usa DocumentArchiveAPI (Compliance/Records).
+        catalog_apis:
+          - api_ref: "Cards/CardServicing/CardDisputesAPI"
+            api_version: "1.1.0"
+            criticality: "Tier 2"
+            key_operations: ["POST /disputes", "GET /disputes/{id}", "POST /disputes/{id}/evidence"]
+
+  # ---------------------------------------------------------------------------
+  # 5. LENDING & CREDIT
+  #    BIAN Business Area: Retail Products > Lending
+  #    Catalog domain: Loans
+  # ---------------------------------------------------------------------------
+  - area_id: "CAP-LENDING"
+    area_name: "Lending & Credit Products"
+    bian_business_area: "Retail Products"
+    togaf_layer: "Business"
+    catalog_domain: "Loans"
+    description: >
+      Originacion, decision crediticia, desembolso y servicing de prestamos
+      personales y vehiculares. Integra modelos de riesgo, underwriting regulatorio
+      y gestion de pagos del ciclo de vida del credito.
+
+    capabilities:
+
+      - capability_id: "CAP-LOAN-001"
+        capability_name: "Loan Origination & Underwriting"
+        description: >
+          Captura de solicitudes de credito, verificacion documental, evaluacion
+          crediticia y decision de underwriting. Orquesta el flujo desde la solicitud
+          del cliente hasta la aprobacion/rechazo con condiciones.
+        bian_service_domain: "CustomerOffer"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml"
+        bian_sd_description: >
+          Orchestrates the processing of a product offer for a new or established
+          customer. Includes document checks, collateral allocation, credit assessments,
+          underwriting decisions, regulatory and procedural checks.
+        bian_coverage: partial
+        overlap_risk: LOW
+        governance_note: >
+          CustomerOffer SD cubre el proceso de oferta/solicitud. Underwriting SD
+          es complementario para la decision de suscripcion. La decision crediticia
+          se delega a CreditDecisioningAPI (Risk/CreditRisk).
+        secondary_bian_sd: "Underwriting"
+        catalog_apis:
+          - api_ref: "Loans/LoanOrigination/CreditApplicationAPI"
+            api_version: "1.3.0"
+            criticality: "Tier 1"
+            key_operations: ["POST /credit-applications", "GET /credit-applications", "POST /credit-applications/{id}/submit"]
+
+      - capability_id: "CAP-LOAN-002"
+        capability_name: "Loan Servicing & Repayment"
+        description: >
+          Consulta del estado del prestamo, cronograma de amortizacion, pago de
+          cuotas, consulta de saldo y solicitud de reestructuracion. Punto de
+          entrada del cliente para la gestion post-desembolso del credito.
+        bian_service_domain: "ConsumerLoan"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/ConsumerLoan.yaml"
+        bian_sd_description: >
+          Handles the fulfillment of a consumer loan product, including initial
+          set-up and completion of scheduled and ad-hoc product processing tasks.
+        bian_coverage: aligned
+        overlap_risk: LOW
+        governance_note: >
+          Match directo con ConsumerLoan SD para prestamos personales/vehiculares.
+          Para productos corporativos aplicaria CorporateLoan. El Loan SD generico
+          esta disponible para productos no diferenciados.
+        catalog_apis:
+          - api_ref: "Loans/LoanOrigination/LoanServicingAPI"
+            api_version: "2.2.0"
+            criticality: "Tier 0"
+            key_operations: ["GET /loans", "POST /loans/{id}/repayments", "GET /loans/{id}/schedule"]
+
+      - capability_id: "CAP-LOAN-003"
+        capability_name: "Loan Disbursement"
+        description: >
+          Orquestacion del desembolso del prestamo aprobado: instruccion al core
+          bancario, acreditacion en cuenta del cliente y confirmacion de abono.
+          Incluye trazabilidad completa para auditoria regulatoria.
+        bian_service_domain: "Disbursement"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/Disbursement.yaml"
+        bian_sd_description: >
+          Handles the disbursement of funds to newly established loans/facilities
+          as necessary.
+        bian_coverage: aligned
+        overlap_risk: LOW
+        governance_note: >
+          Match exacto con Disbursement SD. El desembolso activa la cuenta de
+          prestamo y genera el primer asiento en PositionKeeping.
+        catalog_apis:
+          - api_ref: "Loans/LoanOrigination/DisbursementAPI"
+            api_version: "1.1.0"
+            criticality: "Tier 1"
+            key_operations: ["POST /disbursements", "GET /disbursements/{id}"]
+
+  # ---------------------------------------------------------------------------
+  # 6. COMPLIANCE & FINANCIAL CRIME
+  #    BIAN Business Area: Risk & Compliance > Compliance
+  #    Catalog domain: Compliance
+  # ---------------------------------------------------------------------------
+  - area_id: "CAP-COMPLIANCE"
+    area_name: "Compliance & Financial Crime Prevention"
+    bian_business_area: "Risk & Compliance"
+    togaf_layer: "Business"
+    catalog_domain: "Compliance"
+    description: >
+      Controles regulatorios, prevencion de lavado de activos (AML/KYC), screening
+      de sanciones internacionales y registro de auditoria inmutable. Marco obligatorio
+      para la operacion del banco bajo normativas locales e internacionales (FATF, OFAC).
+
+    capabilities:
+
+      - capability_id: "CAP-COMP-001"
+        capability_name: "KYC / AML Screening"
+        description: >
+          Screening de clientes y transacciones contra listas PEP, AML y vigilancia.
+          Provee resultado de screening con nivel de riesgo, matches y evidencias.
+          Invocado en onboarding, operaciones criticas y re-evaluaciones periodicas.
+        bian_service_domain: "PartyLifecycleManagement"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+        bian_sd_description: >
+          Tracks the state of a party relationship including all required regulatory
+          checks and their maintenance over the duration of the relationship.
+        bian_coverage: partial
+        overlap_risk: MEDIUM
+        governance_note: >
+          PartyLifecycleManagement modela el ciclo de vida KYC del partido.
+          El screening operativo puntual (AML/PEP) es una operacion de ese SD,
+          pero esta API expone un microservicio de screening desacoplado que puede
+          invocarse de forma aislada. GuidelineCompliance es SD complementario para
+          los controles de cumplimiento de politicas internas.
+        secondary_bian_sd: "GuidelineCompliance"
+        catalog_apis:
+          - api_ref: "Compliance/KYC/KYCScreeningAPI"
+            api_version: "3.0.0"
+            criticality: "Tier 0"
+            key_operations: ["POST /screenings", "GET /screenings/{id}"]
+
+      - capability_id: "CAP-COMP-002"
+        capability_name: "Sanctions Screening"
+        description: >
+          Verificacion en tiempo real de contrapartes, beneficiarios y pagos
+          contra listas de sanciones internacionales (OFAC, UE, ONU). Obligatorio
+          para pagos internacionales y onboarding de clientes de alto riesgo.
+        bian_service_domain: "RegulatoryCompliance"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/RegulatoryCompliance.yaml"
+        bian_sd_description: >
+          Provides a service to interpret regulatory requirements, provide guidance
+          and define and implement a portfolio of regulatory compliance tests across
+          all appropriate bank activities.
+        bian_coverage: partial
+        overlap_risk: LOW
+        governance_note: >
+          RegulatoryCompliance SD es el mas apropiado para controles de sanciones
+          regulatorias. GuidelineCompliance aplica para controles de politicas
+          internas. Ambos son complementarios para una cobertura completa de
+          compliance. El screening en tiempo real es una extension del modelo BIAN.
+        secondary_bian_sd: "GuidelineCompliance"
+        catalog_apis:
+          - api_ref: "Compliance/Sanctions/SanctionsScreeningAPI"
+            api_version: "2.3.0"
+            criticality: "Tier 0"
+            key_operations: ["POST /sanctions/screenings", "GET /sanctions/screenings/{id}"]
+
+      - capability_id: "CAP-COMP-003"
+        capability_name: "Immutable Audit Trail"
+        description: >
+          Registro inmutable (append-only) de eventos criticos del banco: consentimientos,
+          decisiones automatizadas, desembolsos, cambios de limites y operaciones
+          regulatorias. Fuente de verdad para auditorias internas y regulatorias.
+        bian_service_domain: "ComplianceReporting"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/ComplianceReporting.yaml"
+        bian_sd_description: >
+          Administers and orchestrates the tasks required to apply and report on
+          internal audit control and reporting activity.
+        bian_coverage: partial
+        overlap_risk: LOW
+        governance_note: >
+          ComplianceReporting SD cubre la orquestacion de reportes de auditoria.
+          InternalAudit es un SD complementario. El patron de registro inmutable
+          (WORM/append-only) con hash criptografico es una extension propietaria
+          del modelo BIAN necesaria para garantias de no repudio.
+        secondary_bian_sd: "InternalAudit"
+        catalog_apis:
+          - api_ref: "Compliance/Records/AuditTrailAPI"
+            api_version: "1.2.0"
+            criticality: "Tier 0"
+            key_operations: ["POST /audit-events", "GET /audit-events"]
+
+      - capability_id: "CAP-COMP-004"
+        capability_name: "Regulatory Document Retention"
+        description: >
+          Archivado de documentos con politicas de retencion regulatoria (WORM):
+          contratos, evidencias de disputa, documentos KYC y registros de operaciones.
+          Garantiza disponibilidad y accesibilidad para auditorias durante el periodo
+          exigido por regulacion.
+        bian_service_domain: "ArchiveServices"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/ArchiveServices.yaml"
+        bian_sd_description: >
+          Enables the bank to retain, maintain and access significant documents that
+          are no longer actively accessed but that might be required in the future.
+        bian_coverage: aligned
+        overlap_risk: LOW
+        governance_note: >
+          Match directo con ArchiveServices SD. DocumentDirectory es un SD
+          complementario para el catalogo de documentos activos. La integracion
+          con URL firmadas para upload/download es una extension propietaria.
+        secondary_bian_sd: "DocumentDirectory"
+        catalog_apis:
+          - api_ref: "Compliance/Records/DocumentArchiveAPI"
+            api_version: "1.0.0"
+            criticality: "Tier 2"
+            key_operations: ["POST /documents", "GET /documents/{id}"]
+
+  # ---------------------------------------------------------------------------
+  # 7. RISK MANAGEMENT
+  #    BIAN Business Area: Risk & Compliance > Risk Management
+  #    Catalog domain: Risk
+  # ---------------------------------------------------------------------------
+  - area_id: "CAP-RISK"
+    area_name: "Risk Management"
+    bian_business_area: "Risk & Compliance"
+    togaf_layer: "Business"
+    catalog_domain: "Risk"
+    description: >
+      Gestion integral de riesgos del banco: fraude en tiempo real, monitoreo AML
+      post-transaccional, scoring crediticio para originacion y riesgo de mercado
+      para pricing FX. Capacidades transversales consumidas por todos los dominios
+      de producto.
+
+    capabilities:
+
+      - capability_id: "CAP-RISK-001"
+        capability_name: "Real-Time Fraud Decisioning"
+        description: >
+          Decision antifraude en tiempo real para pagos y tarjetas: score de fraude,
+          decision (approve/review/decline) y reason codes. Modelo de ML ejecutado
+          en menos de 100ms para no impactar el SLA de transacciones.
+        bian_service_domain: "FraudEvaluation"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/FraudEvaluation.yaml"
+        bian_sd_description: >
+          Executes fraud behavioral pattern tests to detect possible fraudulent
+          transactions/activity.
+        bian_coverage: aligned
+        overlap_risk: LOW
+        governance_note: >
+          Match directo con FraudEvaluation SD para la evaluacion en tiempo real.
+          FraudDiagnosis es el SD complementario para la evaluacion post-deteccion
+          de fraude sospechoso. FraudResolution para la gestion del caso de fraude.
+        catalog_apis:
+          - api_ref: "Risk/Fraud/FraudDecisioningAPI"
+            api_version: "1.8.0"
+            criticality: "Tier 0"
+            key_operations: ["POST /fraud/decisions", "GET /fraud/decisions/{id}"]
+
+      - capability_id: "CAP-RISK-002"
+        capability_name: "Transaction Monitoring & AML Case Management"
+        description: >
+          Monitoreo post-transaccional batch y near-real-time para generacion de
+          alertas AML y fraude. Incluye gestion de casos de investigacion con
+          workflow de revision, escalamiento y cierre.
+        bian_service_domain: "FraudDiagnosis"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/FraudDiagnosis.yaml"
+        bian_sd_description: >
+          Handles the evaluation of detected possible fraud to support an appropriate
+          response to contain the exposure.
+        bian_coverage: partial
+        overlap_risk: LOW
+        governance_note: >
+          FraudDiagnosis SD cubre la evaluacion de fraude detectado y el soporte
+          a la respuesta. El monitoreo AML continuo y la gestion de casos no tiene
+          un SD BIAN de cobertura exacta; es una extension del modelo de fraude.
+          GuidelineCompliance es complementario para el componente AML regulatorio.
+        secondary_bian_sd: "GuidelineCompliance"
+        catalog_apis:
+          - api_ref: "Risk/Fraud/TransactionMonitoringAPI"
+            api_version: "1.2.0"
+            criticality: "Tier 1"
+            key_operations: ["GET /alerts", "POST /cases", "GET /cases/{id}"]
+
+      - capability_id: "CAP-RISK-003"
+        capability_name: "Credit Risk Decisioning"
+        description: >
+          Scoring crediticio y decision de aprobacion para originacion de prestamos:
+          score de credito, limites recomendados, pricing de tasa y segmentacion de
+          riesgo. Consume datos de identidad y resultados KYC del cliente.
+        bian_service_domain: "CustomerCreditRating"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/CustomerCreditRating.yaml"
+        bian_sd_description: >
+          Maintains and administers the bank's credit assessment for customers
+          based on consolidated internal data and optionally external credit agency
+          reports.
+        bian_coverage: aligned
+        overlap_risk: MEDIUM
+        governance_note: >
+          Match directo con CustomerCreditRating para el scoring crediticio.
+          Underwriting SD es complementario para la decision de suscripcion formal.
+          Monitorear solapamiento con CustomerRiskScoringAPI que tambien usa
+          CustomerCreditRating como SD base.
+        secondary_bian_sd: "Underwriting"
+        catalog_apis:
+          - api_ref: "Risk/CreditRisk/CreditDecisioningAPI"
+            api_version: "2.0.0"
+            criticality: "Tier 0"
+            key_operations: ["POST /credit/decisions", "GET /credit/decisions/{id}"]
+
+      - capability_id: "CAP-RISK-004"
+        capability_name: "Market Risk Indicators"
+        description: >
+          Provision de indicadores de riesgo de mercado: volatilidad FX, factores
+          de estres y sensibilidades. Consumidos por pricing de tasas FX y por
+          controles de limites de pagos internacionales.
+        bian_service_domain: "MarketAnalysis"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/MarketAnalysis.yaml"
+        bian_sd_description: >
+          Analyzes internal and external market information sources to develop
+          specific market insights.
+        bian_coverage: partial
+        overlap_risk: LOW
+        governance_note: >
+          MarketAnalysis SD cubre analisis de informacion de mercado. Para indicadores
+          de riesgo usados en Asset & Liability management, AssetAndLiabilityManagement
+          SD es complementario. La API expone indicadores en tiempo real para consumo
+          transaccional, lo cual excede el alcance del SD BIAN.
+        secondary_bian_sd: "AssetAndLiabilityManagement"
+        catalog_apis:
+          - api_ref: "Risk/MarketRisk/MarketRiskIndicatorsAPI"
+            api_version: "1.1.0"
+            criticality: "Tier 1"
+            key_operations: ["GET /market-risk/indicators"]
+
+      - capability_id: "CAP-RISK-005"
+        capability_name: "Customer Risk Scoring"
+        description: >
+          Calculo del score de riesgo inherente del cliente: riesgo de comportamiento,
+          segmentacion de riesgo y perfil global. Utilizado por controles de monitoreo,
+          limites de canal y segmentacion para campanas de productos.
+        bian_service_domain: "CustomerCreditRating"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/CustomerCreditRating.yaml"
+        bian_sd_description: >
+          Maintains and administers the bank's credit assessment for customers.
+        bian_coverage: partial
+        overlap_risk: MEDIUM
+        governance_note: >
+          CustomerCreditRating SD es el mas cercano al scoring de riesgo del cliente.
+          CustomerBehaviorInsights SD es complementario para el componente de
+          comportamiento. RIESGO DE COLISION: tanto CreditDecisioningAPI como
+          CustomerRiskScoringAPI referencian CustomerCreditRating. Son capacidades
+          distintas (decision crediticia vs. perfil de riesgo) pero deben coordinarse
+          para evitar modelos duplicados.
+        secondary_bian_sd: "CustomerBehaviorInsights"
+        catalog_apis:
+          - api_ref: "Risk/CustomerRisk/CustomerRiskScoringAPI"
+            api_version: "1.0.0"
+            criticality: "Tier 1"
+            key_operations: ["GET /customers/{id}/risk-score"]
+
+  # ---------------------------------------------------------------------------
+  # 8. DIGITAL CHANNELS & ENGAGEMENT
+  #    BIAN Business Area: Customer Channels > Digital Banking
+  #    Catalog domain: Channels
+  # ---------------------------------------------------------------------------
+  - area_id: "CAP-CHANNELS"
+    area_name: "Digital Channels & Customer Engagement"
+    bian_business_area: "Customer Channels"
+    togaf_layer: "Application"
+    catalog_domain: "Channels"
+    description: >
+      Capacidades de canal digital: gestion de sesiones autenticadas, despacho
+      de notificaciones multicanal y preferencias de comunicacion del cliente.
+      Capa de experiencia que orquesta la interaccion del cliente con los productos
+      del banco a traves de los canales digitales (web y mobile).
+
+    capabilities:
+
+      - capability_id: "CAP-CHAN-001"
+        capability_name: "Digital Session & Authentication"
+        description: >
+          Gestion del ciclo de vida de sesiones digitales autenticadas: creacion,
+          refresh y revocacion de tokens de sesion, device binding y SCA para
+          operaciones de alto riesgo. Puerta de entrada a todos los canales digitales.
+        bian_service_domain: "PartyAuthentication"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyAuthentication.yaml"
+        bian_sd_description: >
+          Provides a customer identity authentication service covering all channels
+          and devices to support access to the bank's products and services.
+        bian_coverage: partial
+        overlap_risk: LOW
+        governance_note: >
+          PartyAuthentication SD cubre la autenticacion de identidad en todos los
+          canales. La gestion de tokens de sesion y device binding son extensiones
+          propietarias. eBranchOperations es SD complementario para la operacion
+          del canal digital.
+        secondary_bian_sd: "eBranchOperations"
+        catalog_apis:
+          - api_ref: "Channels/Notifications/ChannelSessionAPI"
+            api_version: "2.1.0"
+            criticality: "Tier 0"
+            key_operations: ["POST /sessions", "POST /sessions/{id}/refresh", "DELETE /sessions/{id}"]
+
+      - capability_id: "CAP-CHAN-002"
+        capability_name: "Multichannel Notification Dispatch"
+        description: >
+          Envio de notificaciones transaccionales y de alerta al cliente a traves
+          de multiples canales (push, email, SMS) con plantillas, tracking de entrega
+          y confirmacion. Capacidad de soporte consumida por todos los dominios
+          de producto.
+        bian_service_domain: "Correspondence"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/Correspondence.yaml"
+        bian_sd_description: >
+          Orchestrates the production of pre-formatted correspondence and batches
+          of correspondence.
+        bian_coverage: no-match
+        overlap_risk: NONE
+        classification: "channel-support-capability"
+        governance_note: >
+          BIAN Correspondence modela correspondencia formal batch. Las notificaciones
+          push/SMS en tiempo real no tienen SD especifico en BIAN R14. Tratar como
+          capacidad de soporte de canal propietaria. No se requiere derivacion BIAN.
+          Correspondence se referencia solo como el SD mas cercano semanticamente.
+        catalog_apis:
+          - api_ref: "Channels/Notifications/NotificationDispatchAPI"
+            api_version: "1.7.0"
+            criticality: "Tier 1"
+            key_operations: ["POST /notifications", "GET /notifications", "GET /notifications/{id}"]
+
+      - capability_id: "CAP-CHAN-003"
+        capability_name: "Notification Preferences & Communication Consent"
+        description: >
+          Gestion de preferencias de comunicacion del cliente: canales habilitados,
+          categorias de notificacion y consentimiento por canal. Alinea las
+          preferencias con los consentimientos de privacidad del cliente.
+        bian_service_domain: "CustomerAccessEntitlement"
+        bian_sd_link: "architecture/cache/bian/release14.0.0/oas3/yamls/CustomerAccessEntitlement.yaml"
+        bian_sd_description: >
+          Maintains the allowed channel/device-based access and customer preferences
+          that span multiple products.
+        bian_coverage: partial
+        overlap_risk: LOW
+        governance_note: >
+          CustomerAccessEntitlement cubre preferencias de acceso por canal. Las
+          preferencias de notificacion granulares por categoria no estan explicitamente
+          modeladas en BIAN. Esta API es complementaria a CustomerConsentAPI y debe
+          coordinarse con ella para evitar contradicciones entre consentimiento y
+          preferencia.
+        catalog_apis:
+          - api_ref: "Channels/Notifications/CustomerNotificationPreferencesAPI"
+            api_version: "1.1.0"
+            criticality: "Tier 1"
+            key_operations: ["GET /customers/{id}/notification-preferences", "PUT /customers/{id}/notification-preferences"]
+
+# =============================================================================
+# SECTION 2 — Overlap & Collision Analysis
+# Identifies intra-catalog collisions where multiple APIs target the same BIAN SD.
+# Use this section to guide Phase 0 decisions before implementing new capabilities.
+# =============================================================================
+
+overlap_analysis:
+
+  high_risk_collisions:
+
+    - collision_id: "OVL-001"
+      severity: HIGH
+      bian_service_domain: "PaymentOrderInitiation"
+      conflicting_apis:
+        - "Payments/PaymentsProcessing/PaymentsProcessingAPI"
+        - "Payments/PaymentsProcessing/InstantTransfersAPI"
+      description: >
+        Ambas APIs inician pagos y se mapean a PaymentOrderInitiation. Aunque
+        InstantTransfersAPI tiene diferenciacion por SLA (99.95%, sub-segundo)
+        y rail especifico (RTP/instant), semanticamente son el mismo tipo de
+        operacion BIAN. Si se agrega una tercera API de pagos (ej. pagos
+        programados, pagos QR) el riesgo de duplicacion aumenta.
+      recommendation: >
+        Ejecutar Phase 0 antes de agregar cualquier nueva API de pagos. Evaluar
+        si InstantTransfersAPI puede ser un perfil/extension de PaymentsProcessingAPI
+        con header de canal diferenciado, en lugar de un contrato separado.
+      governance_action: "REVIEW_REQUIRED"
+
+  medium_risk_collisions:
+
+    - collision_id: "OVL-002"
+      severity: MEDIUM
+      bian_service_domain: "PartyLifecycleManagement"
+      conflicting_apis:
+        - "Customers/CustomerOnboarding/CustomerIdentityAPI"
+        - "Compliance/KYC/KYCScreeningAPI"
+      description: >
+        CustomerIdentityAPI gestiona el estado de identidad del cliente (lifecycle),
+        KYCScreeningAPI ejecuta screenings puntuales AML/PEP. Ambas pertenecen al
+        mismo SD BIAN pero son operaciones diferentes: una es stateful (mantiene
+        el estado del partido), la otra es stateless (screening puntual invocable).
+      recommendation: >
+        La separacion actual es correcta y justificada. Documentar el boundary:
+        CustomerIdentityAPI es el dueno del estado; KYCScreeningAPI es un servicio
+        de evaluacion que actualiza dicho estado via evento/callback.
+      governance_action: "DOCUMENT_BOUNDARY"
+
+    - collision_id: "OVL-003"
+      severity: MEDIUM
+      bian_service_domain: "CustomerCreditRating"
+      conflicting_apis:
+        - "Risk/CreditRisk/CreditDecisioningAPI"
+        - "Risk/CustomerRisk/CustomerRiskScoringAPI"
+      description: >
+        CreditDecisioningAPI produce decisiones crediticias para originacion.
+        CustomerRiskScoringAPI mantiene el score de riesgo general del cliente.
+        Ambas usan CustomerCreditRating como SD base pero con propositos distintos:
+        decision transaccional vs. perfil continuo de riesgo.
+      recommendation: >
+        Definir el modelo de datos compartido: CreditDecisioningAPI es el productor
+        de decisiones puntuales; CustomerRiskScoringAPI agrega y mantiene el perfil.
+        Evitar que ambas mantengan modelos de scoring independientes.
+      governance_action: "ALIGN_DATA_MODEL"
+
+    - collision_id: "OVL-004"
+      severity: MEDIUM
+      bian_service_domain: "PartyReferenceDataDirectory"
+      conflicting_apis:
+        - "Customers/CustomerOnboarding/CustomerProfileAPI"
+        - "Customers/CustomerOnboarding/CustomerIdentityAPI"
+      description: >
+        CustomerProfileAPI gestiona datos demograficos (party reference data).
+        CustomerIdentityAPI gestiona documentos de identidad que tambien son datos
+        de referencia del partido. El boundary entre datos de perfil y documentos
+        de identidad no es explicito en el contrato.
+      recommendation: >
+        CustomerProfileAPI debe ser el propietario de datos demograficos.
+        CustomerIdentityAPI debe limitarse a documentos verificables y estado SCA.
+        Agregar regla de gobernanza: ningun otro API puede escribir datos de perfil
+        sin pasar por CustomerProfileAPI.
+      governance_action: "DEFINE_OWNERSHIP_BOUNDARY"
+
+# =============================================================================
+# SECTION 3 — Coverage Summary
+# Quick reference for governance decisions and gap analysis.
+# =============================================================================
+
+coverage_summary:
+
+  by_coverage:
+    aligned:
+      count: 8
+      capabilities:
+        - "CAP-PARTY-002: Customer Identity & Lifecycle Verification -> PartyLifecycleManagement"
+        - "CAP-ACC-002: Transaction Ledger & History -> PositionKeeping"
+        - "CAP-CARD-001: Card Issuance & Lifecycle Management -> CreditCard"
+        - "CAP-CARD-002: Card Transaction Authorization -> CardAuthorization"
+        - "CAP-CARD-003: Card Dispute & Chargeback Management -> CardCase"
+        - "CAP-LOAN-002: Loan Servicing & Repayment -> ConsumerLoan"
+        - "CAP-LOAN-003: Loan Disbursement -> Disbursement"
+        - "CAP-RISK-001: Real-Time Fraud Decisioning -> FraudEvaluation"
+
+    partial:
+      count: 10
+      capabilities:
+        - "CAP-PARTY-001: Customer Profile & Master Data -> PartyReferenceDataDirectory"
+        - "CAP-PARTY-003: Customer Consent & Privacy Management -> CustomerAgreement"
+        - "CAP-ACC-001: Account Servicing & Lifecycle -> CurrentAccount + SavingsAccount"
+        - "CAP-ACC-003: Statement Generation & Delivery -> Correspondence"
+        - "CAP-PAY-001: Payment Initiation & Processing -> PaymentOrderInitiation (HIGH overlap)"
+        - "CAP-PAY-003: Payment Limits & Controls -> CustomerAccessEntitlement"
+        - "CAP-PAY-004: FX Rate Quotation -> CurrencyExchange"
+        - "CAP-COMP-001: KYC/AML Screening -> PartyLifecycleManagement"
+        - "CAP-COMP-002: Sanctions Screening -> RegulatoryCompliance"
+        - "CAP-COMP-003: Immutable Audit Trail -> ComplianceReporting"
+        - "CAP-LOAN-001: Loan Origination & Underwriting -> CustomerOffer"
+        - "CAP-RISK-002: Transaction Monitoring & AML Cases -> FraudDiagnosis"
+        - "CAP-RISK-003: Credit Risk Decisioning -> CustomerCreditRating"
+        - "CAP-RISK-004: Market Risk Indicators -> MarketAnalysis"
+        - "CAP-RISK-005: Customer Risk Scoring -> CustomerCreditRating"
+        - "CAP-CHAN-001: Digital Session & Authentication -> PartyAuthentication"
+        - "CAP-CHAN-003: Notification Preferences -> CustomerAccessEntitlement"
+
+    no_match:
+      count: 2
+      capabilities:
+        - "CAP-PAY-002: Beneficiary & Payee Directory -> null (proprietary)"
+        - "CAP-CHAN-002: Multichannel Notification Dispatch -> null (channel-support)"
+
+  by_criticality:
+    tier_0_apis:
+      - "Customers/CustomerOnboarding/CustomerIdentityAPI"
+      - "Accounts/AccountServicing/AccountManagementAPI"
+      - "Payments/PaymentsProcessing/PaymentsProcessingAPI"
+      - "Payments/PaymentsProcessing/InstantTransfersAPI"
+      - "Cards/CardServicing/CardManagementAPI"
+      - "Cards/CardServicing/CardAuthorizationAPI"
+      - "Loans/LoanOrigination/LoanServicingAPI"
+      - "Compliance/KYC/KYCScreeningAPI"
+      - "Compliance/Sanctions/SanctionsScreeningAPI"
+      - "Compliance/Records/AuditTrailAPI"
+      - "Risk/Fraud/FraudDecisioningAPI"
+      - "Risk/CreditRisk/CreditDecisioningAPI"
+      - "Channels/Notifications/ChannelSessionAPI"
+
+  bian_service_domains_referenced:
+    - PartyReferenceDataDirectory
+    - PartyLifecycleManagement
+    - CustomerAgreement
+    - CurrentAccount
+    - SavingsAccount
+    - PositionKeeping
+    - Correspondence
+    - DocumentServices
+    - PaymentOrderInitiation
+    - PaymentRail
+    - CustomerAccessEntitlement
+    - CurrencyExchange
+    - CorporateTreasury
+    - CreditCard
+    - IssuedDeviceAdministration
+    - CardAuthorization
+    - CardCase
+    - CustomerOffer
+    - Underwriting
+    - ConsumerLoan
+    - Disbursement
+    - PartyLifecycleManagement
+    - GuidelineCompliance
+    - RegulatoryCompliance
+    - ComplianceReporting
+    - InternalAudit
+    - ArchiveServices
+    - DocumentDirectory
+    - FraudEvaluation
+    - FraudDiagnosis
+    - CustomerCreditRating
+    - MarketAnalysis
+    - AssetAndLiabilityManagement
+    - CustomerBehaviorInsights
+    - PartyAuthentication
+    - eBranchOperations
+
+  gaps_identified:
+    - gap_id: "GAP-001"
+      description: "No API de Standing Orders / pagos programados recurrentes."
+      bian_sd: "StandingOrder"
+      recommendation: "Evaluar extension de PaymentsProcessingAPI o nueva capacidad."
+
+    - gap_id: "GAP-002"
+      description: "No API de Open Banking / PSD2 para terceros (TPP/PSP)."
+      bian_sd: "ServicingMandate"
+      recommendation: "Crear capacidad Partner API si el banco opera en ecosistema open banking."
+
+    - gap_id: "GAP-003"
+      description: "No API de Deposito a Plazo Fijo (Term Deposit)."
+      bian_sd: "TermDeposit"
+      recommendation: "Agregar dominio Savings Products si el banco ofrece CDT/plazo fijo."
+
+    - gap_id: "GAP-004"
+      description: "No API de Notificacion de Eventos de Cuenta (webhooks / push events)."
+      bian_sd: "ChannelActivityHistory"
+      recommendation: "Evaluar AsyncAPI para eventos de cuenta y pagos usando el cache BIAN AsyncAPI."
+
+    - gap_id: "GAP-005"
+      description: "No API de Autorizacion Transaccional basada en riesgo de canal."
+      bian_sd: "TransactionAuthorization"
+      recommendation: "Evaluar si FraudDecisioningAPI puede extenderse o si se necesita capacidad separada."

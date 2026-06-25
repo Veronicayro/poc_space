@@ -1,0 +1,403 @@
+openapi: 3.0.3
+info:
+  title: Invoice Management API
+  description: >
+    Business API para gestión del ciclo de vida de facturas de proveedores.
+    Alineado semánticamente con BIAN AccountsReceivable.
+  version: "1.0.0"
+
+servers:
+  - url: /api/v1/invoices
+
+tags:
+  - name: invoices
+
+paths:
+  /invoices:
+    get:
+      tags: [invoices]
+      operationId: listInvoices
+      summary: Listar facturas
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, REJECTED, SCHEDULED, PAID, CANCELLED]
+        - name: supplier_id
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lista de facturas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceListResponse"
+      security:
+        - bearerAuth: []
+
+    post:
+      tags: [invoices]
+      operationId: createInvoice
+      summary: Crear factura (valida proveedor + unicidad; estado inicial PENDING)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvoiceRequest"
+      responses:
+        "201":
+          description: Factura creada con estado PENDING
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "409":
+          description: Factura duplicada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+        "422":
+          description: Proveedor inactivo u otro error de validación
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+      security:
+        - bearerAuth: []
+
+  /invoices/{id}:
+    get:
+      tags: [invoices]
+      operationId: getInvoice
+      summary: Obtener detalle de factura con historial de estados
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Detalle de factura
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetailResponse"
+        "404":
+          description: Factura no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+      security:
+        - bearerAuth: []
+
+    put:
+      tags: [invoices]
+      operationId: updateInvoice
+      summary: Editar factura (solo si estado es PENDING)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInvoiceRequest"
+      responses:
+        "200":
+          description: Factura actualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "422":
+          description: Estado inválido para edición
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+      security:
+        - bearerAuth: []
+
+  /invoices/{id}/approve:
+    post:
+      tags: [invoices]
+      operationId: approveInvoice
+      summary: Aprobar factura (PENDING a APPROVED)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveRequest"
+      responses:
+        "200":
+          description: Factura aprobada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "422":
+          description: Transición inválida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+      security:
+        - bearerAuth: []
+
+  /invoices/{id}/reject:
+    post:
+      tags: [invoices]
+      operationId: rejectInvoice
+      summary: Rechazar factura (PENDING a REJECTED)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectRequest"
+      responses:
+        "200":
+          description: Factura rechazada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "422":
+          description: Transición inválida o motivo faltante
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+      security:
+        - bearerAuth: []
+
+  /invoices/{id}/cancel:
+    post:
+      tags: [invoices]
+      operationId: cancelInvoice
+      summary: Cancelar factura
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelRequest"
+      responses:
+        "200":
+          description: Factura cancelada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "422":
+          description: Factura no cancelable en estado actual
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+      security:
+        - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateInvoiceRequest:
+      type: object
+      required: [supplier_id, invoice_number, amount, currency, issue_date, due_date]
+      properties:
+        supplier_id:
+          type: string
+        invoice_number:
+          type: string
+        amount:
+          type: number
+          format: double
+          minimum: 0.01
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        issue_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        description:
+          type: string
+
+    UpdateInvoiceRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+          format: double
+        due_date:
+          type: string
+          format: date
+        description:
+          type: string
+
+    ApproveRequest:
+      type: object
+      properties:
+        comment:
+          type: string
+          maxLength: 500
+
+    RejectRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+
+    CancelRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+
+    InvoiceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        supplier_id:
+          type: string
+        invoice_number:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, SCHEDULED, PAID, CANCELLED]
+        issue_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    InvoiceDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/InvoiceResponse"
+        - type: object
+          properties:
+            state_history:
+              type: array
+              items:
+                $ref: "#/components/schemas/StateHistoryEntry"
+
+    StateHistoryEntry:
+      type: object
+      properties:
+        from_status:
+          type: string
+        to_status:
+          type: string
+        performed_by:
+          type: string
+        performed_at:
+          type: string
+          format: date-time
+        comment:
+          type: string
+
+    InvoiceListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceResponse"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    Pagination:
+      type: object
+      properties:
+        next_cursor:
+          type: string
+        limit:
+          type: integer
+        total:
+          type: integer
+
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        correlation_id:
+          type: string

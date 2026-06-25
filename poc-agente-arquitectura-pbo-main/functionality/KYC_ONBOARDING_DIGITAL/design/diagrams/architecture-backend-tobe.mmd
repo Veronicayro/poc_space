@@ -1,0 +1,49 @@
+%%{init: {'theme': 'base'}}%%
+graph TB
+    subgraph CHANNELS["Channel Layer (existing)"]
+        WEB["Web App"]
+        MOBILE["Mobile App"]
+        BACKOFFICE["Backoffice Portal"]
+    end
+
+    subgraph BUSINESS_LAYER["Business Layer — TO-BE"]
+        direction TB
+        KYC["<b>kyc-onboarding-api</b><br/>BIAN: PartyLifecycleManagement<br/>Java | stateful<br/>────────────────────<br/>OnboardingCase state machine<br/>INITIATED→DOCS_SUBMITTED<br/>→UNDER_VALIDATION<br/>→APPROVED/REJECTED<br/>→REVIEW_REQUIRED<br/>────────────────────<br/>Tables:<br/>onboarding_cases<br/>kyc_results<br/>review_decisions<br/>audit_entries<br/>outbox_events"]
+    end
+
+    subgraph DOMAIN_LAYER["Domain Layer — Catalog APIs (reused)"]
+        CP["CustomerProfileAPI<br/>v1.2.0 Published"]
+        CI["CustomerIdentityAPI<br/>v1.1.0 Published"]
+        KS["KYCScreeningAPI<br/>v3.0.0 Published"]
+    end
+
+    subgraph EXTERNAL["External Integrations"]
+        AML["AML_SERVICE<br/>REST sync<br/>Circuit breaker"]
+        IDV["ID_VERIFICATION_PROVIDER<br/>REST sync<br/>Circuit breaker"]
+        NOTIF["NOTIFICATION_SERVICE<br/>Async events<br/>Outbox pattern"]
+    end
+
+    subgraph ACTORS["Actors"]
+        CUSTOMER["CUSTOMER<br/>Web | Mobile<br/>OAuth2 OIDC"]
+        ANALYST["KYC_ANALYST<br/>Backoffice<br/>RBAC: kyc.analyst"]
+    end
+
+    CUSTOMER -->|"POST /onboarding-cases<br/>PUT .../documents/.../execute<br/>GET /onboarding-cases/{id}"| KYC
+    ANALYST -->|"GET /onboarding-cases<br/>PUT .../control"| KYC
+
+    WEB -.->|channel| CUSTOMER
+    MOBILE -.->|channel| CUSTOMER
+    BACKOFFICE -.->|channel| ANALYST
+
+    KYC -->|"POST /customers<br/>PATCH /customers/{id}"| CP
+    KYC -->|"POST .../identities<br/>POST .../verify"| CI
+    KYC -->|"POST /screenings<br/>GET /screenings/{id}"| KS
+    KS -->|delegates AML check| AML
+    CI -->|delegates identity proofing| IDV
+    KYC -.->|"OnboardingStatusChanged<br/>OnboardingApproved<br/>OnboardingRejected"| NOTIF
+
+    style KYC fill:#d4e6f1,stroke:#2980b9,stroke-width:2px
+    style BUSINESS_LAYER fill:#eaf4fb,stroke:#2980b9
+    style DOMAIN_LAYER fill:#eafaf1,stroke:#27ae60
+    style EXTERNAL fill:#fef9e7,stroke:#f39c12
+    style ACTORS fill:#f5eef8,stroke:#8e44ad

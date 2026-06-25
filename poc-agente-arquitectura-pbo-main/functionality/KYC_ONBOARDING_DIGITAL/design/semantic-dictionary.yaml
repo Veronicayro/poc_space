@@ -1,0 +1,209 @@
+functionality_id: KYC_ONBOARDING_DIGITAL
+generated_at: "2026-06-22"
+language: Spanish/English (bilingual canonical names)
+
+entities:
+  - canonical_name: OnboardingCase
+    definition: >
+      Representa el caso de onboarding digital de un cliente. Es la entidad central
+      que gestiona el ciclo de vida del proceso de incorporación. Equivale al
+      Control Record de BIAN PartyLifecycleManagement.
+    aliases: [caso_onboarding, onboarding_session, party_lifecycle_record]
+    originating_source:
+      - "functionality/KYC_ONBOARDING_DIGITAL/input.yaml"
+      - "BIAN PartyLifecycleManagement Control Record"
+    bian_alignment:
+      service_domain: PartyLifecycleManagement
+      schema_reference: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+      alignment_type: direct
+    usage_scope: [kyc-onboarding-api, persistence, events]
+
+  - canonical_name: Customer
+    definition: >
+      Persona natural que inicia el proceso de onboarding para abrir una cuenta bancaria.
+      Contiene datos personales (PII) y el estado KYC resultante.
+    aliases: [cliente, party, customer_party]
+    originating_source:
+      - "functionality/KYC_ONBOARDING_DIGITAL/input.yaml"
+      - "catalog/domains/customers.yaml#CustomerProfileAPI"
+      - "BIAN PartyReferenceDataDirectory"
+    bian_alignment:
+      service_domain: PartyLifecycleManagement
+      schema_reference: null
+      alignment_type: adapted
+    usage_scope: [kyc-onboarding-api, customer-profile-api-downstream]
+
+  - canonical_name: IdentityDocument
+    definition: >
+      Documento de identidad del cliente (cédula, pasaporte) utilizado para verificar
+      su identidad durante el proceso de onboarding. Debe estar vigente (BR-002).
+    aliases: [documento_identidad, document, identity_doc]
+    originating_source:
+      - "functionality/KYC_ONBOARDING_DIGITAL/input.yaml"
+      - "BIAN PartyLifecycleManagement Documentation sub-behavior"
+    bian_alignment:
+      service_domain: PartyLifecycleManagement
+      schema_reference: "Documentation sub-behavior"
+      alignment_type: adapted
+    usage_scope: [kyc-onboarding-api, customer-identity-api-downstream]
+
+  - canonical_name: KYCResult
+    definition: >
+      Resultado de la validación KYC del cliente, incluyendo estado (APPROVED,
+      REVIEW_REQUIRED, REJECTED), fecha, motivo y referencias de evidencia.
+    aliases: [kyc_result, validation_result, qualification_result]
+    originating_source:
+      - "functionality/KYC_ONBOARDING_DIGITAL/input.yaml"
+      - "BIAN PartyLifecycleManagement Qualification sub-behavior"
+    bian_alignment:
+      service_domain: PartyLifecycleManagement
+      schema_reference: "Qualification sub-behavior"
+      alignment_type: adapted
+    usage_scope: [kyc-onboarding-api, compliance-domain]
+
+  - canonical_name: ReviewDecision
+    definition: >
+      Decisión emitida por un analista KYC durante la revisión manual de un caso.
+      Contiene la decisión (APPROVED/REJECTED), justificación y analista.
+    aliases: [decision_revision, analyst_decision]
+    originating_source:
+      - "functionality/KYC_ONBOARDING_DIGITAL/discovery/use-cases.yaml#UC-004"
+      - "BIAN PartyLifecycleManagement Control behavior"
+    bian_alignment:
+      service_domain: PartyLifecycleManagement
+      schema_reference: "Control behavior"
+      alignment_type: adapted
+    usage_scope: [kyc-onboarding-api]
+
+fields:
+  - canonical_name: onboarding_case_id
+    definition: "Identificador único del caso de onboarding"
+    aliases: [partylifecyclemanagementid, case_id]
+    bian_alignment:
+      service_domain: PartyLifecycleManagement
+      schema_reference: "partylifecyclemanagementid path parameter"
+      alignment_type: direct
+    usage_scope: [kyc-onboarding-api]
+
+  - canonical_name: customer_id
+    definition: "Identificador único del cliente en el sistema bancario"
+    aliases: [customerId, party_reference]
+    bian_alignment:
+      service_domain: PartyLifecycleManagement
+      schema_reference: null
+      alignment_type: adapted
+    usage_scope: [kyc-onboarding-api, customer-profile-api-downstream]
+
+  - canonical_name: kyc_status
+    definition: "Estado actual del proceso KYC del cliente"
+    aliases: [estadoKYC, status, lifecycle_status]
+    bian_alignment:
+      service_domain: PartyLifecycleManagement
+      schema_reference: "Status schema"
+      alignment_type: adapted
+    usage_scope: [kyc-onboarding-api, customer-profile-api-downstream]
+
+identifiers:
+  - canonical_name: onboarding_case_id
+    type: UUID
+    source_entity: OnboardingCase
+    notes: "Generated on Initiate; used as primary key and BIAN path parameter"
+  - canonical_name: customer_id
+    type: UUID
+    source_entity: Customer
+    notes: "Assigned by CustomerProfileAPI; referenced in OnboardingCase"
+  - canonical_name: document_id
+    type: UUID
+    source_entity: IdentityDocument
+    notes: "Assigned on document upload"
+
+statuses:
+  - canonical_name: OnboardingStatus
+    values:
+      - INITIATED
+      - DOCS_SUBMITTED
+      - UNDER_VALIDATION
+      - REVIEW_REQUIRED
+      - APPROVED
+      - REJECTED
+    bian_alignment:
+      service_domain: PartyLifecycleManagement
+      alignment_type: adapted
+      notes: "Adapted from BIAN Status type; condensed to AP-relevant lifecycle states"
+
+lifecycle_states:
+  - entity: OnboardingCase
+    states: [INITIATED, DOCS_SUBMITTED, UNDER_VALIDATION, REVIEW_REQUIRED, APPROVED, REJECTED]
+    transitions:
+      - from: INITIATED
+        to: DOCS_SUBMITTED
+        trigger: "UC-002 document upload complete"
+      - from: DOCS_SUBMITTED
+        to: UNDER_VALIDATION
+        trigger: "UC-003 auto-validation triggered"
+      - from: UNDER_VALIDATION
+        to: APPROVED
+        trigger: "UC-003 auto-validation passed (AML + ID verification)"
+      - from: UNDER_VALIDATION
+        to: REVIEW_REQUIRED
+        trigger: "UC-003 auto-validation failed (BR-004)"
+      - from: REVIEW_REQUIRED
+        to: APPROVED
+        trigger: "UC-004 analyst approves"
+      - from: REVIEW_REQUIRED
+        to: REJECTED
+        trigger: "UC-004 analyst rejects"
+
+event_names:
+  - canonical_name: OnboardingCaseInitiated
+    description: "Emitted when a new onboarding case is created (UC-001)"
+    producer: kyc-onboarding-api
+    consumer: NOTIFICATION_SERVICE
+  - canonical_name: OnboardingStatusChanged
+    description: "Emitted on every state transition of an OnboardingCase"
+    producer: kyc-onboarding-api
+    consumer: NOTIFICATION_SERVICE
+  - canonical_name: OnboardingApproved
+    description: "Emitted when KYC status transitions to APPROVED"
+    producer: kyc-onboarding-api
+    consumer: [NOTIFICATION_SERVICE, downstream-product-systems]
+  - canonical_name: OnboardingRejected
+    description: "Emitted when KYC status transitions to REJECTED"
+    producer: kyc-onboarding-api
+    consumer: NOTIFICATION_SERVICE
+
+command_names:
+  - canonical_name: InitiateOnboarding
+    maps_to_bian: "PartyLifecycleManagement/Initiate"
+    use_case: UC-001
+  - canonical_name: SubmitDocument
+    maps_to_bian: "PartyLifecycleManagement Documentation/Execute"
+    use_case: UC-002
+  - canonical_name: TriggerKYCValidation
+    maps_to_bian: "PartyLifecycleManagement/Execute"
+    use_case: UC-003
+  - canonical_name: SubmitReviewDecision
+    maps_to_bian: "PartyLifecycleManagement/Control"
+    use_case: UC-004
+
+query_names:
+  - canonical_name: GetOnboardingCase
+    maps_to_bian: "PartyLifecycleManagement/Retrieve"
+    use_case: all
+  - canonical_name: GetKYCResult
+    maps_to_bian: "PartyLifecycleManagement Qualification/Retrieve"
+    use_case: UC-003
+  - canonical_name: ListOnboardingCases
+    maps_to_bian: null
+    notes: "AP-specific query for analyst review queue; no direct BIAN baseline mapping"
+
+response_objects:
+  - canonical_name: OnboardingCaseResponse
+    description: "Full representation of an OnboardingCase"
+    maps_to_bian: "PartyLifecycleManagement Retrieve response"
+  - canonical_name: KYCResultResponse
+    description: "Qualification/validation result"
+    maps_to_bian: "Qualification Retrieve response"
+  - canonical_name: ReviewDecisionResponse
+    description: "Analyst review decision confirmation"
+    maps_to_bian: "Control response"

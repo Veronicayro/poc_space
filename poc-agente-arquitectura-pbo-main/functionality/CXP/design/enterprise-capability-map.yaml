@@ -1,0 +1,150 @@
+# Phase 1 Output: Enterprise Capability Map - Cuentas por Pagar (CXP)
+schema_version: "1.0"
+functionality_id: CXP
+phase: enterprise-capability-alignment
+generated_at: "2026-06-17"
+domain_standard: BIAN-Release-14
+
+capability_areas:
+  - id: CAP-CXP-001
+    name: "Invoice Lifecycle Management"
+    description: >
+      Gestión del ciclo de vida de facturas: registro, validación, aprobación,
+      rechazo y cancelación con control de estado completo.
+    business_capabilities:
+      - id: BC-CXP-001
+        name: "Invoice Registration"
+        use_cases: [UC-CXP-001]
+        business_rules: [BR-CXP-001, BR-CXP-002, BR-CXP-003]
+        bian_alignment:
+          service_domain: AccountsReceivable
+          fit: high
+          rationale: "AR en BIAN gestiona ciclo de vida de obligaciones financieras; AP es contraparte semántica"
+        target_component: invoice-management-api
+
+      - id: BC-CXP-002
+        name: "Invoice Approval Workflow"
+        use_cases: [UC-CXP-002, UC-CXP-003]
+        business_rules: [BR-CXP-004, BR-CXP-005, BR-CXP-006]
+        bian_alignment:
+          service_domain: AccountsReceivable
+          fit: high
+          rationale: "Workflow de aprobación es parte del ciclo de vida de obligaciones en BIAN AR"
+        target_component: invoice-management-api
+
+      - id: BC-CXP-003
+        name: "Invoice State Machine"
+        use_cases: [UC-CXP-002, UC-CXP-003, UC-CXP-006]
+        business_rules: [BR-CXP-004]
+        bian_alignment:
+          service_domain: AccountsReceivable
+          fit: high
+          control_record: "AccountsReceivableProcedure"
+        target_component: invoice-lifecycle-api
+
+  - id: CAP-CXP-002
+    name: "Payment Management"
+    description: >
+      Programación, ejecución y seguimiento de pagos a proveedores
+      con integración bancaria e idempotencia.
+    business_capabilities:
+      - id: BC-CXP-004
+        name: "Payment Scheduling"
+        use_cases: [UC-CXP-004]
+        business_rules: [BR-CXP-007, BR-CXP-008]
+        bian_alignment:
+          service_domain: Disbursement
+          fit: high
+          rationale: "BIAN Disbursement cubre programación de desembolsos financieros"
+        target_component: payment-management-api
+
+      - id: BC-CXP-005
+        name: "Payment Execution"
+        use_cases: [UC-CXP-005]
+        business_rules: [BR-CXP-009]
+        bian_alignment:
+          service_domain: Disbursement
+          fit: high
+          rationale: "DisbursementTransaction en BIAN mapea directamente a ejecución de pagos"
+        target_component: payment-management-api
+
+      - id: BC-CXP-006
+        name: "Payment Status Tracking"
+        use_cases: [UC-CXP-007]
+        bian_alignment:
+          service_domain: Disbursement
+          fit: medium
+        target_component: payment-management-api
+
+  - id: CAP-CXP-003
+    name: "Financial Integration"
+    description: >
+      Integración con ERP y sistema bancario para validación,
+      contabilización y ejecución de pagos.
+    business_capabilities:
+      - id: BC-CXP-007
+        name: "Supplier Validation"
+        use_cases: [UC-CXP-001]
+        business_rules: [BR-CXP-001]
+        bian_alignment:
+          service_domain: ContractorandSupplierAgreement
+          fit: medium
+          rationale: "BIAN ContractorandSupplierAgreement gestiona directorio de proveedores"
+        target_component: erp-integration-api
+
+      - id: BC-CXP-008
+        name: "Accounting Entry Registration"
+        use_cases: [UC-CXP-005]
+        bian_alignment:
+          service_domain: FinancialAccounting
+          fit: high
+          rationale: "BIAN FinancialAccounting gestiona libro mayor y asientos contables"
+        target_component: erp-integration-api
+
+      - id: BC-CXP-009
+        name: "Banking Connectivity"
+        use_cases: [UC-CXP-005]
+        bian_alignment:
+          service_domain: FinancialGateway
+          fit: high
+          rationale: "BIAN FinancialGateway gestiona conectividad con sistemas financieros externos"
+        target_component: banking-integration-api
+
+  - id: CAP-CXP-004
+    name: "Compliance & Audit"
+    description: "Trazabilidad completa para cumplimiento ISO 27001 / SOX."
+    business_capabilities:
+      - id: BC-CXP-010
+        name: "Audit Trail"
+        use_cases: [UC-CXP-001, UC-CXP-002, UC-CXP-003, UC-CXP-004, UC-CXP-005]
+        business_rules: [BR-CXP-005, BR-CXP-013]
+        bian_alignment:
+          service_domain: AccountsReceivable
+          fit: medium
+          note: "Audit trail es transversal; implementado como capacidad compartida"
+        target_component: invoice-lifecycle-api
+
+  - id: CAP-CXP-005
+    name: "Access Control"
+    description: "RBAC para control de acceso por rol (ANALYST, MANAGER, TREASURER)."
+    business_capabilities:
+      - id: BC-CXP-011
+        name: "Role-Based Access Control"
+        business_rules: [BR-CXP-011]
+        bian_alignment:
+          service_domain: CustomerAccessEntitlement
+          fit: low
+          note: "Referencia semántica; implementado con OAuth2/OIDC + RBAC middleware"
+        target_component: accounts-payable-exp-api
+
+capability_to_api_mapping:
+  - capability_area: CAP-CXP-001
+    apis: [invoice-management-api, invoice-lifecycle-api]
+  - capability_area: CAP-CXP-002
+    apis: [payment-management-api]
+  - capability_area: CAP-CXP-003
+    apis: [erp-integration-api, banking-integration-api]
+  - capability_area: CAP-CXP-004
+    apis: [invoice-lifecycle-api]
+  - capability_area: CAP-CXP-005
+    apis: [accounts-payable-exp-api]

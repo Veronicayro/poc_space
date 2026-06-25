@@ -1,0 +1,80 @@
+# domain-model.yaml — risk-assessment-api
+# Layer: Business | BIAN: Underwriting + CustomerCreditRating
+component_id: COMP-LON-BUS-002
+name: risk-assessment-api
+generated_at: "2026-06-17"
+
+entities:
+  - name: RiskAssessment
+    table: risk_assessments
+    description: >
+      Evaluación de riesgo crediticio vinculada a una solicitud.
+      Registra el score, nivel de riesgo, DTI y recomendación del analista.
+    bian_cr_mapping: UnderwritingAssessment
+    fields:
+      - name: id
+        type: UUID
+        pk: true
+        description: "BIAN: Underwriting.UnderwritingAssessmentReference"
+      - name: credit_request_id
+        type: UUID
+        fk: credit_requests.id
+        nullable: false
+        indexed: true
+        description: "Referencia a la solicitud de crédito evaluada"
+      - name: bureau_score
+        type: INTEGER
+        description: "Score crediticio retornado por el bureau externo"
+      - name: risk_level
+        type: ENUM
+        values: [LOW, MEDIUM, HIGH, CRITICAL]
+        nullable: false
+        description: "Nivel de riesgo determinado por las políticas internas"
+      - name: dti_ratio
+        type: DECIMAL(5,4)
+        description: "Debt-to-Income ratio calculado (ej: 0.35 = 35%)"
+      - name: recommendation
+        type: ENUM
+        values: [APPROVE, REJECT, ESCALATE]
+        nullable: false
+        description: "Recomendación del sistema/analista basada en score y políticas"
+      - name: analyst_id
+        type: VARCHAR(50)
+        description: "ID del analista de riesgo que completó la evaluación"
+      - name: assessed_at
+        type: TIMESTAMP WITH TIME ZONE
+        description: "Fecha y hora en que se completó la evaluación"
+      - name: bureau_report_ref
+        type: VARCHAR(255)
+        description: "Referencia al reporte en caché Redis o DMS"
+      - name: auto_reject_suggested
+        type: BOOLEAN
+        default: false
+        description: "true si score < umbral mínimo configurable"
+      - name: notes
+        type: TEXT
+        description: "Notas adicionales del analista"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: NOW()
+
+value_objects:
+  - name: RiskPolicy
+    description: >
+      Configuración de políticas de riesgo (parametrizable, no hardcoded).
+      Almacenada en tabla de configuración con auditoría de cambios.
+    fields:
+      - name: min_score_approve
+        type: INTEGER
+        description: "Score mínimo para aprobación directa por gerente"
+      - name: max_dti_ratio
+        type: DECIMAL(5,4)
+        description: "DTI ratio máximo permitido"
+      - name: manager_amount_limit
+        type: DECIMAL(15,2)
+        description: "Límite de atribución del gerente de créditos"
+      - name: high_risk_escalate_threshold
+        type: ENUM
+        values: [HIGH, CRITICAL]
+        description: "Nivel de riesgo que activa escalado automático al comité"

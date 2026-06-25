@@ -1,0 +1,85 @@
+# Domain Model - invoice-management-api
+schema_version: "1.0"
+component_id: invoice-management-api
+generated_at: "2026-06-17"
+
+entities:
+  - name: Invoice
+    bian_equivalent: AccountsReceivableProcedure
+    table: invoices
+    schema: cxp_invoices
+    fields:
+      - name: id
+        type: UUID
+        pk: true
+      - name: supplier_id
+        type: VARCHAR(100)
+        nullable: false
+        index: true
+      - name: invoice_number
+        type: VARCHAR(100)
+        nullable: false
+      - name: amount
+        type: DECIMAL(18,2)
+        nullable: false
+      - name: currency
+        type: CHAR(3)
+        nullable: false
+        default: USD
+      - name: status
+        type: VARCHAR(20)
+        nullable: false
+        index: true
+        values: [PENDING, APPROVED, REJECTED, SCHEDULED, PAID, CANCELLED]
+      - name: issue_date
+        type: DATE
+        nullable: false
+      - name: due_date
+        type: DATE
+        nullable: false
+        index: true
+      - name: description
+        type: TEXT
+        nullable: true
+      - name: created_by
+        type: VARCHAR(100)
+        nullable: false
+      - name: created_at
+        type: TIMESTAMPTZ
+        nullable: false
+        index: true
+      - name: updated_at
+        type: TIMESTAMPTZ
+        nullable: false
+    constraints:
+      - unique: "(supplier_id, invoice_number)"
+    business_rules: [BR-CXP-002, BR-CXP-003]
+
+  - name: InvoiceStateHistory
+    bian_equivalent: StatusUpdate
+    table: invoice_state_history
+    schema: cxp_invoices
+    immutable: true
+    fields:
+      - name: id
+        type: UUID
+        pk: true
+      - name: invoice_id
+        type: UUID
+        fk: invoices.id
+        index: true
+      - name: from_status
+        type: VARCHAR(20)
+      - name: to_status
+        type: VARCHAR(20)
+        nullable: false
+      - name: performed_by
+        type: VARCHAR(100)
+        nullable: false
+      - name: performed_at
+        type: TIMESTAMPTZ
+        nullable: false
+      - name: comment
+        type: TEXT
+        nullable: true
+    business_rules: [BR-CXP-005, BR-CXP-013]

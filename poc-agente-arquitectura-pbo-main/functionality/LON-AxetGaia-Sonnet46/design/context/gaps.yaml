@@ -1,0 +1,88 @@
+# gaps.yaml — LON (Sistema de Originación de Créditos)
+# Phase 0 / Phase 1 output
+functionality_id: LON
+
+open_gaps:
+  - id: GAP-LON-001
+    title: Contrato API del Bureau de Crédito no especificado
+    severity: MEDIUM
+    status: open
+    source: discovery/gaps-and-assumptions.md
+    blocking_phase: null
+    note: No bloquea diseño interno; impacta implementación de integración.
+
+  - id: GAP-LON-002
+    title: Contrato API del Core Bancario no especificado
+    severity: MEDIUM
+    status: open
+    source: discovery/gaps-and-assumptions.md
+    blocking_phase: null
+    note: El diseño de la capa de integración usará schema adaptado.
+
+  - id: GAP-LON-003
+    title: Umbrales de atribución y score mínimo no definidos numéricamente
+    severity: LOW
+    status: open
+    source: discovery/gaps-and-assumptions.md
+    blocking_phase: null
+    note: Parámetros externalizables; valores los define el negocio operacionalmente.
+
+  - id: GAP-LON-004
+    title: Sistema de notificaciones al cliente no especificado
+    severity: LOW
+    status: open
+    source: discovery/gaps-and-assumptions.md
+    blocking_phase: null
+    note: Se incluirá punto de extensión en DisbursementService.
+
+  - id: GAP-LON-005
+    title: Identity Provider corporativo no especificado
+    severity: LOW
+    status: open
+    source: discovery/gaps-and-assumptions.md
+    blocking_phase: null
+    note: Diseño agnóstico al proveedor de IDP (OAuth2/OIDC estándar).
+
+  - id: GAP-LON-006
+    title: Figma / UI design no disponible
+    severity: INFO
+    status: accepted
+    source: discovery/gaps-and-assumptions.md
+    blocking_phase: null
+    note: No afecta diseño de backend APIs.
+
+  - id: GAP-LON-007
+    title: Inventario de sistemas existentes no disponible
+    severity: LOW
+    status: accepted
+    source: discovery/gaps-and-assumptions.md
+    blocking_phase: null
+    note: Diseño greenfield asumido. existing-component-impact.yaml refleja impacto nulo.
+
+resolved_gaps: []
+
+assumptions:
+  - id: ASM-LON-001
+    description: Diseño greenfield; no existen APIs LON previas.
+    status: active
+  - id: ASM-LON-002
+    description: Core Bancario expone REST API para KYC, desembolso y amortización.
+    status: active
+  - id: ASM-LON-003
+    description: Redis disponible como infraestructura de caché (TTL bureau).
+    status: active
+  - id: ASM-LON-004
+    description: PostgreSQL confirmado como base de datos principal (ADR-001).
+    status: confirmed
+  - id: ASM-LON-005
+    description: Bureau de crédito soporta REST API (no SOAP/legacy).
+    status: active
+  - id: ASM-LON-006
+    description: Un solo proveedor de bureau por instancia de deployment.
+    status: active
+  - id: ASM-LON-007
+    description: Documentos del DMS accesibles por referencia (no se replican en LON).
+    status: active
+  - id: ASM-LON-008
+    description: Aprobación en dos niveles máximo (gerente / comité) en v1.
+    status: active

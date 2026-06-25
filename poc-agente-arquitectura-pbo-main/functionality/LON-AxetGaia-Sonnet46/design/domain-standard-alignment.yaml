@@ -1,0 +1,129 @@
+# domain-standard-alignment.yaml — LON (Sistema de Originación de Créditos)
+# Phase 1 output: bian-service-domain-evaluator skill
+functionality_id: LON
+provider: BIAN
+provider_version: "14.0.0"
+source_index_path: architecture/context/bian-spec-index-oas3.yaml
+
+domain_standard:
+  selected: true
+  name: BIAN
+  release: "14.0.0"
+
+alignments:
+  - capability_id: CAP-LON-001
+    capability_name: Credit Application Origination
+    selected_domain_or_service_domain: CustomerOffer
+    source_file_or_reference: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml
+    selected_operations_or_capabilities:
+      - Initiate CustomerOffer (registrar y lanzar el proceso de oferta crediticia)
+      - Update CustomerOffer (actualizar datos de la solicitud en proceso)
+      - Retrieve CustomerOffer (consultar estado actual del proceso de oferta)
+      - Exchange CustomerOffer (intercambiar documentos y resultados de verificación)
+    alignment_type: adapted
+    confidence: 0.92
+    rationale: >
+      CustomerOffer es el Service Domain BIAN que orquesta el procesamiento de
+      una oferta de producto para un cliente, incluyendo verificación documental,
+      evaluaciones crediticias, decisiones de underwriting y revisiones regulatorias.
+      Cubre directamente el ciclo de vida de la solicitud de crédito (UC-LON-001,
+      UC-LON-002, UC-LON-008). Adaptación necesaria: el contexto LON es de
+      originación interna (back-office) mientras que CustomerOffer tiene orientación
+      también a canales de auto-servicio; se adapta el CR para el flujo interno.
+    rejected_candidates:
+      - candidate: ConsumerLoan
+        reason: >
+          ConsumerLoan cubre el fulfillment post-aprobación del producto. LON es
+          pre-producto (originación). El core bancario gestiona ConsumerLoan.
+      - candidate: CorporateLoan
+        reason: >
+          Misma razón que ConsumerLoan; el core bancario gestiona CorporateLoan.
+    gaps: []
+
+  - capability_id: CAP-LON-003
+    capability_name: Credit Risk Assessment
+    selected_domain_or_service_domain: Underwriting
+    source_file_or_reference: architecture/cache/bian/release14.0.0/oas3/yamls/Underwriting.yaml
+    selected_operations_or_capabilities:
+      - Initiate Underwriting (iniciar proceso de evaluación de riesgo)
+      - Update Underwriting (registrar score y nivel de riesgo)
+      - Retrieve Underwriting (consultar evaluación de riesgo)
+      - Exchange Underwriting (intercambiar resultados de evaluación con bureau)
+    alignment_type: adapted
+    confidence: 0.90
+    rationale: >
+      Underwriting gestiona el proceso de decisión para préstamos y productos
+      similares, cubriendo la evaluación de riesgo, score crediticio y la
+      determinación de la recomendación de aprobación/rechazo (UC-LON-003).
+      Adaptación: se añade el cálculo de DTI ratio como extensión de la
+      evaluación estándar BIAN, y se integra la lógica de escalado multinivel
+      como parte del workflow.
+    rejected_candidates:
+      - candidate: CreditRiskModels
+        reason: >
+          CreditRiskModels es el diseño/mantenimiento de modelos de riesgo,
+          no la ejecución de la evaluación individual. No aplica aquí.
+    gaps: []
+
+  - capability_id: CAP-LON-004
+    capability_name: Credit Bureau Integration
+    selected_domain_or_service_domain: CustomerCreditRating
+    source_file_or_reference: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerCreditRating.yaml
+    selected_operations_or_capabilities:
+      - Retrieve CustomerCreditRating (obtener rating crediticio del cliente)
+      - Exchange CustomerCreditRating (consulta al bureau externo y caché)
+    alignment_type: adapted
+    confidence: 0.88
+    rationale: >
+      CustomerCreditRating mantiene y administra la evaluación crediticia del
+      banco para clientes, con referencia a agencias externas (bureau). Cubre
+      la capacidad de consulta al bureau (UC-LON-002, UC-LON-003) y la política
+      de caché TTL (DDA-003, ADR-005). Adaptación: el caché Redis de 24h es una
+      extensión de implementación no definida en el SD BIAN estándar.
+    rejected_candidates:
+      - candidate: CustomerBehaviorInsights
+        reason: >
+          CustomerBehaviorInsights es análisis de comportamiento para desarrollo
+          de relaciones; no aplica a evaluación crediticia con bureau.
+    gaps: []
+
+  - capability_id: CAP-LON-007
+    capability_name: Credit Disbursement Execution
+    selected_domain_or_service_domain: Disbursement
+    source_file_or_reference: architecture/cache/bian/release14.0.0/oas3/yamls/Disbursement.yaml
+    selected_operations_or_capabilities:
+      - Initiate DisbursementTransaction (iniciar instrucción de desembolso)
+      - Execute DisbursementTransaction (ejecutar desembolso en el core)
+      - Retrieve DisbursementTransaction (consultar estado del desembolso)
+    alignment_type: direct
+    confidence: 0.95
+    rationale: >
+      Disbursement es el Service Domain BIAN con cobertura directa del
+      desembolso de fondos a préstamos/facilidades recién establecidos.
+      Cubre completamente UC-LON-007 incluyendo la instrucción al core
+      bancario y el registro de confirmación. Alineación directa sin
+      adaptaciones significativas.
+    rejected_candidates: []
+    gaps: []
+
+  - capability_id: CAP-LON-005
+    capability_name: Credit Workflow State Machine
+    selected_domain_or_service_domain: CustomerOffer
+    source_file_or_reference: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml
+    selected_operations_or_capabilities:
+      - CustomerOffer workflow lifecycle management (embedded in CR state management)
+    alignment_type: partial
+    confidence: 0.75
+    rationale: >
+      La state machine del workflow crediticio se implementa como extensión
+      del Control Record de CustomerOffer. BIAN no define explícitamente una
+      state machine de 12 estados para originación, pero el ciclo de vida
+      del CustomerOffer CR (Initiated → Processed → Completed) sirve como
+      marco base. Los estados adicionales (PENDING_COMMITTEE, RISK_ASSESSED,
+      etc.) son extensiones de dominio no cubiertas por BIAN.
+    rejected_candidates: []
+    gaps:
+      - "BIAN CustomerOffer CR no define explícitamente los 12 estados del workflow LON"
+      - "Escalado a comité es extensión de dominio sin equivalente BIAN directo"
+
+blocking_issues: []

@@ -1,0 +1,79 @@
+functionality_id: KYC_ONBOARDING_DIGITAL
+generated_at: "2026-06-22"
+maturity: draft
+validation: pending
+notes: >
+  API names are tentative at this phase. Naming convention and final API inventory
+  to be confirmed in Phase 4 (api-landscape-design). BIAN contract derivation
+  gates (BLOCK-01/02/03) will be evaluated in Phase 7 (backend-contract-design).
+
+apis:
+  - api_name: kyc-onboarding-api
+    api_type: business
+    naming_rationale: >
+      Follows catalog kebab-case naming convention (<capability>-<concern>-api).
+      "kyc-onboarding" reflects the KYC-driven onboarding lifecycle as the primary concern.
+      Confirmed by user target component override.
+    supported_flow_or_domain: "Onboarding Lifecycle Management (CAP-004) — orchestrates UC-001 through UC-005"
+    candidate_bian_service_domain: PartyLifecycleManagement
+    bian_alignment_type: adapted
+    orchestration_role: orchestrating
+    interaction_style: rest
+    decision: create
+    primary_consumers:
+      - id: CUSTOMER
+        channel: Web
+        scope: "kyc.customer"
+      - id: CUSTOMER
+        channel: Mobile
+        scope: "kyc.customer"
+      - id: KYC_ANALYST
+        channel: Backoffice
+        scope: "kyc.analyst"
+    dependencies:
+      synchronous:
+        - name: CustomerProfileAPI
+          version: "1.2.0"
+          catalog_path: "catalog/domains/customers.yaml"
+          consumed_operations: ["POST /customers", "PATCH /customers/{customerId}"]
+        - name: CustomerIdentityAPI
+          version: "1.1.0"
+          catalog_path: "catalog/domains/customers.yaml"
+          consumed_operations:
+            - "POST /customers/{customerId}/identities"
+            - "POST /customers/{customerId}/identities/{identityId}/verify"
+        - name: KYCScreeningAPI
+          version: "3.0.0"
+          catalog_path: "catalog/domains/compliance.yaml"
+          consumed_operations: ["POST /screenings", "GET /screenings/{screeningId}"]
+        - name: AML_SERVICE
+          type: external
+          integration: REST sync
+          criticality: HIGH
+        - name: ID_VERIFICATION_PROVIDER
+          type: external
+          integration: REST sync
+          criticality: HIGH
+      asynchronous:
+        publishes:
+          - name: OnboardingStatusChanged
+            target: NOTIFICATION_SERVICE
+        consumes: []
+    stateful_or_stateless: stateful
+    state_description: "Owns OnboardingCase state machine (INITIATED → DOCS_SUBMITTED → UNDER_VALIDATION → APPROVED | REVIEW_REQUIRED → APPROVED | REJECTED)"
+    related_contracts:
+      - "functionality/KYC_ONBOARDING_DIGITAL/design/business/kyc-onboarding-api/contract/openapi.yaml"
+      - "functionality/KYC_ONBOARDING_DIGITAL/design/business/kyc-onboarding-api/contract/bian-adoption.yaml"
+    bian_baseline_reference: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+    security:
+      authn: OAuth2/OIDC
+      authz: RBAC
+      scopes:
+        - "kyc.onboarding.read"
+        - "kyc.onboarding.initiate"
+        - "kyc.onboarding.documents.write"
+        - "kyc.onboarding.review.write"
+    notes: >
+      API naming confirmed. Layer=business per orchestration role and BIAN PartyLifecycleManagement
+      alignment. Event publisher for OnboardingStatusChanged is an internal module (not a separate API).
+      Contract derivation from BIAN baseline required in Phase 7.

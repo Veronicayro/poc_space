@@ -1,0 +1,1279 @@
+{
+  "service_domain": "PartyLifecycleManagement",
+  "bian_release": "14.0.0",
+  "source_oas3_path": "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml",
+  "generated_at": "2026-06-22T21:59:13+00:00",
+  "control_record": "CR - PartyRelationshipAdministrativePlan",
+  "operations": [
+    {
+      "path": "/PartyLifecycleManagement/Initiate",
+      "method": "post",
+      "operationId": "Initiate",
+      "summary": "InCR Initiate party life-cycle administrative plan",
+      "bian_operation": "Initiate",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null,
+        "properties": {
+          "CustomerReference": {
+            "type": "object",
+            "description": "Reference to a Party who plays a  specific role in the context of assigning a status."
+          },
+          "PartyReference": {
+            "type": "object",
+            "description": "Reference to the legal entity (typically the customer)"
+          },
+          "PartyRelationshipType": {
+            "type": "string",
+            "description": ">\r\n* `PartyIsParentOfParty` - \r\n* `PartyIsSubsidiaryOfParty` - \r\n* `PartyIsCertifiedByParty` - \r\n* `PartyIsMarriedToParty` - \r\n* `PartyActsOnBehalfOfParty` - \r\n* `PartyIsContactPointForParty` - \r\n* `PartyIsTrustedByParty` - \r\n* `PartyIsThePowerOfAttorneyForParty` - \r\n* `PartyReceivesBenefitsFromAParty` - \r\n",
+            "enum": [
+              "PartyIsParentOfParty",
+              "PartyIsSubsidiaryOfParty",
+              "PartyIsCertifiedByParty",
+              "PartyIsMarriedToParty",
+              "PartyActsOnBehalfOfParty",
+              "PartyIsContactPointForParty",
+              "PartyIsTrustedByParty",
+              "PartyIsThePowerOfAttorneyForParty",
+              "PartyReceivesBenefitsFromAParty"
+            ]
+          },
+          "PartyLife-cycleMaintenanceSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyLife-cycleMaintenanceTask": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "PartyLife-cycleMaintenanceTaskType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of task performed (e.g. on-boarding check, periodic refresh)"
+          },
+          "PartyLife-cycleMaintenanceWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "PartyLife-cycleMaintenanceTaskResult": {
+            "type": "string",
+            "format": "Text",
+            "description": "The outcome of the task  (will be used to update the Status and Status Record)"
+          },
+          "CustomerPrecedentProfileUpdateLog": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecycleStatus": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecyclePhase": {
+            "type": "object",
+            "description": "Phase that characterizes the course of existence of a party relationship in a specific context.\n"
+          }
+        },
+        "required": []
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "CustomerReference": {
+            "type": "object",
+            "description": "Reference to a Party who plays a  specific role in the context of assigning a status."
+          },
+          "PartyReference": {
+            "type": "object",
+            "description": "Reference to the legal entity (typically the customer)"
+          },
+          "PartyRelationshipType": {
+            "type": "string",
+            "description": ">\r\n* `PartyIsParentOfParty` - \r\n* `PartyIsSubsidiaryOfParty` - \r\n* `PartyIsCertifiedByParty` - \r\n* `PartyIsMarriedToParty` - \r\n* `PartyActsOnBehalfOfParty` - \r\n* `PartyIsContactPointForParty` - \r\n* `PartyIsTrustedByParty` - \r\n* `PartyIsThePowerOfAttorneyForParty` - \r\n* `PartyReceivesBenefitsFromAParty` - \r\n",
+            "enum": [
+              "PartyIsParentOfParty",
+              "PartyIsSubsidiaryOfParty",
+              "PartyIsCertifiedByParty",
+              "PartyIsMarriedToParty",
+              "PartyActsOnBehalfOfParty",
+              "PartyIsContactPointForParty",
+              "PartyIsTrustedByParty",
+              "PartyIsThePowerOfAttorneyForParty",
+              "PartyReceivesBenefitsFromAParty"
+            ]
+          },
+          "PartyLife-cycleMaintenanceSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyLife-cycleMaintenanceTask": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "PartyLife-cycleMaintenanceTaskType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of task performed (e.g. on-boarding check, periodic refresh)"
+          },
+          "PartyLife-cycleMaintenanceWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "PartyLife-cycleMaintenanceTaskResult": {
+            "type": "string",
+            "format": "Text",
+            "description": "The outcome of the task  (will be used to update the Status and Status Record)"
+          },
+          "CustomerPrecedentProfileUpdateLog": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecycleStatus": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecyclePhase": {
+            "type": "object",
+            "description": "Phase that characterizes the course of existence of a party relationship in a specific context.\n"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/Update",
+      "method": "put",
+      "operationId": "Update",
+      "summary": "UpCR Update details about a party life-cycle administrative plan",
+      "bian_operation": "Update",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null,
+        "properties": {
+          "CustomerReference": {
+            "type": "object",
+            "description": "Reference to a Party who plays a  specific role in the context of assigning a status."
+          },
+          "PartyReference": {
+            "type": "object",
+            "description": "Reference to the legal entity (typically the customer)"
+          },
+          "PartyRelationshipType": {
+            "type": "string",
+            "description": ">\r\n* `PartyIsParentOfParty` - \r\n* `PartyIsSubsidiaryOfParty` - \r\n* `PartyIsCertifiedByParty` - \r\n* `PartyIsMarriedToParty` - \r\n* `PartyActsOnBehalfOfParty` - \r\n* `PartyIsContactPointForParty` - \r\n* `PartyIsTrustedByParty` - \r\n* `PartyIsThePowerOfAttorneyForParty` - \r\n* `PartyReceivesBenefitsFromAParty` - \r\n",
+            "enum": [
+              "PartyIsParentOfParty",
+              "PartyIsSubsidiaryOfParty",
+              "PartyIsCertifiedByParty",
+              "PartyIsMarriedToParty",
+              "PartyActsOnBehalfOfParty",
+              "PartyIsContactPointForParty",
+              "PartyIsTrustedByParty",
+              "PartyIsThePowerOfAttorneyForParty",
+              "PartyReceivesBenefitsFromAParty"
+            ]
+          },
+          "PartyLife-cycleMaintenanceSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyLife-cycleMaintenanceTask": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "PartyLife-cycleMaintenanceTaskType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of task performed (e.g. on-boarding check, periodic refresh)"
+          },
+          "PartyLife-cycleMaintenanceWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "PartyLife-cycleMaintenanceTaskResult": {
+            "type": "string",
+            "format": "Text",
+            "description": "The outcome of the task  (will be used to update the Status and Status Record)"
+          },
+          "CustomerPrecedentProfileUpdateLog": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecycleStatus": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecyclePhase": {
+            "type": "object",
+            "description": "Phase that characterizes the course of existence of a party relationship in a specific context.\n"
+          }
+        },
+        "required": []
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "CustomerReference": {
+            "type": "object",
+            "description": "Reference to a Party who plays a  specific role in the context of assigning a status."
+          },
+          "PartyReference": {
+            "type": "object",
+            "description": "Reference to the legal entity (typically the customer)"
+          },
+          "PartyRelationshipType": {
+            "type": "string",
+            "description": ">\r\n* `PartyIsParentOfParty` - \r\n* `PartyIsSubsidiaryOfParty` - \r\n* `PartyIsCertifiedByParty` - \r\n* `PartyIsMarriedToParty` - \r\n* `PartyActsOnBehalfOfParty` - \r\n* `PartyIsContactPointForParty` - \r\n* `PartyIsTrustedByParty` - \r\n* `PartyIsThePowerOfAttorneyForParty` - \r\n* `PartyReceivesBenefitsFromAParty` - \r\n",
+            "enum": [
+              "PartyIsParentOfParty",
+              "PartyIsSubsidiaryOfParty",
+              "PartyIsCertifiedByParty",
+              "PartyIsMarriedToParty",
+              "PartyActsOnBehalfOfParty",
+              "PartyIsContactPointForParty",
+              "PartyIsTrustedByParty",
+              "PartyIsThePowerOfAttorneyForParty",
+              "PartyReceivesBenefitsFromAParty"
+            ]
+          },
+          "PartyLife-cycleMaintenanceSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyLife-cycleMaintenanceTask": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "PartyLife-cycleMaintenanceTaskType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of task performed (e.g. on-boarding check, periodic refresh)"
+          },
+          "PartyLife-cycleMaintenanceWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "PartyLife-cycleMaintenanceTaskResult": {
+            "type": "string",
+            "format": "Text",
+            "description": "The outcome of the task  (will be used to update the Status and Status Record)"
+          },
+          "CustomerPrecedentProfileUpdateLog": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecycleStatus": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecyclePhase": {
+            "type": "object",
+            "description": "Phase that characterizes the course of existence of a party relationship in a specific context.\n"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/Control",
+      "method": "put",
+      "operationId": "Control",
+      "summary": "CoCR Control the processing of a party-life-cycle administrative plan (e.g. terminate)",
+      "bian_operation": "Control",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null,
+        "properties": {
+          "CustomerReference": {
+            "type": "object",
+            "description": "Reference to a Party who plays a  specific role in the context of assigning a status."
+          },
+          "PartyReference": {
+            "type": "object",
+            "description": "Reference to the legal entity (typically the customer)"
+          },
+          "PartyRelationshipType": {
+            "type": "string",
+            "description": ">\r\n* `PartyIsParentOfParty` - \r\n* `PartyIsSubsidiaryOfParty` - \r\n* `PartyIsCertifiedByParty` - \r\n* `PartyIsMarriedToParty` - \r\n* `PartyActsOnBehalfOfParty` - \r\n* `PartyIsContactPointForParty` - \r\n* `PartyIsTrustedByParty` - \r\n* `PartyIsThePowerOfAttorneyForParty` - \r\n* `PartyReceivesBenefitsFromAParty` - \r\n",
+            "enum": [
+              "PartyIsParentOfParty",
+              "PartyIsSubsidiaryOfParty",
+              "PartyIsCertifiedByParty",
+              "PartyIsMarriedToParty",
+              "PartyActsOnBehalfOfParty",
+              "PartyIsContactPointForParty",
+              "PartyIsTrustedByParty",
+              "PartyIsThePowerOfAttorneyForParty",
+              "PartyReceivesBenefitsFromAParty"
+            ]
+          },
+          "PartyLife-cycleMaintenanceSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyLife-cycleMaintenanceTask": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "PartyLife-cycleMaintenanceTaskType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of task performed (e.g. on-boarding check, periodic refresh)"
+          },
+          "PartyLife-cycleMaintenanceWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "PartyLife-cycleMaintenanceTaskResult": {
+            "type": "string",
+            "format": "Text",
+            "description": "The outcome of the task  (will be used to update the Status and Status Record)"
+          },
+          "CustomerPrecedentProfileUpdateLog": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecycleStatus": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecyclePhase": {
+            "type": "object",
+            "description": "Phase that characterizes the course of existence of a party relationship in a specific context.\n"
+          }
+        },
+        "required": []
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "CustomerReference": {
+            "type": "object",
+            "description": "Reference to a Party who plays a  specific role in the context of assigning a status."
+          },
+          "PartyReference": {
+            "type": "object",
+            "description": "Reference to the legal entity (typically the customer)"
+          },
+          "PartyRelationshipType": {
+            "type": "string",
+            "description": ">\r\n* `PartyIsParentOfParty` - \r\n* `PartyIsSubsidiaryOfParty` - \r\n* `PartyIsCertifiedByParty` - \r\n* `PartyIsMarriedToParty` - \r\n* `PartyActsOnBehalfOfParty` - \r\n* `PartyIsContactPointForParty` - \r\n* `PartyIsTrustedByParty` - \r\n* `PartyIsThePowerOfAttorneyForParty` - \r\n* `PartyReceivesBenefitsFromAParty` - \r\n",
+            "enum": [
+              "PartyIsParentOfParty",
+              "PartyIsSubsidiaryOfParty",
+              "PartyIsCertifiedByParty",
+              "PartyIsMarriedToParty",
+              "PartyActsOnBehalfOfParty",
+              "PartyIsContactPointForParty",
+              "PartyIsTrustedByParty",
+              "PartyIsThePowerOfAttorneyForParty",
+              "PartyReceivesBenefitsFromAParty"
+            ]
+          },
+          "PartyLife-cycleMaintenanceSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyLife-cycleMaintenanceTask": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "PartyLife-cycleMaintenanceTaskType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of task performed (e.g. on-boarding check, periodic refresh)"
+          },
+          "PartyLife-cycleMaintenanceWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "PartyLife-cycleMaintenanceTaskResult": {
+            "type": "string",
+            "format": "Text",
+            "description": "The outcome of the task  (will be used to update the Status and Status Record)"
+          },
+          "CustomerPrecedentProfileUpdateLog": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecycleStatus": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecyclePhase": {
+            "type": "object",
+            "description": "Phase that characterizes the course of existence of a party relationship in a specific context.\n"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/Exchange",
+      "method": "put",
+      "operationId": "Exchange",
+      "summary": "EcCR Accept, verify, etc. of the party life-cycle administrative plan",
+      "bian_operation": "Exchange",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null,
+        "properties": {
+          "CustomerReference": {
+            "type": "object",
+            "description": "Reference to a Party who plays a  specific role in the context of assigning a status."
+          },
+          "PartyReference": {
+            "type": "object",
+            "description": "Reference to the legal entity (typically the customer)"
+          },
+          "PartyRelationshipType": {
+            "type": "string",
+            "description": ">\r\n* `PartyIsParentOfParty` - \r\n* `PartyIsSubsidiaryOfParty` - \r\n* `PartyIsCertifiedByParty` - \r\n* `PartyIsMarriedToParty` - \r\n* `PartyActsOnBehalfOfParty` - \r\n* `PartyIsContactPointForParty` - \r\n* `PartyIsTrustedByParty` - \r\n* `PartyIsThePowerOfAttorneyForParty` - \r\n* `PartyReceivesBenefitsFromAParty` - \r\n",
+            "enum": [
+              "PartyIsParentOfParty",
+              "PartyIsSubsidiaryOfParty",
+              "PartyIsCertifiedByParty",
+              "PartyIsMarriedToParty",
+              "PartyActsOnBehalfOfParty",
+              "PartyIsContactPointForParty",
+              "PartyIsTrustedByParty",
+              "PartyIsThePowerOfAttorneyForParty",
+              "PartyReceivesBenefitsFromAParty"
+            ]
+          },
+          "PartyLife-cycleMaintenanceSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyLife-cycleMaintenanceTask": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "PartyLife-cycleMaintenanceTaskType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of task performed (e.g. on-boarding check, periodic refresh)"
+          },
+          "PartyLife-cycleMaintenanceWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "PartyLife-cycleMaintenanceTaskResult": {
+            "type": "string",
+            "format": "Text",
+            "description": "The outcome of the task  (will be used to update the Status and Status Record)"
+          },
+          "CustomerPrecedentProfileUpdateLog": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecycleStatus": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecyclePhase": {
+            "type": "object",
+            "description": "Phase that characterizes the course of existence of a party relationship in a specific context.\n"
+          }
+        },
+        "required": []
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "CustomerReference": {
+            "type": "object",
+            "description": "Reference to a Party who plays a  specific role in the context of assigning a status."
+          },
+          "PartyReference": {
+            "type": "object",
+            "description": "Reference to the legal entity (typically the customer)"
+          },
+          "PartyRelationshipType": {
+            "type": "string",
+            "description": ">\r\n* `PartyIsParentOfParty` - \r\n* `PartyIsSubsidiaryOfParty` - \r\n* `PartyIsCertifiedByParty` - \r\n* `PartyIsMarriedToParty` - \r\n* `PartyActsOnBehalfOfParty` - \r\n* `PartyIsContactPointForParty` - \r\n* `PartyIsTrustedByParty` - \r\n* `PartyIsThePowerOfAttorneyForParty` - \r\n* `PartyReceivesBenefitsFromAParty` - \r\n",
+            "enum": [
+              "PartyIsParentOfParty",
+              "PartyIsSubsidiaryOfParty",
+              "PartyIsCertifiedByParty",
+              "PartyIsMarriedToParty",
+              "PartyActsOnBehalfOfParty",
+              "PartyIsContactPointForParty",
+              "PartyIsTrustedByParty",
+              "PartyIsThePowerOfAttorneyForParty",
+              "PartyReceivesBenefitsFromAParty"
+            ]
+          },
+          "PartyLife-cycleMaintenanceSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyLife-cycleMaintenanceTask": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "PartyLife-cycleMaintenanceTaskType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of task performed (e.g. on-boarding check, periodic refresh)"
+          },
+          "PartyLife-cycleMaintenanceWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "PartyLife-cycleMaintenanceTaskResult": {
+            "type": "string",
+            "format": "Text",
+            "description": "The outcome of the task  (will be used to update the Status and Status Record)"
+          },
+          "CustomerPrecedentProfileUpdateLog": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecycleStatus": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecyclePhase": {
+            "type": "object",
+            "description": "Phase that characterizes the course of existence of a party relationship in a specific context.\n"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/Execute",
+      "method": "put",
+      "operationId": "Execute",
+      "summary": "ExCR Execute an automated action (e.g. input data)",
+      "bian_operation": "Execute",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null,
+        "properties": {
+          "CustomerReference": {
+            "type": "object",
+            "description": "Reference to a Party who plays a  specific role in the context of assigning a status."
+          },
+          "PartyReference": {
+            "type": "object",
+            "description": "Reference to the legal entity (typically the customer)"
+          },
+          "PartyRelationshipType": {
+            "type": "string",
+            "description": ">\r\n* `PartyIsParentOfParty` - \r\n* `PartyIsSubsidiaryOfParty` - \r\n* `PartyIsCertifiedByParty` - \r\n* `PartyIsMarriedToParty` - \r\n* `PartyActsOnBehalfOfParty` - \r\n* `PartyIsContactPointForParty` - \r\n* `PartyIsTrustedByParty` - \r\n* `PartyIsThePowerOfAttorneyForParty` - \r\n* `PartyReceivesBenefitsFromAParty` - \r\n",
+            "enum": [
+              "PartyIsParentOfParty",
+              "PartyIsSubsidiaryOfParty",
+              "PartyIsCertifiedByParty",
+              "PartyIsMarriedToParty",
+              "PartyActsOnBehalfOfParty",
+              "PartyIsContactPointForParty",
+              "PartyIsTrustedByParty",
+              "PartyIsThePowerOfAttorneyForParty",
+              "PartyReceivesBenefitsFromAParty"
+            ]
+          },
+          "PartyLife-cycleMaintenanceSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyLife-cycleMaintenanceTask": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "PartyLife-cycleMaintenanceTaskType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of task performed (e.g. on-boarding check, periodic refresh)"
+          },
+          "PartyLife-cycleMaintenanceWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "PartyLife-cycleMaintenanceTaskResult": {
+            "type": "string",
+            "format": "Text",
+            "description": "The outcome of the task  (will be used to update the Status and Status Record)"
+          },
+          "CustomerPrecedentProfileUpdateLog": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecycleStatus": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecyclePhase": {
+            "type": "object",
+            "description": "Phase that characterizes the course of existence of a party relationship in a specific context.\n"
+          }
+        },
+        "required": []
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "CustomerReference": {
+            "type": "object",
+            "description": "Reference to a Party who plays a  specific role in the context of assigning a status."
+          },
+          "PartyReference": {
+            "type": "object",
+            "description": "Reference to the legal entity (typically the customer)"
+          },
+          "PartyRelationshipType": {
+            "type": "string",
+            "description": ">\r\n* `PartyIsParentOfParty` - \r\n* `PartyIsSubsidiaryOfParty` - \r\n* `PartyIsCertifiedByParty` - \r\n* `PartyIsMarriedToParty` - \r\n* `PartyActsOnBehalfOfParty` - \r\n* `PartyIsContactPointForParty` - \r\n* `PartyIsTrustedByParty` - \r\n* `PartyIsThePowerOfAttorneyForParty` - \r\n* `PartyReceivesBenefitsFromAParty` - \r\n",
+            "enum": [
+              "PartyIsParentOfParty",
+              "PartyIsSubsidiaryOfParty",
+              "PartyIsCertifiedByParty",
+              "PartyIsMarriedToParty",
+              "PartyActsOnBehalfOfParty",
+              "PartyIsContactPointForParty",
+              "PartyIsTrustedByParty",
+              "PartyIsThePowerOfAttorneyForParty",
+              "PartyReceivesBenefitsFromAParty"
+            ]
+          },
+          "PartyLife-cycleMaintenanceSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyLife-cycleMaintenanceTask": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "PartyLife-cycleMaintenanceTaskType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of task performed (e.g. on-boarding check, periodic refresh)"
+          },
+          "PartyLife-cycleMaintenanceWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "PartyLife-cycleMaintenanceTaskResult": {
+            "type": "string",
+            "format": "Text",
+            "description": "The outcome of the task  (will be used to update the Status and Status Record)"
+          },
+          "CustomerPrecedentProfileUpdateLog": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecycleStatus": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecyclePhase": {
+            "type": "object",
+            "description": "Phase that characterizes the course of existence of a party relationship in a specific context.\n"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/Request",
+      "method": "put",
+      "operationId": "Request",
+      "summary": "RqCR Request manual intervention (e.g. negotiate resolution)",
+      "bian_operation": "Request",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null,
+        "properties": {
+          "CustomerReference": {
+            "type": "object",
+            "description": "Reference to a Party who plays a  specific role in the context of assigning a status."
+          },
+          "PartyReference": {
+            "type": "object",
+            "description": "Reference to the legal entity (typically the customer)"
+          },
+          "PartyRelationshipType": {
+            "type": "string",
+            "description": ">\r\n* `PartyIsParentOfParty` - \r\n* `PartyIsSubsidiaryOfParty` - \r\n* `PartyIsCertifiedByParty` - \r\n* `PartyIsMarriedToParty` - \r\n* `PartyActsOnBehalfOfParty` - \r\n* `PartyIsContactPointForParty` - \r\n* `PartyIsTrustedByParty` - \r\n* `PartyIsThePowerOfAttorneyForParty` - \r\n* `PartyReceivesBenefitsFromAParty` - \r\n",
+            "enum": [
+              "PartyIsParentOfParty",
+              "PartyIsSubsidiaryOfParty",
+              "PartyIsCertifiedByParty",
+              "PartyIsMarriedToParty",
+              "PartyActsOnBehalfOfParty",
+              "PartyIsContactPointForParty",
+              "PartyIsTrustedByParty",
+              "PartyIsThePowerOfAttorneyForParty",
+              "PartyReceivesBenefitsFromAParty"
+            ]
+          },
+          "PartyLife-cycleMaintenanceSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyLife-cycleMaintenanceTask": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "PartyLife-cycleMaintenanceTaskType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of task performed (e.g. on-boarding check, periodic refresh)"
+          },
+          "PartyLife-cycleMaintenanceWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "PartyLife-cycleMaintenanceTaskResult": {
+            "type": "string",
+            "format": "Text",
+            "description": "The outcome of the task  (will be used to update the Status and Status Record)"
+          },
+          "CustomerPrecedentProfileUpdateLog": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecycleStatus": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecyclePhase": {
+            "type": "object",
+            "description": "Phase that characterizes the course of existence of a party relationship in a specific context.\n"
+          }
+        },
+        "required": []
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "CustomerReference": {
+            "type": "object",
+            "description": "Reference to a Party who plays a  specific role in the context of assigning a status."
+          },
+          "PartyReference": {
+            "type": "object",
+            "description": "Reference to the legal entity (typically the customer)"
+          },
+          "PartyRelationshipType": {
+            "type": "string",
+            "description": ">\r\n* `PartyIsParentOfParty` - \r\n* `PartyIsSubsidiaryOfParty` - \r\n* `PartyIsCertifiedByParty` - \r\n* `PartyIsMarriedToParty` - \r\n* `PartyActsOnBehalfOfParty` - \r\n* `PartyIsContactPointForParty` - \r\n* `PartyIsTrustedByParty` - \r\n* `PartyIsThePowerOfAttorneyForParty` - \r\n* `PartyReceivesBenefitsFromAParty` - \r\n",
+            "enum": [
+              "PartyIsParentOfParty",
+              "PartyIsSubsidiaryOfParty",
+              "PartyIsCertifiedByParty",
+              "PartyIsMarriedToParty",
+              "PartyActsOnBehalfOfParty",
+              "PartyIsContactPointForParty",
+              "PartyIsTrustedByParty",
+              "PartyIsThePowerOfAttorneyForParty",
+              "PartyReceivesBenefitsFromAParty"
+            ]
+          },
+          "PartyLife-cycleMaintenanceSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyLife-cycleMaintenanceTask": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "PartyLife-cycleMaintenanceTaskType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of task performed (e.g. on-boarding check, periodic refresh)"
+          },
+          "PartyLife-cycleMaintenanceWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "PartyLife-cycleMaintenanceTaskResult": {
+            "type": "string",
+            "format": "Text",
+            "description": "The outcome of the task  (will be used to update the Status and Status Record)"
+          },
+          "CustomerPrecedentProfileUpdateLog": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecycleStatus": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecyclePhase": {
+            "type": "object",
+            "description": "Phase that characterizes the course of existence of a party relationship in a specific context.\n"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/Retrieve",
+      "method": "get",
+      "operationId": "Retrieve",
+      "summary": "ReCR Retrieve details about a party life-cycle administrative plan",
+      "bian_operation": "Retrieve",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "CustomerReference": {
+            "type": "object",
+            "description": "Reference to a Party who plays a  specific role in the context of assigning a status."
+          },
+          "PartyReference": {
+            "type": "object",
+            "description": "Reference to the legal entity (typically the customer)"
+          },
+          "PartyRelationshipType": {
+            "type": "string",
+            "description": ">\r\n* `PartyIsParentOfParty` - \r\n* `PartyIsSubsidiaryOfParty` - \r\n* `PartyIsCertifiedByParty` - \r\n* `PartyIsMarriedToParty` - \r\n* `PartyActsOnBehalfOfParty` - \r\n* `PartyIsContactPointForParty` - \r\n* `PartyIsTrustedByParty` - \r\n* `PartyIsThePowerOfAttorneyForParty` - \r\n* `PartyReceivesBenefitsFromAParty` - \r\n",
+            "enum": [
+              "PartyIsParentOfParty",
+              "PartyIsSubsidiaryOfParty",
+              "PartyIsCertifiedByParty",
+              "PartyIsMarriedToParty",
+              "PartyActsOnBehalfOfParty",
+              "PartyIsContactPointForParty",
+              "PartyIsTrustedByParty",
+              "PartyIsThePowerOfAttorneyForParty",
+              "PartyReceivesBenefitsFromAParty"
+            ]
+          },
+          "PartyLife-cycleMaintenanceSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyLife-cycleMaintenanceTask": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "PartyLife-cycleMaintenanceTaskType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of task performed (e.g. on-boarding check, periodic refresh)"
+          },
+          "PartyLife-cycleMaintenanceWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "PartyLife-cycleMaintenanceTaskResult": {
+            "type": "string",
+            "format": "Text",
+            "description": "The outcome of the task  (will be used to update the Status and Status Record)"
+          },
+          "CustomerPrecedentProfileUpdateLog": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecycleStatus": {
+            "type": "object",
+            "description": ""
+          },
+          "PartyRelationshipLifecyclePhase": {
+            "type": "object",
+            "description": "Phase that characterizes the course of existence of a party relationship in a specific context.\n"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/Qualification/{qualificationid}/Retrieve",
+      "method": "get",
+      "operationId": "RetrieveQualification",
+      "summary": "ReBQ Retrieve details about a party qualification routine",
+      "bian_operation": "Retrieve",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "QualificationType": {
+            "type": "string",
+            "description": ">\r\n* `Valuation` - \r\n* `Matching` - \r\n* `Authorization` - An evaluation whether a party or system is allowed to do something.\n\nThe consent given by a participant (or a third party acting on behalf of that participant) in order to transfer funds or securities. (ECB)\n\nAuthorization is a mechanism by which a computer system determines whether to allow or deny specific action to a user. Authorization is often controlled by rather complex rules and algorithms, usually specified as part of an access control model. Authorization often follows (and required) authentication, however, authentication and authorization are two separate mechanisms. In rare cases, \"authorization\" is understood as a process of allowing access, granting permissions or giving approval. Such as \"authorization\" of a request to join a group. (ISO/IEC 24760-1:2019 - IT Security and Privacy)\r\n* `Authentication` - An evaluation whether a party or system is what it claims to be.\n\nA security mechanism for verifying: 1) the identity of an individual or other entity (including verification by means of a computer or computer application); and 2) the level of authority of that person or entity (i.e. the ability of that person or entity to perform specific tasks or activities). (ECB)\n\nAuthentication is a mechanism by which a computer system checks that the user is really the one she or he claims to be. Authentication can be implemented by a broad variety of mechanisms broadly divided into three categories: something you know, something you have, something you are. Traditionally, authentication is done by the means of by username and password. Authentication is often followed by authorization, however, authentication and authorization are two separate mechanisms. (ISO/IEC 24760-1:2019 - IT Security and Privacy)\r\n* `QualityAssurance` - \r\n* `Audit` - \r\n* `ComplianceCheck` - \r\n* `FundingCheck` - \r\n* `SuitabilityCheck` - \r\n* `PerformanceCheck` - \r\n* `ImpactAssessment` - \r\n* `RiskAssessment` - \r\n* `Rating` - \r\n* `UnderwritingAssessment` - \r\n* `Qualification` - \r\n* `Verification` - A process establishing that a particular information is correct, while the meaning of \"information\" and \"correct\" varies from context to context. When dealing with identity information, this usually means formal verification of identity attributes, checking the schema, identifier uniqueness and referential integrity. However, verification may mean deeper verification, such as checking that the information is true and up-to-date.  (ISO/IEC 24760-1:2019 - IT Security and Privacy)\n\r\n* `KYCAssessment` - An assessment conducted by businesses and financial institutions to verify and confirm the identity of their customers or clients. The primary purpose of a KYC check is to prevent illegal activities, such as money laundering, terrorist financing, and fraud, by ensuring that customers are who they claim to be.\r\n* `PEPAssessment` - A PEP check, or \"Politically Exposed Person\" check, is an assessment conducted by used by businesses, financial institutions, and government agencies to identify individuals who hold prominent public positions or have significant political influence. The purpose of a PEP check is to assess and manage the potential risks associated with doing business with these individuals, as they may be more susceptible to corruption, money laundering, or other illicit activities.\r\n* `AMLAssessment` - An AML (Anti-Money Laundering) check is an assessment conducted by businesses, financial institutions, and other organizations to prevent and detect money laundering and the financing of criminal activities. The main purpose of an AML check is to ensure that financial transactions and business relationships are not being used to disguise the illegal origins of funds.\r\n* `EligibilityCheck` - Determines whether a person or case meets the criteria or preconditions to qualify for a benefit, service, or action.\r\n* `ExternalAgencyCheck` - \r\n* `EntitlementCheck` - Determines what benefit, amount, or service the person is actually entitled to receive once eligibility is confirmed.\r\n",
+            "enum": [
+              "Valuation",
+              "Matching",
+              "Authorization",
+              "Authentication",
+              "QualityAssurance",
+              "Audit",
+              "ComplianceCheck",
+              "FundingCheck",
+              "SuitabilityCheck",
+              "PerformanceCheck",
+              "ImpactAssessment",
+              "RiskAssessment",
+              "Rating",
+              "UnderwritingAssessment",
+              "Qualification",
+              "Verification",
+              "KYCAssessment",
+              "PEPAssessment",
+              "AMLAssessment",
+              "EligibilityCheck",
+              "ExternalAgencyCheck",
+              "EntitlementCheck"
+            ]
+          },
+          "PublicDirectoryReference": {
+            "type": "object",
+            "description": "Reference to an external verification source (e.g. for registered address/location verification)"
+          },
+          "SpecialistAgencyServiceReference": {
+            "type": "object",
+            "description": "Reference to an external verification service (e.g. to perform background verification checks)"
+          },
+          "QualificationTaskRecord": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "QualificationTaskDescription": {
+            "type": "string",
+            "format": "Text",
+            "description": "Description of the approach taken"
+          },
+          "SpecialistAgencyRegulatorServiceRequestResult": {
+            "type": "object",
+            "description": "Result from the verification service request"
+          },
+          "DocumentDirectoryEntryInstanceReference": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          },
+          "QualificationTaskWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "QualificationTaskResult": {
+            "type": "object",
+            "description": "The outcome of the qualification workstep"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Update",
+      "method": "put",
+      "operationId": "UpdateDocumentation",
+      "summary": "UpBQ Update details about document handling",
+      "bian_operation": "Update",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null,
+        "properties": {
+          "PartyLife-cycleRequiredDocumentation": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          },
+          "PartyLife-cycleDocumentSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "DocumentDirectoryEntryInstanceReference": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          }
+        },
+        "required": []
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "PartyLife-cycleRequiredDocumentation": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          },
+          "PartyLife-cycleDocumentSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "DocumentDirectoryEntryInstanceReference": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Execute",
+      "method": "put",
+      "operationId": "ExecuteDocumentation",
+      "summary": "ExBQ Execute an automated action (e.g. input data about a document)",
+      "bian_operation": "Execute",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null,
+        "properties": {
+          "PartyLife-cycleRequiredDocumentation": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          },
+          "PartyLife-cycleDocumentSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "DocumentDirectoryEntryInstanceReference": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          }
+        },
+        "required": []
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "PartyLife-cycleRequiredDocumentation": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          },
+          "PartyLife-cycleDocumentSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "DocumentDirectoryEntryInstanceReference": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Request",
+      "method": "put",
+      "operationId": "RequestDocumentation",
+      "summary": "RqBQ Request manual intervention (e.g. handle a document exchange)",
+      "bian_operation": "Request",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null,
+        "properties": {
+          "PartyLife-cycleRequiredDocumentation": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          },
+          "PartyLife-cycleDocumentSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "DocumentDirectoryEntryInstanceReference": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          }
+        },
+        "required": []
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "PartyLife-cycleRequiredDocumentation": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          },
+          "PartyLife-cycleDocumentSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "DocumentDirectoryEntryInstanceReference": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Retrieve",
+      "method": "get",
+      "operationId": "RetrieveDocumentation",
+      "summary": "ReBQ Retrieve details about document processing for a party life-cycle administration",
+      "bian_operation": "Retrieve",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "PartyLife-cycleRequiredDocumentation": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          },
+          "PartyLife-cycleDocumentSchedule": {
+            "type": "object",
+            "description": ""
+          },
+          "DocumentDirectoryEntryInstanceReference": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/Precedents/{precedentsid}/Update",
+      "method": "put",
+      "operationId": "UpdatePrecedents",
+      "summary": "UpBQ Update details about customer precedents",
+      "bian_operation": "Update",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null,
+        "properties": {
+          "PrecedentType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of party property tracked (e.g. residential status, marital status, military, in a disaster location, etc.)"
+          },
+          "CustomerPrecedentReference": {
+            "type": "object",
+            "description": "Reference to the tracked value"
+          },
+          "CustomerPrecedentValue": {
+            "type": "string",
+            "format": "Value",
+            "description": "Current (and historical) value of the precedent"
+          },
+          "CustomerPrecedentValueDate": {
+            "type": "object",
+            "description": ""
+          }
+        },
+        "required": []
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "PrecedentType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of party property tracked (e.g. residential status, marital status, military, in a disaster location, etc.)"
+          },
+          "CustomerPrecedentReference": {
+            "type": "object",
+            "description": "Reference to the tracked value"
+          },
+          "CustomerPrecedentValue": {
+            "type": "string",
+            "format": "Value",
+            "description": "Current (and historical) value of the precedent"
+          },
+          "CustomerPrecedentValueDate": {
+            "type": "object",
+            "description": ""
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/Precedents/{precedentsid}/Retrieve",
+      "method": "get",
+      "operationId": "RetrievePrecedents",
+      "summary": "ReBQ Retrieve details about customer precedent maintenance",
+      "bian_operation": "Retrieve",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "PrecedentType": {
+            "type": "string",
+            "format": "Text",
+            "description": "The type of party property tracked (e.g. residential status, marital status, military, in a disaster location, etc.)"
+          },
+          "CustomerPrecedentReference": {
+            "type": "object",
+            "description": "Reference to the tracked value"
+          },
+          "CustomerPrecedentValue": {
+            "type": "string",
+            "format": "Value",
+            "description": "Current (and historical) value of the precedent"
+          },
+          "CustomerPrecedentValueDate": {
+            "type": "object",
+            "description": ""
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "path": "/PartyLifecycleManagement/{partylifecyclemanagementid}/IdentityProofing/{identityproofingid}/Retrieve",
+      "method": "get",
+      "operationId": "RetrieveIdentityProofing",
+      "summary": "ReBQ Retrieve details about a party identity proofing routine",
+      "bian_operation": "Retrieve",
+      "control_record": "CR - PartyRelationshipAdministrativePlan",
+      "request": {
+        "schema_name": null
+      },
+      "response": {
+        "schema_name": null,
+        "properties": {
+          "IdentityProofingType": {
+            "type": "string",
+            "description": ">\r\n* `IdentityVerification/Proofing` - Identity proofing, also known as identity verification or identity authentication, is the process of confirming that an individual's claimed identity is accurate and valid.\r\n* `DocumentVerification` - Document verification is a process of verifying the authenticity and validity of documents presented by individuals or entities.\r\n",
+            "enum": [
+              "IdentityVerification/Proofing",
+              "DocumentVerification"
+            ]
+          },
+          "PublicDirectoryReference": {
+            "type": "object",
+            "description": "Reference to an external verification source (e.g. for registered address/location verification)"
+          },
+          "SpecialistAgencyServiceReference": {
+            "type": "object",
+            "description": "Reference to an external verification service (e.g. to perform background verification checks)"
+          },
+          "IdentityProofingTaskRecord": {
+            "type": "object",
+            "description": "The record of a specific verification task"
+          },
+          "IdentityProofingTaskDescription": {
+            "type": "string",
+            "format": "Text",
+            "description": "Description of the verification routine"
+          },
+          "SpecialistAgencyServiceRequestResult": {
+            "type": "object",
+            "description": "Result from the verification service request"
+          },
+          "DocumentDirectoryEntryInstanceReference": {
+            "type": "object",
+            "description": "Reference to documents used for verification"
+          },
+          "IdentityProofingTaskWorkProducts": {
+            "type": "object",
+            "description": "Work documentation, forms and schedules produced and referenced during the analysis"
+          },
+          "IdentityProofingTaskResult": {
+            "type": "object",
+            "description": "The outcome of the verification routine"
+          },
+          "IdentityProofingReference": {
+            "type": "object",
+            "description": "The identifier of service."
+          }
+        },
+        "required": []
+      }
+    }
+  ]
+}

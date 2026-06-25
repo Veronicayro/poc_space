@@ -1,0 +1,158 @@
+functionality:
+  id: KYC_ONBOARDING_DIGITAL
+  name: "Digital KYC Onboarding"
+  business_goal: >
+    Habilitar el proceso digital end-to-end de incorporación de nuevos clientes al banco,
+    validando su identidad contra documentos y listas regulatorias AML, gestionando el
+    ciclo de vida del caso de onboarding (incluyendo revisión manual) y notificando al
+    cliente del resultado final; todo ello cumpliendo ISO27001 y GDPR.
+  scope_in:
+    - Captura y validación de datos personales del cliente
+    - Carga y verificación de documentos de identidad
+    - Validación automática contra listas AML (AML_SERVICE)
+    - Verificación de identidad contra proveedor externo (ID_VERIFICATION_PROVIDER)
+    - Gestión del caso de onboarding y su ciclo de vida (estado)
+    - Revisión manual por analista KYC (casos fallidos)
+    - Notificación al cliente de cambios de estado
+  scope_out:
+    - Aprobación de crédito o scoring financiero
+    - Contratación de productos post-KYC aprobado
+
+actors:
+  - id: CUSTOMER
+    type: external
+    description: "Cliente que inicia y completa el proceso de onboarding"
+    channels: [Web, Mobile]
+    permissions: [initiate_onboarding, upload_documents, check_status]
+  - id: KYC_ANALYST
+    type: internal
+    description: "Analista KYC que revisa casos fallidos o de revisión manual"
+    channels: [Backoffice]
+    permissions: [view_cases, submit_review_decision]
+  - id: SYSTEM
+    type: system
+    description: "Sistema que ejecuta validaciones automáticas y emite notificaciones"
+    channels: [Backoffice]
+    permissions: [trigger_validation, emit_events]
+
+business_capabilities:
+  - id: CAP-001
+    name: "Party Digital Registration"
+    description: "Captura y validación de datos personales y documentos de identidad del cliente"
+    use_cases: [UC-001, UC-002]
+  - id: CAP-002
+    name: "KYC Validation & AML Compliance"
+    description: "Validación automática de identidad contra AML, PEP y listas regulatorias"
+    use_cases: [UC-003]
+  - id: CAP-003
+    name: "Case Review & Decision"
+    description: "Revisión manual de casos fallidos y emisión de decisión final por analista KYC"
+    use_cases: [UC-004]
+  - id: CAP-004
+    name: "Onboarding Lifecycle Management"
+    description: "Gestión del ciclo de vida del caso de onboarding (estado machine: INITIATED → DOCS_SUBMITTED → UNDER_REVIEW → APPROVED/REJECTED)"
+    use_cases: [UC-001, UC-002, UC-003, UC-004, UC-005]
+  - id: CAP-005
+    name: "Customer Status Notification"
+    description: "Emisión de notificaciones al cliente ante cambios de estado en el onboarding"
+    use_cases: [UC-005]
+
+user_journeys:
+  - id: UJ-001
+    name: "Happy path: onboarding digital automático"
+    steps:
+      - "CUSTOMER ingresa datos personales (UC-001)"
+      - "CUSTOMER carga documentos de identidad (UC-002)"
+      - "SYSTEM ejecuta validación AML + ID verification (UC-003)"
+      - "SYSTEM aprueba automáticamente; estado → APPROVED"
+      - "SYSTEM notifica al CUSTOMER: onboarding aprobado (UC-005)"
+  - id: UJ-002
+    name: "Manual review path"
+    steps:
+      - "CUSTOMER ingresa datos y documentos (UC-001, UC-002)"
+      - "SYSTEM ejecuta validación; resultado → REVIEW_REQUIRED (UC-003)"
+      - "Caso entra en cola de revisión manual"
+      - "KYC_ANALYST revisa y emite decisión (UC-004)"
+      - "SYSTEM notifica al CUSTOMER con resultado final (UC-005)"
+
+known_constraints:
+  security:
+    - "OAuth2/OIDC para autenticación de clientes"
+    - "RBAC para acceso de analistas (rol kyc.analyst)"
+    - "TLS 1.2+ para todos los canales"
+    - "PII almacenado cifrado en reposo (BR-007)"
+  compliance:
+    - "ISO27001: controles de seguridad de información"
+    - "GDPR: protección de datos personales, derecho al olvido"
+    - "AML obligatorio (BR-003)"
+  performance:
+    - "Latencia < 2s para validaciones síncronas"
+    - "Concurrencia: 500 req/s"
+  integration:
+    - "AML_SERVICE: REST sync, criticality HIGH — no hay fallback; falla bloquea flujo"
+    - "ID_VERIFICATION_PROVIDER: REST sync, criticality HIGH"
+    - "NOTIFICATION_SERVICE: async events, criticality MEDIUM"
+  data:
+    - "Customer, Document, KYCResult son entidades core de este dominio"
+    - "Datos personales clasificados como PII"
+
+existing_landscape_refs:
+  apis:
+    - name: CustomerProfileAPI
+      version: "1.2.0"
+      status: Published
+      catalog_path: "catalog/domains/customers.yaml"
+      relationship: downstream_dependency
+      notes: "kyc-onboarding-api CALLS this API for customer profile creation (UC-001)"
+    - name: CustomerIdentityAPI
+      version: "1.1.0"
+      status: Published
+      catalog_path: "catalog/domains/customers.yaml"
+      relationship: downstream_dependency
+      notes: "kyc-onboarding-api CALLS this API for document registration and identity verification (UC-002, UC-003)"
+    - name: KYCScreeningAPI
+      version: "3.0.0"
+      status: Published
+      catalog_path: "catalog/domains/compliance.yaml"
+      relationship: downstream_dependency
+      notes: "kyc-onboarding-api CALLS this API for AML/PEP screening (UC-003)"
+  services: []
+  events:
+    - name: OnboardingStatusChanged
+      direction: produced
+      notes: "Emitted by kyc-onboarding-api on every state transition; consumed by NOTIFICATION_SERVICE"
+  databases: []
+  caches: []
+  frontend_modules: []
+
+architecture_assumptions:
+  - id: A-001
+    assumption: "AML_SERVICE available synchronously within 2s SLA"
+  - id: A-002
+    assumption: "ID_VERIFICATION_PROVIDER REST sync, real-time document processing"
+  - id: A-003
+    assumption: "NOTIFICATION_SERVICE is event-driven; onboarding publishes domain events"
+  - id: A-004
+    assumption: "One active onboarding case per customer at a time"
+  - id: A-005
+    assumption: "PII encryption at-rest handled by persistence layer"
+  - id: A-006
+    assumption: "KYC analyst access via RBAC role kyc.analyst"
+  - id: A-007
+    assumption: "Audit trail managed internally in onboarding service (not delegated to external audit API in Phase 1)"
+
+open_questions:
+  - id: OQ-001
+    question: "Document storage: external object store with signed URL, or base64 inline?"
+  - id: OQ-002
+    question: "Idempotency for UC-001: can a customer re-submit registration?"
+  - id: OQ-003
+    question: "SLA for manual review turnaround (UC-004)?"
+
+risk_flags:
+  - id: RF-001
+    description: "AML_SERVICE availability is a single point of failure for the onboarding happy path"
+    mitigation: "Circuit breaker + async fallback queue (to be designed in Phase 6)"
+  - id: RF-002
+    description: "GDPR right-to-erasure conflicts with audit trail immutability (BR-006 vs. GDPR)"
+    mitigation: "Pseudonymization pattern for audit records; to be detailed in NFR design phase"

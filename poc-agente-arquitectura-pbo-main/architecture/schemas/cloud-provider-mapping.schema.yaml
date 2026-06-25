@@ -1,0 +1,28 @@
+schema_id: cloud-provider-mapping
+artifact_path: design/cloud-provider-mapping.yaml
+required_fields:
+  - mappings
+fields:
+  mappings:
+    type: array
+    item_required:
+      - logical_capability
+      - azure_candidate
+      - aws_candidate
+      - gcp_candidate
+      - equivalence_type
+      - rationale
+      - constraints
+      - confidence
+    item_fields:
+      logical_capability: string
+      azure_candidate: string_or_null
+      aws_candidate: string_or_null
+      gcp_candidate: string_or_null
+      equivalence_type:
+        enum: [direct, approximate, composite, adapted]
+      rationale: string
+      constraints: array
+      confidence:
+        enum: [high, medium, low]
+      notes: string

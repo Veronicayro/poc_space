@@ -1,0 +1,100 @@
+functionality_id: KYC_ONBOARDING_DIGITAL
+functionality_name: "Digital KYC Onboarding"
+version: "1.0.0"
+created_at: "2026-06-22"
+technology: Java
+execution_mode: standard
+domain_standard: BIAN-Release-14
+phase0_decision: CREATE_ANYWAY
+phase0_decision_file: architecture/context/api-governance/phase0/decisions/KYC_ONBOARDING_DIGITAL.md
+
+phases:
+  api_governance_phase0:
+    status: completed
+    completed_at: "2026-06-22"
+    notes: "User decision: CREATE_ANYWAY. New orchestration API — not present in catalog."
+  enterprise_capability_alignment:
+    status: completed
+    started_at: "2026-06-22"
+    completed_at: "2026-06-22"
+    notes: >
+      BIAN PartyLifecycleManagement selected (confidence 0.92). All 5 use cases mapped.
+      Context pack, enterprise-capability-map, domain-standard-alignment, bian-source-index,
+      bian-service-domain-evaluation, semantic-dictionary, gaps.yaml produced.
+      1 low-severity BIAN gap (async notification adapter — non-blocking).
+  scope_and_execution_planning:
+    status: completed
+    completed_at: "2026-06-22"
+    notes: >
+      Execution mode: standard. Required layers: business, support, data, events.
+      2 new components identified: kyc-onboarding-api (business), kyc-onboarding-event-adapter (support, may be internal module).
+      6 existing components assessed — all REUSE. 3 integration adapters required (AML_SERVICE, ID_VERIFICATION_PROVIDER, NOTIFICATION_SERVICE).
+      0 blocking gaps.
+  solution_landscape:
+    status: completed
+    completed_at: "2026-06-22"
+    notes: >
+      Architecture overview, draft api-landscape (kyc-onboarding-api, business layer, BIAN adapted),
+      and draft component-inventory (1 new CREATE + 6 REUSE) produced.
+      Event adapter decided as internal module of kyc-onboarding-api (not separate deployable).
+      API naming tentative — to be confirmed in Phase 4.
+  api_landscape_design:
+    status: completed_via_phase3
+    notes: >
+      design/api-landscape.yaml produced during solution-landscape (Phase 3) and used
+      as input for backend-component-design (Phase 6). Dedicated Phase 4 run skipped;
+      state corrected by validation-and-state-update. See W-004 in validation-report.yaml.
+  api_architecture_decisions:
+    status: skipped
+    notes: "ADRs not generated. See W-003 in validation-report.yaml — required follow-up."
+  backend_component_design:
+    status: completed
+    completed_at: "2026-06-22"
+    components_designed: [kyc-onboarding-api]
+    notes: >
+      kyc-onboarding-api designed: component.yaml, readme.md, integration-model (6 integrations),
+      domain-model (OnboardingCase aggregate + KYCResult + ReviewDecision + AuditEntry),
+      persistence-model (5 tables: onboarding_cases, kyc_results, review_decisions, audit_entries, outbox_events),
+      event-model (4 events), state-map (6 states, 6 transitions, circuit breaker + timeout handling).
+      NFR model produced at design level (non-functional-requirements.yaml).
+      Outbox pattern adopted for reliable event publication.
+  backend_contract_design:
+    status: completed
+    completed_at: "2026-06-22"
+    components_contracted: [kyc-onboarding-api]
+    notes: >
+      BIAN-derived contract from PartyLifecycleManagement Release 14.
+      6 paths selected (Initiate, Retrieve, Control, Documentation/Execute,
+      Qualification/Retrieve, IdentityProofing/Retrieve) + 1 AP extension (list).
+      9 paths omitted with documented rationale. bian-adoption.yaml produced with
+      full field mappings and adaptation rationale. adoption-matrix updated.
+      BLOCK-01: PASS (baseline readable). BLOCK-02: PASS (bian-adoption.yaml complete).
+      BLOCK-03: PASS (x-bian-* extensions present, BIAN-derived schemas used).
+  backend_diagram_design:
+    status: completed
+    completed_at: "2026-06-22"
+    notes: >
+      6 Mermaid diagrams produced: context-target.mmd, architecture-backend-tobe.mmd,
+      sequence-general.mmd, flow-general.mmd, kyc-onboarding-api/sequence/sequence.mmd,
+      kyc-onboarding-api/flow/flow.mmd. Resolves W-001 + W-002.
+  adr_generation:
+    status: completed
+    completed_at: "2026-06-22"
+    notes: >
+      5 ADRs produced: ADR-0001 (API layer Business), ADR-0002 (BIAN semantic alignment),
+      ADR-0003 (relational DB + outbox), ADR-0004 (circuit breaker with differentiated fallbacks),
+      ADR-0005 (event adapter as internal module). Resolves W-003.
+  validation_and_state_update:
+    status: completed
+    completed_at: "2026-06-22"
+    validation_status: passed
+    blocking_issues: 0
+    warnings: 1
+    warnings_resolved: 4
+    report: design/validation-report.yaml
+    notes: >
+      Package fully validated. All 9 phases completed. 6 diagrams and 5 ADRs produced.
+      W-001, W-002, W-003 resolved. W-004 auto-corrected. W-005 (external API specs) open — non-blocking.
+      BIAN governance: PASS. Naming: PASS. Schema conformance: PASS. Full traceability: PASS.
+
+target_components_pending: [kyc-onboarding-api]

@@ -1,0 +1,345 @@
+openapi: 3.0.1
+info:
+  title: Risk Assessment API — LON
+  description: >
+    API de evaluación de riesgo crediticio.
+    Derivada del BIAN Release 14 Service Domain: Underwriting.
+    Secondary SD: CustomerCreditRating.
+    Control Record: UnderwritingAssessment (alineación semántica).
+  version: 1.0.0
+  x-bian-sd: Underwriting
+  x-bian-release: "14.0.0"
+  x-bian-control-record: UnderwritingAssessment
+  x-bian-adoption-level: semantic_alignment
+  x-bian-adoption-file: design/business/risk-assessment-api/contract/bian-adoption.yaml
+  contact:
+    name: LON Architecture Team
+servers:
+  - url: https://api.bank.internal/LON-AxetGaia-Sonnet46/v1
+    description: Producción
+
+tags:
+  - name: UnderwritingAssessment
+    description: >
+      BIAN CR: UnderwritingAssessment — Evaluación de riesgo crediticio del solicitante.
+      Score bureau, DTI ratio, nivel de riesgo y recomendación de aprobación.
+
+paths:
+  /Underwriting/Initiate:
+    post:
+      tags:
+        - UnderwritingAssessment
+      summary: InCR Initiate a credit risk underwriting assessment
+      description: >
+        Inicia una evaluación de riesgo crediticio para una solicitud.
+        Dispara automáticamente la consulta al bureau de crédito (vía caché Redis TTL 24h).
+      operationId: initiateUnderwritingAssessment
+      x-bian-operation: Initiate
+      x-bian-cr: UnderwritingAssessment
+      security:
+        - BearerAuth: [risk:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiateUnderwritingAssessmentRequest'
+      responses:
+        '200':
+          description: Underwriting assessment initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnderwritingAssessmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /Underwriting/{underwritingid}/Retrieve:
+    get:
+      tags:
+        - UnderwritingAssessment
+      summary: ReCR Retrieve risk assessment details
+      description: Retorna los detalles completos de la evaluación de riesgo.
+      operationId: retrieveUnderwritingAssessment
+      x-bian-operation: Retrieve
+      x-bian-cr: UnderwritingAssessment
+      security:
+        - BearerAuth: [risk:read]
+      parameters:
+        - $ref: '#/components/parameters/underwritingid'
+      responses:
+        '200':
+          description: Risk assessment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnderwritingAssessmentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /Underwriting/{underwritingid}/Update:
+    put:
+      tags:
+        - UnderwritingAssessment
+      summary: UpCR Update risk assessment (register analyst decision)
+      description: >
+        El analista registra el score, nivel de riesgo y recomendación.
+        Completa la evaluación y actualiza el estado de la solicitud a RISK_ASSESSED.
+      operationId: updateUnderwritingAssessment
+      x-bian-operation: Update
+      x-bian-cr: UnderwritingAssessment
+      security:
+        - BearerAuth: [risk:write]
+      parameters:
+        - $ref: '#/components/parameters/underwritingid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUnderwritingAssessmentRequest'
+      responses:
+        '200':
+          description: Risk assessment updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnderwritingAssessmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /Underwriting/{underwritingid}/Exchange:
+    put:
+      tags:
+        - UnderwritingAssessment
+      summary: EcCR Exchange bureau report data for underwriting
+      description: >
+        Intercambia el reporte del bureau de crédito con el proceso de underwriting.
+        Usado para refrescar el reporte (invalidar caché Redis) cuando el analista lo requiere.
+      operationId: exchangeUnderwritingAssessment
+      x-bian-operation: Exchange
+      x-bian-cr: UnderwritingAssessment
+      security:
+        - BearerAuth: [risk:write]
+      parameters:
+        - $ref: '#/components/parameters/underwritingid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnderwritingAssessmentExchangeRequest'
+      responses:
+        '200':
+          description: Bureau report refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnderwritingAssessmentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    underwritingid:
+      name: underwritingid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: "BIAN: UnderwritingAssessment.UnderwritingAssessmentReference — UUID de la evaluación"
+
+  schemas:
+    InitiateUnderwritingAssessmentRequest:
+      type: object
+      required:
+        - credit_request_id
+        - customer_id
+      properties:
+        credit_request_id:
+          type: string
+          format: uuid
+          description: "BIAN: UnderwritingAssessment.CustomerOfferReference. Referencia a la solicitud de crédito."
+        customer_id:
+          type: string
+          description: "BIAN: UnderwritingAssessment.CustomerReference. ID del cliente para consulta al bureau."
+        requested_amount:
+          type: number
+          format: double
+          description: "Monto solicitado para evaluación DTI. AP adaptation: extensión LON."
+        existing_debts_monthly:
+          type: number
+          format: double
+          description: "Deudas mensuales existentes para cálculo DTI. AP adaptation: extensión LON."
+        monthly_income:
+          type: number
+          format: double
+          description: "Ingreso mensual del solicitante para cálculo DTI. AP adaptation: extensión LON."
+
+    UpdateUnderwritingAssessmentRequest:
+      type: object
+      required:
+        - risk_level
+        - recommendation
+      properties:
+        bureau_score:
+          type: integer
+          minimum: 300
+          maximum: 850
+          description: "BIAN: UnderwritingAssessment.CreditAssessmentScore. Score crediticio del bureau."
+        risk_level:
+          $ref: '#/components/schemas/RiskLevelEnum'
+        dti_ratio:
+          type: number
+          format: double
+          description: "Debt-to-Income ratio calculado. AP adaptation: extensión LON."
+        recommendation:
+          $ref: '#/components/schemas/RiskRecommendationEnum'
+        analyst_notes:
+          type: string
+          description: "Notas adicionales del analista. AP adaptation: extensión LON."
+        auto_reject_suggested:
+          type: boolean
+          description: "true si score < umbral mínimo configurable. AP adaptation: extensión LON."
+
+    UnderwritingAssessmentExchangeRequest:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [refresh_bureau_report]
+          description: "Acción de intercambio: refrescar el reporte del bureau (invalida caché Redis)."
+        refresh_reason:
+          type: string
+          description: "Motivo del refresco del reporte."
+
+    UnderwritingAssessmentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "BIAN: UnderwritingAssessment.UnderwritingAssessmentReference."
+        credit_request_id:
+          type: string
+          format: uuid
+          description: "BIAN: UnderwritingAssessment.CustomerOfferReference."
+        customer_id:
+          type: string
+        bureau_score:
+          type: integer
+          description: "BIAN: UnderwritingAssessment.CreditAssessmentScore."
+        risk_level:
+          $ref: '#/components/schemas/RiskLevelEnum'
+        dti_ratio:
+          type: number
+          format: double
+        recommendation:
+          $ref: '#/components/schemas/RiskRecommendationEnum'
+        analyst_id:
+          type: string
+          description: "BIAN: UnderwritingAssessment.UnderwritingAnalystReference."
+        assessed_at:
+          type: string
+          format: date-time
+        bureau_report_ref:
+          type: string
+          description: "Referencia al reporte en caché Redis o DMS."
+        auto_reject_suggested:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    RiskLevelEnum:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+      description: >
+        BIAN: UnderwritingAssessment.RiskAssessmentLevel.
+        LON adaptation: maps to bureau score ranges per internal policy.
+
+    RiskRecommendationEnum:
+      type: string
+      enum: [APPROVE, REJECT, ESCALATE]
+      description: >
+        BIAN: UnderwritingAssessment.UnderwritingDecision.
+        APPROVE = within manager limits; ESCALATE = exceeds limit or high risk; REJECT = score below minimum.
+
+    HTTPError:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        correlation_id:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    UnprocessableEntity:
+      description: Unprocessable Entity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'

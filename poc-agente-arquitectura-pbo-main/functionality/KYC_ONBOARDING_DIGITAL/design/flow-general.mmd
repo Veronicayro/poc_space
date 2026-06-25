@@ -1,0 +1,35 @@
+%%{init: {'theme': 'base'}}%%
+flowchart LR
+    subgraph INITIATED
+        A([Customer submits\npersonal data])
+    end
+    subgraph DOCS_SUBMITTED
+        B([Customer uploads\nidentity document])
+    end
+    subgraph UNDER_VALIDATION
+        C([System executes\nauto KYC validation])
+    end
+    subgraph TERMINAL
+        D([APPROVED\nBR-005 gate open])
+        E([REVIEW_REQUIRED\nBR-004 escalation])
+        F([REJECTED])
+    end
+    subgraph MANUAL_REVIEW
+        G([KYC_ANALYST\nreviews and decides])
+    end
+
+    INITIATED -->|"BR-001 + BR-002 pass\nDocument registered"| DOCS_SUBMITTED
+    DOCS_SUBMITTED -->|"Validation triggered"| UNDER_VALIDATION
+    UNDER_VALIDATION -->|"All checks PASS\nIDV=PASSED + AML=CLEAR"| D
+    UNDER_VALIDATION -->|"Any check FAILS\nBR-004"| E
+    E --> MANUAL_REVIEW
+    MANUAL_REVIEW -->|"APPROVED"| D
+    MANUAL_REVIEW -->|"REJECTED"| F
+
+    D:::approved
+    F:::rejected
+    E:::review
+
+    classDef approved fill:#d5f5e3,stroke:#27ae60,color:#1d6a39
+    classDef rejected fill:#fadbd8,stroke:#c0392b,color:#7b241c
+    classDef review fill:#fdebd0,stroke:#e67e22,color:#7e5109

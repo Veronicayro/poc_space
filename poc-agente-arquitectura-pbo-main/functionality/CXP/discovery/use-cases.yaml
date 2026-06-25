@@ -1,0 +1,181 @@
+# Discovery: Use Cases - Cuentas por Pagar (CXP)
+schema_version: "1.0"
+functionality_id: CXP
+generated_at: "2026-06-17"
+
+use_cases:
+  - id: UC-CXP-001
+    title: "Registrar Factura de Proveedor"
+    story_ref: HU-CXP-001
+    actor: Analista Financiero
+    trigger: El analista recibe una factura de proveedor para procesar
+    preconditions:
+      - El proveedor debe existir y estar validado en el sistema
+      - El analista tiene el rol ANALYST y permiso create_invoice
+    main_flow:
+      - step: 1
+        action: El analista accede al formulario de registro de facturas en la web
+      - step: 2
+        action: Ingresa datos de la factura (número, proveedor, monto, moneda, fechas)
+      - step: 3
+        action: El sistema valida que el proveedor existe (consulta al ERP)
+      - step: 4
+        action: El sistema verifica que no existe duplicado por número de factura
+      - step: 5
+        action: El sistema persiste la factura con estado PENDING
+      - step: 6
+        action: El sistema registra evento de auditoría (creación)
+    postconditions:
+      - Factura creada con estado PENDING
+      - Registro de auditoría generado
+    alternate_flows:
+      - condition: Proveedor no existe
+        action: Retornar error 422 con mensaje "Proveedor no registrado"
+      - condition: Factura duplicada
+        action: Retornar error 409 con mensaje "Número de factura ya registrado"
+    acceptance_criteria:
+      - Validar proveedor existente antes de crear factura
+      - Prevenir duplicados por número de factura
+      - Estado inicial debe ser PENDING
+
+  - id: UC-CXP-002
+    title: "Aprobar Factura"
+    story_ref: HU-CXP-002
+    actor: Gerente Financiero
+    trigger: El gerente recibe solicitud de aprobación de factura
+    preconditions:
+      - La factura debe estar en estado PENDING
+      - El gerente tiene el rol MANAGER y permiso approve_invoice
+    main_flow:
+      - step: 1
+        action: El gerente consulta lista de facturas pendientes de aprobación
+      - step: 2
+        action: Selecciona la factura a revisar y visualiza su detalle
+      - step: 3
+        action: El gerente aprueba la factura con comentario opcional
+      - step: 4
+        action: El sistema valida que la factura está en estado PENDING
+      - step: 5
+        action: El sistema transiciona el estado de PENDING a APPROVED
+      - step: 6
+        action: El sistema registra usuario, timestamp y motivo en historial
+    postconditions:
+      - Factura en estado APPROVED
+      - Historial de estado actualizado con usuario y timestamp
+    acceptance_criteria:
+      - Solo facturas PENDING pueden aprobarse
+      - Registrar usuario y timestamp de aprobación
+      - Transición a estado APPROVED
+
+  - id: UC-CXP-003
+    title: "Rechazar Factura"
+    story_ref: HU-CXP-002
+    actor: Gerente Financiero
+    trigger: El gerente determina que la factura no cumple criterios de aprobación
+    preconditions:
+      - La factura debe estar en estado PENDING
+      - El gerente tiene permiso reject_invoice
+    main_flow:
+      - step: 1
+        action: El gerente selecciona la factura en estado PENDING
+      - step: 2
+        action: Ingresa motivo de rechazo (obligatorio)
+      - step: 3
+        action: El sistema transiciona el estado a REJECTED
+      - step: 4
+        action: El sistema notifica al Analista Financiero
+    postconditions:
+      - Factura en estado REJECTED
+      - Motivo de rechazo registrado
+
+  - id: UC-CXP-004
+    title: "Programar Pago de Factura"
+    story_ref: HU-CXP-003
+    actor: Tesorero
+    trigger: El tesorero recibe facturas aprobadas para programar pago
+    preconditions:
+      - La factura debe estar en estado APPROVED
+      - El tesorero tiene el rol TREASURER y permiso schedule_payment
+    main_flow:
+      - step: 1
+        action: El tesorero consulta lista de facturas aprobadas
+      - step: 2
+        action: Selecciona facturas a programar
+      - step: 3
+        action: Define fecha de pago (debe ser >= fecha actual)
+      - step: 4
+        action: El sistema valida que la factura está en estado APPROVED
+      - step: 5
+        action: El sistema crea la orden de pago con fecha programada
+      - step: 6
+        action: El sistema transiciona la factura a estado SCHEDULED
+    postconditions:
+      - Orden de pago creada
+      - Factura en estado SCHEDULED con fecha de pago definida
+    alternate_flows:
+      - condition: Factura no está en estado APPROVED
+        action: Retornar error 422 "Solo facturas APPROVED pueden programarse"
+      - condition: Fecha de pago inválida (pasada)
+        action: Retornar error 400 "Fecha de pago debe ser futura"
+    acceptance_criteria:
+      - Solo facturas APPROVED pueden programarse
+      - Definir fecha de pago válida
+      - Estado cambia a SCHEDULED
+
+  - id: UC-CXP-005
+    title: "Ejecutar Pago"
+    actor: "Tesorero / Sistema automático"
+    trigger: Fecha de pago programada alcanzada o ejecución manual
+    preconditions:
+      - La factura debe estar en estado SCHEDULED
+      - Conexión disponible con el sistema bancario
+    main_flow:
+      - step: 1
+        action: El sistema envía la orden de pago al Banking System via REST API
+      - step: 2
+        action: El Banking System confirma la transferencia
+      - step: 3
+        action: El sistema transiciona la factura a estado PAID
+      - step: 4
+        action: El sistema notifica al ERP para registro contable
+    postconditions:
+      - Factura en estado PAID
+      - Transferencia bancaria ejecutada
+      - Asiento contable registrado en ERP
+    alternate_flows:
+      - condition: Banking System retorna error
+        action: Reintentar con política retry (max 3); si falla, alertar al tesorero
+
+  - id: UC-CXP-006
+    title: "Cancelar Factura"
+    actor: "Analista Financiero / Gerente Financiero"
+    trigger: Se requiere cancelar una factura antes de su pago
+    preconditions:
+      - La factura no debe estar en estado PAID
+    main_flow:
+      - step: 1
+        action: El usuario autorizado selecciona la factura
+      - step: 2
+        action: Ingresa motivo de cancelación
+      - step: 3
+        action: El sistema valida que la transición es válida
+      - step: 4
+        action: El sistema transiciona a estado CANCELLED
+    postconditions:
+      - Factura en estado CANCELLED
+
+  - id: UC-CXP-007
+    title: "Consultar Estado de Pago"
+    actor: Tesorero
+    trigger: El tesorero necesita verificar el estado de un pago
+    preconditions:
+      - El tesorero tiene permiso view_payment_status
+    main_flow:
+      - step: 1
+        action: El tesorero ingresa filtros de búsqueda (proveedor, fecha, estado)
+      - step: 2
+        action: El sistema retorna lista de pagos con sus estados
+      - step: 3
+        action: El tesorero puede ver detalle de un pago específico
+    postconditions:
+      - Vista de estado de pagos actualizada

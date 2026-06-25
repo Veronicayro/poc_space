@@ -1,0 +1,48 @@
+business_rules:
+  - id: BR-001
+    rule: "Todos los clientes deben completar datos obligatorios antes de continuar"
+    type: data_validation
+    enforcement: hard_block
+    related_use_cases: [UC-001]
+
+  - id: BR-002
+    rule: "Documentos deben ser vigentes para ser aceptados"
+    type: data_validation
+    enforcement: hard_block
+    notes: "Validar fecha de expiración del documento vs. fecha actual"
+    related_use_cases: [UC-002]
+
+  - id: BR-003
+    rule: "Validación contra listas AML es obligatoria"
+    type: compliance
+    enforcement: hard_block
+    notes: "Llamada a AML_SERVICE es mandatoria; no puede omitirse"
+    related_use_cases: [UC-003]
+
+  - id: BR-004
+    rule: "Casos fallidos automáticamente deben pasar a revisión manual"
+    type: workflow_routing
+    enforcement: automatic
+    notes: "Si AML o ID_VERIFICATION_PROVIDER retornan status!=APPROVED, el caso pasa a REVIEW_REQUIRED"
+    related_use_cases: [UC-003, UC-004]
+
+  - id: BR-005
+    rule: "El cliente no puede acceder a productos sin KYC aprobado"
+    type: access_control
+    enforcement: hard_block
+    notes: "Gate de acceso: estadoKYC debe ser APPROVED para poder contratar productos"
+    related_use_cases: [UC-005]
+
+  - id: BR-006
+    rule: "Se debe registrar auditoría de cada validación"
+    type: audit
+    enforcement: mandatory_system
+    notes: "Cada paso del proceso debe generar un registro de auditoría inmutable"
+    related_use_cases: [UC-003, UC-004]
+
+  - id: BR-007
+    rule: "Los datos personales deben almacenarse cifrados"
+    type: security
+    enforcement: mandatory_system
+    notes: "PII en reposo debe estar cifrado; en tránsito TLS 1.2+"
+    related_use_cases: [UC-001, UC-002]

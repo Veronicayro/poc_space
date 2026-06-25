@@ -1,0 +1,47 @@
+# Component Integration Model - payment-management-api
+schema_version: "1.0"
+component_id: payment-management-api
+generated_at: "2026-06-17"
+
+integrations:
+  - id: INT-PAY-001
+    target: invoice-lifecycle-api
+    type: REST HTTP
+    direction: outbound
+    protocol: HTTPS
+    operations:
+      - "POST /api/v1/invoice-lifecycle/{id}/transition (SCHEDULED)"
+      - "POST /api/v1/invoice-lifecycle/{id}/transition (PAID)"
+    timeout_ms: 3000
+    retry: false
+
+  - id: INT-PAY-002
+    target: banking-integration-api
+    type: REST HTTP
+    direction: outbound
+    protocol: HTTPS
+    headers:
+      - "X-Idempotency-Key: {uuid}"
+      - "X-Correlation-ID: {uuid}"
+    operations:
+      - "POST /api/v1/banking/payment-orders"
+      - "GET /api/v1/banking/payment-orders/{orderId}"
+    timeout_ms: 10000
+    retry:
+      enabled: true
+      max: 3
+      backoff: exponential
+      idempotent: true
+    circuit_breaker:
+      enabled: true
+      threshold: 3
+      timeout_seconds: 60
+
+  - id: INT-PAY-003
+    target: banking-integration-api
+    type: Webhook
+    direction: inbound
+    path: "/api/v1/payments/webhooks/banking/payment-status"
+    validation: HMAC-SHA256
+    idempotency: true
+    notes: "Confirmar firma antes de procesar; almacenar event_id para idempotencia"

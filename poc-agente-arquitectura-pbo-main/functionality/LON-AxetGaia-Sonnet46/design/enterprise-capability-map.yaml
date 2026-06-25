@@ -1,0 +1,262 @@
+# enterprise-capability-map.yaml — LON (Sistema de Originación de Créditos)
+# Phase 1 output: enterprise-capability-mapper skill
+functionality_id: LON
+
+business_cases:
+  - business_case_id: BC-LON-001
+    name: Registro y gestión de solicitudes de crédito
+    description: >
+      Captura y administración del expediente crediticio del cliente desde el
+      inicio hasta el cierre, incluyendo datos del crédito, documentos y estado.
+    actors: [CREDIT_OFFICER]
+    desired_outcomes:
+      - Solicitud registrada con datos completos y estado inicial DRAFT
+      - Documentos obligatorios adjuntos por tipo de crédito
+      - Prevención de solicitudes duplicadas activas
+
+  - business_case_id: BC-LON-002
+    name: Evaluación y análisis de riesgo crediticio
+    description: >
+      Orquestación de la consulta al bureau externo, cálculo de score y DTI,
+      y generación del informe de evaluación de riesgo según política interna.
+    actors: [RISK_ANALYST]
+    desired_outcomes:
+      - Score crediticio y reporte del bureau disponibles
+      - Evaluación de riesgo registrada con nivel y recomendación
+      - Determinación automática del nivel de aprobación requerido
+
+  - business_case_id: BC-LON-003
+    name: Aprobación y decisión crediticia multinivel
+    description: >
+      Proceso de decisión de aprobación o rechazo de solicitudes, con escalado
+      automático al comité cuando el monto o riesgo supera umbrales configurables.
+    actors: [CREDIT_MANAGER, CREDIT_COMMITTEE]
+    desired_outcomes:
+      - Decisión registrada con trazabilidad completa (actor, timestamp, condiciones)
+      - Escalado automático por umbral parametrizable
+      - Notificación al Oficial de Crédito en rechazo
+
+  - business_case_id: BC-LON-004
+    name: Desembolso de crédito aprobado
+    description: >
+      Ejecución del desembolso hacia la cuenta del cliente mediante instrucción
+      al core bancario, con confirmación y generación de tabla de amortización.
+    actors: [DISBURSEMENT_OFFICER]
+    desired_outcomes:
+      - Fondos desembolsados a la cuenta destino confirmada
+      - Referencia y fecha de desembolso registradas
+      - Tabla de amortización generada en el core bancario
+
+  - business_case_id: BC-LON-005
+    name: Consulta y trazabilidad del ciclo de vida de solicitudes
+    description: >
+      Acceso a información del estado actual e historial de transiciones de
+      solicitudes, filtrado por rol y permisos RBAC.
+    actors: [CREDIT_OFFICER, RISK_ANALYST, CREDIT_MANAGER]
+    desired_outcomes:
+      - Vista de solicitudes filtrada por rol
+      - Historial de transiciones con actor y timestamp
+      - Auditoría completa del proceso crediticio
+
+enterprise_capabilities:
+  - capability_id: CAP-LON-001
+    capability_name: Credit Application Origination
+    capability_type: business
+    description: >
+      Capacidad de registrar, validar y gestionar solicitudes de crédito,
+      incluyendo validación KYC, prevención de duplicados y captura de
+      datos del crédito y documentos.
+    mapped_business_cases: [BC-LON-001]
+    parent_capability: null
+    capability_owner_scope: LON
+    source_references:
+      - UC-LON-001
+      - BR-LON-001
+      - BR-LON-002
+      - BR-LON-003
+
+  - capability_id: CAP-LON-002
+    capability_name: Document Management Integration
+    capability_type: integration
+    description: >
+      Capacidad de adjuntar, almacenar y recuperar documentos del cliente
+      mediante integración con el DMS externo, validando completitud por
+      tipo de crédito.
+    mapped_business_cases: [BC-LON-001]
+    parent_capability: CAP-LON-001
+    capability_owner_scope: LON (consumer) / DMS (provider)
+    source_references:
+      - UC-LON-001
+      - BR-LON-005
+      - DDA-005
+
+  - capability_id: CAP-LON-003
+    capability_name: Credit Risk Assessment
+    capability_type: business
+    description: >
+      Capacidad de evaluar el perfil crediticio del solicitante consultando
+      el bureau externo, calculando DTI ratio y generando el informe de
+      evaluación de riesgo según políticas internas.
+    mapped_business_cases: [BC-LON-002]
+    parent_capability: null
+    capability_owner_scope: LON
+    source_references:
+      - UC-LON-003
+      - BR-LON-006
+      - BR-LON-007
+      - BR-LON-008
+
+  - capability_id: CAP-LON-004
+    capability_name: Credit Bureau Integration
+    capability_type: integration
+    description: >
+      Capacidad de consultar el bureau de crédito externo (REST API síncrona)
+      con caché TTL de 24 horas en Redis y manejo de reintentos/circuit breaker.
+    mapped_business_cases: [BC-LON-002]
+    parent_capability: CAP-LON-003
+    capability_owner_scope: LON (consumer) / Bureau (provider)
+    source_references:
+      - DDA-003
+      - ADR-005
+      - BR-LON-016
+      - BR-LON-019
+
+  - capability_id: CAP-LON-005
+    capability_name: Credit Workflow State Machine
+    capability_type: application
+    description: >
+      Capacidad de gestionar el ciclo de vida de solicitudes mediante una
+      state machine explícita con 12 estados, validación de transiciones por
+      rol y registro de historial de estados con actor y timestamp.
+    mapped_business_cases: [BC-LON-001, BC-LON-002, BC-LON-003, BC-LON-004, BC-LON-005]
+    parent_capability: null
+    capability_owner_scope: LON
+    source_references:
+      - DDA-001
+      - ADR-004
+      - BR-LON-003
+      - BR-LON-004
+      - BR-LON-009
+
+  - capability_id: CAP-LON-006
+    capability_name: Multilevel Credit Approval
+    capability_type: business
+    description: >
+      Capacidad de gestionar la aprobación multinivel (gerente / comité) con
+      umbrales de monto y riesgo externalizables, escalado automático y
+      registro inmutable de decisiones.
+    mapped_business_cases: [BC-LON-003]
+    parent_capability: null
+    capability_owner_scope: LON
+    source_references:
+      - UC-LON-004
+      - UC-LON-005
+      - UC-LON-006
+      - BR-LON-009
+      - BR-LON-010
+      - BR-LON-011
+      - BR-LON-012
+      - DDA-004
+
+  - capability_id: CAP-LON-007
+    capability_name: Credit Disbursement Execution
+    capability_type: business
+    description: >
+      Capacidad de ejecutar el desembolso de fondos hacia la cuenta del cliente
+      mediante instrucción idempotente al core bancario, con confirmación y
+      registro de referencia.
+    mapped_business_cases: [BC-LON-004]
+    parent_capability: null
+    capability_owner_scope: LON
+    source_references:
+      - UC-LON-007
+      - BR-LON-013
+      - BR-LON-014
+
+  - capability_id: CAP-LON-008
+    capability_name: Core Banking Integration
+    capability_type: integration
+    description: >
+      Capacidad de integración con el core bancario para: validación KYC,
+      creación del producto crédito, ejecución de desembolso y generación
+      de tabla de amortización. Circuit breaker y retry policy incluidos.
+    mapped_business_cases: [BC-LON-001, BC-LON-004]
+    parent_capability: CAP-LON-007
+    capability_owner_scope: LON (consumer) / Core Bancario (provider)
+    source_references:
+      - BR-LON-001
+      - BR-LON-019
+      - GAP-LON-002
+
+  - capability_id: CAP-LON-009
+    capability_name: Credit Request Audit Trail
+    capability_type: data
+    description: >
+      Capacidad de registrar un log de auditoría inmutable de todas las acciones
+      sobre solicitudes: estado anterior/nuevo, actor, rol, timestamp y metadata.
+      Retención mínima 7 años.
+    mapped_business_cases: [BC-LON-005]
+    parent_capability: null
+    capability_owner_scope: LON
+    source_references:
+      - ADR-004
+      - BR-LON-010
+      - BR-LON-018
+      - NFR-Compliance
+
+  - capability_id: CAP-LON-010
+    capability_name: RBAC Access Control
+    capability_type: technology
+    description: >
+      Capacidad de control de acceso basado en roles (RBAC) mediante OAuth2/OIDC
+      con tokens JWT de corta duración, garantizando visibilidad y operaciones
+      filtradas por rol.
+    mapped_business_cases: [BC-LON-005]
+    parent_capability: null
+    capability_owner_scope: LON (application) / IDP (provider)
+    source_references:
+      - ADR-003
+      - BR-LON-015
+
+domain_standard_candidates:
+  - capability_id: CAP-LON-001
+    provider: BIAN
+    candidate_domain: CustomerOffer
+    source_file_or_reference: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml
+    fit_score: 0.92
+    rationale: >
+      CustomerOffer orquesta la oferta de producto crediticio incluyendo
+      verificación documental, evaluaciones y decisiones de underwriting.
+    status: selected
+
+  - capability_id: CAP-LON-003
+    provider: BIAN
+    candidate_domain: Underwriting
+    source_file_or_reference: architecture/cache/bian/release14.0.0/oas3/yamls/Underwriting.yaml
+    fit_score: 0.90
+    rationale: >
+      Underwriting cubre el proceso de decisión de riesgo para préstamos,
+      incluyendo evaluación y recomendación de aprobación/rechazo.
+    status: selected
+
+  - capability_id: CAP-LON-004
+    provider: BIAN
+    candidate_domain: CustomerCreditRating
+    source_file_or_reference: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerCreditRating.yaml
+    fit_score: 0.88
+    rationale: >
+      CustomerCreditRating administra la evaluación crediticia basada en
+      reportes de agencias externas (bureau) y datos internos.
+    status: selected
+
+  - capability_id: CAP-LON-007
+    provider: BIAN
+    candidate_domain: Disbursement
+    source_file_or_reference: architecture/cache/bian/release14.0.0/oas3/yamls/Disbursement.yaml
+    fit_score: 0.95
+    rationale: >
+      Disbursement cubre directamente el desembolso de fondos a facilidades
+      de crédito recién establecidas.
+    status: selected
+
+unresolved_capabilities: []

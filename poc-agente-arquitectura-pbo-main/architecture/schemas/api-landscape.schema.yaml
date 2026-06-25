@@ -1,0 +1,106 @@
+schema_id: api-landscape
+artifact_path: design/api-landscape.yaml
+version: "2.0"
+
+# ---------------------------------------------------------------------------
+# ESTRUCTURA OBLIGATORIA: layers (experience / business / domain / support)
+# Reemplaza la lista plana de v1.0 (campo api_type por item).
+# Referencia canónica de escenarios: architecture/context/api-landscape-scenarios.md
+# Inventario de APIs disponibles:   architecture/context/api-landscape-inventory.yaml
+# Diagramas visuales:               architecture/context/api-landscape-diagram.md
+# ---------------------------------------------------------------------------
+
+required_fields:
+  - layers
+
+fields:
+  layers:
+    type: object
+    description: >
+      Segmentación del landscape por capa arquitectural.
+      Cada capa puede contener APIs o declararse como no aplicable.
+    layer_keys: [experience, business, domain, support]
+
+    layer_schema:
+      # Opción A: la capa tiene APIs
+      apis:
+        type: array
+        item_required:
+          - api_name
+          - action
+        item_fields:
+          api_name:
+            type: string
+            description: "Nombre de la API. Si es nueva, seguir convención: pbco-{tipo}-api-{dominio}-{recurso}"
+          version:
+            type: string
+          action:
+            enum: [reutilizar, extender, crear]
+            description: >
+              reutilizar → existe en catálogo y cubre completamente el caso.
+              extender   → existe pero falta endpoint/campo; agregar backward-compatible.
+              crear      → GAP confirmado; no existe en catálogo.
+          catalog_ref:
+            type: string_or_null
+            description: "Ruta al archivo de catálogo que define esta API. Null si action=crear."
+          new_endpoints:
+            type: array
+            description: "Solo cuando action=extender. Endpoints nuevos propuestos."
+          bian_sd:
+            type: string_or_null
+            description: "Solo en capa domain. BIAN R14 Service Domain."
+          bian_operation:
+            type: string_or_null
+            description: "Solo en capa domain. Operación BIAN (ej. Retrieve, Initiate)."
+          pattern:
+            type: string
+            description: "BFF | Business Service | Domain Service | Adapter/ACL | etc."
+          consumers:
+            type: array
+          calls_to:
+            type: array
+            description: "APIs de la capa siguiente que consume esta API."
+          notes:
+            type: string
+
+      # Opción B: la capa no aplica para este flujo
+      applicable:
+        type: boolean
+        default: true
+        description: "false cuando la capa no aplica. Debe acompañarse de 'reason'."
+      reason:
+        type: string
+        description: >
+          Razón breve por la que la capa no aplica. Requerido cuando applicable=false.
+          Ejemplos: 'consulta directa a un solo dominio sin orquestación'
+                    'proveedor cloud, sin legado on-prem'
+
+# ---------------------------------------------------------------------------
+# REGLAS DE VALIDACIÓN
+# ---------------------------------------------------------------------------
+validation_rules:
+
+  - id: VAL-001
+    rule: >
+      Toda entrada en layers.domain con action=reutilizar o action=extender
+      DEBE tener catalog_ref no nulo.
+
+  - id: VAL-002
+    rule: >
+      Toda entrada en layers.domain con bian_sd declarado
+      DEBE tener bian_operation declarado.
+
+  - id: VAL-003
+    rule: >
+      Toda entrada con action=extender DEBE tener new_endpoints con al menos
+      un elemento.
+
+  - id: VAL-004
+    rule: >
+      Si una capa tiene applicable=false, el campo apis NO debe estar presente.
+
+  - id: VAL-005
+    rule: >
+      El campo action debe derivarse de la decisión aprobada en Fase 0
+      (architecture/context/api-governance/phase0/decisions/<request-id>.yaml).
+      No puede ser inferido por el agente sin evidencia de Fase 0.

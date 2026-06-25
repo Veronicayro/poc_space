@@ -1,0 +1,49 @@
+catalogIndex:
+  catalogId: "gbank-mock-api-catalog"
+  catalogName: "GlobalBank - Mock API Catalog (PoC)"
+  version: "2026-06"
+  description: "Índice del catálogo. Cada dominio se mantiene en un archivo YAML independiente para facilitar ownership, revisión y evolución."
+  domainStandard:
+    provider: "BIAN"
+    version: "Release 14"
+
+  # ---------------------------------------------------------------------------
+  # AGENT READING PROTOCOL (mandatory — follow this order to minimize tokens)
+  # ---------------------------------------------------------------------------
+  agentReadingProtocol:
+    collision_check:
+      step1:
+        file: "catalog/bian-capability-index.yaml"
+        when: "ALWAYS — read this first for any collision check or capability lookup"
+        answers: ["does this capability exist?", "which BIAN SD covers it?", "is there a collision?", "is it a gap?"]
+        cost: "~260 lines / 1 tool call"
+        stop_condition: "If the requested capability matches an existing entry → report collision + run Phase 0. Do NOT open domain files."
+      step2:
+        file: "catalog/domains/<specific-domain>.yaml"
+        when: "ONLY IF step1 is insufficient — open the ONE relevant domain, not all"
+        how_to_identify_domain: "use bian_sd from bian-capability-index.yaml to infer the catalog domain"
+        never: "Do not open all domains/*.yaml files in bulk"
+      step3:
+        file: "catalog/bian-capability-alignment.yaml"
+        when: "ONLY IF you need full governance_note or bian_sd_description — rarely needed"
+    quick_reference:
+      capability_index: "catalog/bian-capability-index.yaml"
+      full_alignment:   "catalog/bian-capability-alignment.yaml"
+
+  includes:
+    globalConventions: "catalog/common/global-conventions.yaml"
+    bianCapabilityIndex: "catalog/bian-capability-index.yaml"
+    bianCapabilityAlignment: "catalog/bian-capability-alignment.yaml"
+
+    domains:
+      Customers: "catalog/domains/customers.yaml"
+      Accounts: "catalog/domains/accounts.yaml"
+      Payments: "catalog/domains/payments.yaml"
+      Cards: "catalog/domains/cards.yaml"
+      Loans: "catalog/domains/loans.yaml"
+      Compliance: "catalog/domains/compliance.yaml"
+      Risk: "catalog/domains/risk.yaml"
+      Channels: "catalog/domains/channels.yaml"
+    appendix:
+      commonSecurity: "catalog/common/common-security.yaml"
+      commonObservability: "catalog/common/common-observability.yaml"

@@ -1,0 +1,414 @@
+openapi: 3.0.1
+info:
+  title: Credit Origination Experience API — LON
+  description: >
+    BFF (Backend for Frontend) para la SPA React del sistema LON.
+    Agrega y orquesta APIs de dominio/negocio, adaptando respuestas por rol.
+    Calcula allowed_actions según estado + rol del usuario (JWT claim).
+  version: 1.0.0
+  contact:
+    name: LON Architecture Team
+servers:
+  - url: https://api.bank.internal/lon-exp/v1
+    description: Producción
+
+tags:
+  - name: CreditApplications
+    description: Gestión de solicitudes de crédito — vista BFF
+
+paths:
+  /credit-applications:
+    get:
+      tags: [CreditApplications]
+      summary: List credit applications (role-filtered)
+      operationId: listCreditApplications
+      security:
+        - BearerAuth: [credit:read]
+      parameters:
+        - name: status
+          in: query
+          schema: {type: string}
+        - name: credit_type
+          in: query
+          schema: {type: string, enum: [PERSONAL, MORTGAGE, VEHICLE, BUSINESS]}
+        - name: customer_id
+          in: query
+          schema: {type: string}
+        - name: from_date
+          in: query
+          schema: {type: string, format: date}
+        - name: to_date
+          in: query
+          schema: {type: string, format: date}
+        - name: cursor
+          in: query
+          schema: {type: string}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 20, maximum: 100}
+      responses:
+        '200':
+          description: Paginated list of credit applications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditApplicationListResponse'
+
+    post:
+      tags: [CreditApplications]
+      summary: Create a new credit application
+      operationId: createCreditApplication
+      security:
+        - BearerAuth: [credit:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCreditApplicationRequest'
+      responses:
+        '200':
+          description: Credit application created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditApplicationSummary'
+        '409':
+          description: Duplicate active application
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HTTPError'}
+
+  /credit-applications/{id}:
+    get:
+      tags: [CreditApplications]
+      summary: Get credit application detail (aggregated view)
+      operationId: getCreditApplication
+      security:
+        - BearerAuth: [credit:read]
+      parameters:
+        - $ref: '#/components/parameters/applicationId'
+      responses:
+        '200':
+          description: Aggregated credit application detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditApplicationDetail'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HTTPError'}
+
+  /credit-applications/{id}/timeline:
+    get:
+      tags: [CreditApplications]
+      summary: Get workflow history timeline
+      operationId: getCreditApplicationTimeline
+      security:
+        - BearerAuth: [credit:read]
+      parameters:
+        - $ref: '#/components/parameters/applicationId'
+      responses:
+        '200':
+          description: Workflow timeline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowTimeline'
+
+  /credit-applications/{id}/documents:
+    post:
+      tags: [CreditApplications]
+      summary: Upload a document to the credit application
+      operationId: uploadDocument
+      security:
+        - BearerAuth: [credit:write]
+      parameters:
+        - $ref: '#/components/parameters/applicationId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DocumentUploadRequest'
+      responses:
+        '200':
+          description: Document uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentUploadResponse'
+
+  /credit-applications/{id}/submit:
+    post:
+      tags: [CreditApplications]
+      summary: Submit credit application for evaluation
+      operationId: submitCreditApplication
+      security:
+        - BearerAuth: [credit:write]
+      parameters:
+        - $ref: '#/components/parameters/applicationId'
+      responses:
+        '200':
+          description: Application submitted (status SUBMITTED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditApplicationSummary'
+        '422':
+          description: Missing mandatory documents or invalid state
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HTTPError'}
+
+  /credit-applications/{id}/approve:
+    post:
+      tags: [CreditApplications]
+      summary: Approve a credit application
+      operationId: approveCreditApplication
+      security:
+        - BearerAuth: [credit:approve]
+      parameters:
+        - $ref: '#/components/parameters/applicationId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalRequest'
+      responses:
+        '200':
+          description: Application approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditApplicationSummary'
+
+  /credit-applications/{id}/reject:
+    post:
+      tags: [CreditApplications]
+      summary: Reject a credit application
+      operationId: rejectCreditApplication
+      security:
+        - BearerAuth: [credit:approve]
+      parameters:
+        - $ref: '#/components/parameters/applicationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectionRequest'
+      responses:
+        '200':
+          description: Application rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditApplicationSummary'
+
+  /credit-applications/{id}/escalate:
+    post:
+      tags: [CreditApplications]
+      summary: Escalate credit application to committee
+      operationId: escalateCreditApplication
+      security:
+        - BearerAuth: [credit:approve]
+      parameters:
+        - $ref: '#/components/parameters/applicationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EscalationRequest'
+      responses:
+        '200':
+          description: Application escalated to committee
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditApplicationSummary'
+
+  /credit-applications/{id}/disburse:
+    post:
+      tags: [CreditApplications]
+      summary: Execute disbursement for approved credit
+      operationId: disburseCreditApplication
+      security:
+        - BearerAuth: [disbursement:execute]
+      parameters:
+        - $ref: '#/components/parameters/applicationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisburseRequest'
+      responses:
+        '200':
+          description: Disbursement executed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditApplicationSummary'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    applicationId:
+      name: id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+      description: UUID of the credit application
+
+  schemas:
+    CreateCreditApplicationRequest:
+      type: object
+      required: [customer_id, credit_type, requested_amount, currency, term_months]
+      properties:
+        customer_id: {type: string}
+        credit_type: {type: string, enum: [PERSONAL, MORTGAGE, VEHICLE, BUSINESS]}
+        requested_amount: {type: number, format: double}
+        currency: {type: string, minLength: 3, maxLength: 3}
+        term_months: {type: integer, minimum: 1}
+        purpose: {type: string}
+
+    CreditApplicationSummary:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        customer_id: {type: string}
+        credit_type: {type: string}
+        requested_amount: {type: number, format: double}
+        currency: {type: string}
+        status: {type: string}
+        created_at: {type: string, format: date-time}
+        allowed_actions:
+          type: array
+          items: {type: string}
+          description: "Actions available for the current user role + application status"
+
+    CreditApplicationDetail:
+      allOf:
+        - $ref: '#/components/schemas/CreditApplicationSummary'
+        - type: object
+          properties:
+            term_months: {type: integer}
+            purpose: {type: string}
+            assigned_officer_id: {type: string}
+            documents:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: {type: string, format: uuid}
+                  document_type: {type: string}
+                  uploaded_at: {type: string, format: date-time}
+                  is_mandatory: {type: boolean}
+            risk_assessment:
+              type: object
+              properties:
+                id: {type: string, format: uuid}
+                bureau_score: {type: integer}
+                risk_level: {type: string}
+                recommendation: {type: string}
+                assessed_at: {type: string, format: date-time}
+            disbursement:
+              type: object
+              properties:
+                id: {type: string, format: uuid}
+                status: {type: string}
+                core_reference: {type: string}
+                disbursed_at: {type: string, format: date-time}
+
+    CreditApplicationListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreditApplicationSummary'
+        pagination:
+          type: object
+          properties:
+            cursor: {type: string}
+            limit: {type: integer}
+            total: {type: integer}
+            has_next: {type: boolean}
+
+    WorkflowTimeline:
+      type: object
+      properties:
+        credit_application_id: {type: string, format: uuid}
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              action: {type: string}
+              previous_status: {type: string}
+              new_status: {type: string}
+              actor_id: {type: string}
+              actor_role: {type: string}
+              timestamp: {type: string, format: date-time}
+
+    DocumentUploadRequest:
+      type: object
+      required: [document_type, file]
+      properties:
+        document_type:
+          type: string
+          enum: [ID, INCOME_PROOF, FINANCIAL_STATEMENT, PROPERTY_APPRAISAL, OTHER]
+        file:
+          type: string
+          format: binary
+
+    DocumentUploadResponse:
+      type: object
+      properties:
+        document_id: {type: string, format: uuid}
+        dms_reference: {type: string}
+        document_type: {type: string}
+        uploaded_at: {type: string, format: date-time}
+
+    ApprovalRequest:
+      type: object
+      properties:
+        conditions: {type: string, description: "Optional approval conditions"}
+
+    RejectionRequest:
+      type: object
+      required: [rejection_reason]
+      properties:
+        rejection_reason: {type: string}
+
+    EscalationRequest:
+      type: object
+      required: [escalation_reason]
+      properties:
+        escalation_reason: {type: string}
+
+    DisburseRequest:
+      type: object
+      required: [destination_account]
+      properties:
+        destination_account: {type: string}
+        idempotency_key: {type: string, format: uuid}
+
+    HTTPError:
+      type: object
+      properties:
+        type: {type: string}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        instance: {type: string}
+        correlation_id: {type: string}

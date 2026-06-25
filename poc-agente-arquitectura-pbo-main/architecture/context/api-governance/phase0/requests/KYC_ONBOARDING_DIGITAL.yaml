@@ -1,0 +1,117 @@
+request_id: KYC_ONBOARDING_DIGITAL
+timestamp: "2026-06-22T00:00:00Z"
+functionality_id: KYC_ONBOARDING_DIGITAL
+functionality_name: "Digital KYC Onboarding"
+feature_principal: Onboarding
+execution_mode: standard
+technology_override: Java
+target_component: kyc-onboarding-api
+
+functional_requirement:
+  summary: >
+    Proceso digital de validación de identidad de clientes para apertura de cuentas
+    bancarias. Permite capturar datos personales, validar documentos y realizar
+    verificaciones contra listas regulatorias. Reduce fricción en el alta de clientes
+    y asegura cumplimiento normativo.
+
+  in_scope:
+    - "Captura y validación de datos personales del cliente"
+    - "Verificación de identidad mediante documentos y validación contra listas AML"
+
+  out_of_scope:
+    - "Aprobación de crédito o scoring financiero"
+
+  actors:
+    - id: CUSTOMER
+      description: "Proporcionar datos personales y documentos"
+      channels: [Web, Mobile]
+    - id: KYC_ANALYST
+      description: "Revisar casos fallidos o manuales"
+      channels: [Backoffice]
+    - id: SYSTEM
+      description: "Ejecutar validaciones automáticas"
+      channels: [Backoffice]
+
+  use_cases:
+    - id: UC-001
+      name: "Registro de cliente digital"
+      primary_actor: CUSTOMER
+      outcome: "Cliente registrado con datos básicos"
+    - id: UC-002
+      name: "Carga de documentos de identidad"
+      primary_actor: CUSTOMER
+      outcome: "Documentos almacenados y listos para validación"
+    - id: UC-003
+      name: "Validación automática KYC"
+      primary_actor: SYSTEM
+      outcome: "Resultado de validación aprobado o rechazado"
+    - id: UC-004
+      name: "Revisión manual de caso"
+      primary_actor: KYC_ANALYST
+      outcome: "Caso aprobado o rechazado manualmente"
+    - id: UC-005
+      name: "Notificación al cliente"
+      primary_actor: SYSTEM
+      outcome: "Cliente informado del estado"
+
+  business_rules:
+    - id: BR-001
+      rule: "Todos los clientes deben completar datos obligatorios antes de continuar"
+    - id: BR-002
+      rule: "Documentos deben ser vigentes para ser aceptados"
+    - id: BR-003
+      rule: "Validación contra listas AML es obligatoria"
+    - id: BR-004
+      rule: "Casos fallidos automáticamente deben pasar a revisión manual"
+    - id: BR-005
+      rule: "El cliente no puede acceder a productos sin KYC aprobado"
+    - id: BR-006
+      rule: "Se debe registrar auditoría de cada validación"
+    - id: BR-007
+      rule: "Los datos personales deben almacenarse cifrados"
+
+  external_integrations:
+    - id: AML_SERVICE
+      description: "Servicio AML externo"
+      integration: REST sync
+      criticality: HIGH
+    - id: ID_VERIFICATION_PROVIDER
+      description: "Proveedor de validación de identidad"
+      integration: REST sync
+      criticality: HIGH
+    - id: NOTIFICATION_SERVICE
+      description: "Servicio de notificaciones"
+      integration: async events
+      criticality: MEDIUM
+
+  data_entities:
+    - name: Customer
+      fields: [id, nombre, documento, estadoKYC]
+    - name: Document
+      fields: [id, tipo, fechaExpiracion, url]
+    - name: KYCResult
+      fields: [id, estado, fecha, motivo]
+
+  nfrs:
+    security:
+      authn: OAuth2/OIDC
+      authz: RBAC
+      encryption: TLS1.2+
+    performance:
+      latency: "<2s para validaciones síncronas"
+      concurrency: "500 req/s"
+    observability:
+      logging: structured
+      tracing: distributed
+      metrics: real-time
+    compliance: [ISO27001, GDPR]
+
+catalog_sources:
+  - catalog/api-catalog-index.yaml
+  - catalog/api-catalog-mock-bank.yaml
+  - catalog/domains/customers.yaml
+  - catalog/domains/compliance.yaml
+
+constraints:
+  - "Do not modify any existing functionality folders"
+  - "Check collision against /catalog/** before Phase 1+"

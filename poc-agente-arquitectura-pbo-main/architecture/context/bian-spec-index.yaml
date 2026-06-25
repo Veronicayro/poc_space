@@ -1,0 +1,52 @@
+# bian-spec-index.yaml
+#
+# Token/costo: este índice (y los específicos por spec_type) pueden ser grandes.
+# Regla recomendada: NO leerlos completos en fases tempranas. Usar lookup selectivo.
+#
+# Lookup selectivo (devuelve subconjunto pequeño en YAML):
+#   python architecture/scripts/bian_index_lookup.py --spec oas3 --name AccountReconciliation
+#   python architecture/scripts/bian_index_lookup.py --spec asyncapi-3.x --contains Payment --limit 10
+#
+# Validación de consistencia (asegura que links/type coinciden con spec_type):
+#   python architecture/scripts/validate_bian_indexes.py
+#
+# Guía de uso en fases:
+# - enterprise-capability-alignment: NO leer índices completos; tratar service-domain-candidates como hints.
+# - api-landscape-design: usar lookup para 3-10 Service Domains candidatos y citar solo esos items.
+# - contratos: solo después de baseline verificado (índice local + lectura puntual de YAML bodies requeridos).
+# Router/entrypoint index for BIAN specifications cached in this repository.
+#
+# Problem this solves
+# - The repository caches *all* BIAN R14 Service Domain contracts in two flavors:
+#   1) OpenAPI 3 (REST contracts)
+#   2) AsyncAPI 3.x (eventing / async / webhook contracts)
+# - Reading a single monolithic index is wasteful; agents should decide which spec family to consult first.
+#
+# Where the contracts actually are (source of truth)
+# - OAS3:    architecture/cache/bian/release14.0.0/oas3/yamls/*.yaml
+# - AsyncAPI: architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls/*.yaml
+#
+# Important: this index does NOT replicate any contracts; it only points to them.
+
+domain_standard: BIAN
+release: "14.0.0"
+
+decision_guide:
+  when_to_use_oas3: >
+    Use OAS3 when the question is about REST resources/endpoints, request/response payloads,
+    HTTP status codes, or contract-first API design.
+  when_to_use_asyncapi: >
+    Use AsyncAPI when the question is about events, message channels, pub/sub, webhook-style
+    confirmations, async flows, and event schemas.
+
+indexes:
+  oas3:
+    file: architecture/context/bian-spec-index-oas3.yaml
+    count: 258
+  asyncapi-3.x:
+    file: architecture/context/bian-spec-index-asyncapi.yaml
+    count: 258
+
+notes:
+  - If you are aligning a functionality like CxP to BIAN, you normally reference only the subset of domains used (see functionality/*/design/bian/source-index.yaml).
+  - If you need to browse/search the whole catalog, start here and then open only the relevant index file.

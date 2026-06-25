@@ -1,0 +1,481 @@
+---
+existingComponentImpact:
+  metadata:
+    functionalityId: "LON-GHCopilot-Haiku45-Lending-v1"
+    analysisDate: "2026-06-24"
+    analyzedBy: "existing-landscape-analyzer"
+    purpose: "Analyze impact of reusing, extending, or replacing existing components"
+    sourceInventories:
+      - "discovery/existing-apis-inventory.yaml"
+      - "discovery/internal-module-inventory.yaml"
+      - "catalog/domains/loans.yaml"
+
+  # ============================================================================
+  # EXISTING COMPONENT ANALYSIS SUMMARY
+  # ============================================================================
+  summary:
+    totalExistingComponents: 5
+    reuse: 1  # DisbursementAPI v1.1 (Phase 4 FINALIZED)
+    extend: 1  # CreditApplicationAPI v1.3 (Phase 4 FINALIZED)
+    create_new: 7  # New components required
+    not_applicable: 0
+    
+    impactAssessment:
+      severityLevel: "MEDIUM"
+      rationale: |
+        Medium impact due to CreditApplicationAPI extension decision.
+        Phase 4 has autonomously resolved collision via api-landscape-governance/SKILL.md:
+        - CreditApplicationAPI v1.3: EXTEND (finalized 2026-06-25)
+        - DisbursementAPI v1.1: REUSE (finalized 2026-06-25)
+        
+        DisbursementAPI can be reused with high confidence.
+        Internal systems (INT-001, INT-002) are mandatory reuse with minimal impact.
+
+  # ============================================================================
+  # COMPONENT-BY-COMPONENT ANALYSIS
+  # ============================================================================
+  components:
+
+    # —— API CATALOG COMPONENTS ——
+    - componentId: "CAT-API-001"
+      componentName: "CreditApplicationAPI"
+      catalogDomain: "Loans/LoanOrigination"
+      version: "1.3.0"
+      status: "Published"
+      componentType: "REST API (Experience Layer)"
+      
+      decisionRecommendation: "EXTEND"  # ✅ FINALIZED by Phase 4: api-landscape-governance
+      decisionPhase: "Phase 4: api-landscape-design (COMPLETED 2026-06-25)"
+      
+      phase4Decision:
+        decision: "EXTEND CreditApplicationAPI v1.3 → v1.4+ (finalized)"
+        decidedBy: "api-landscape-governance/SKILL.md (autonomous)"
+        decisionDate: "2026-06-25"
+        targetNewVersion: "v1.4"
+        newCapabilities:
+          - "POST /credit-applications/{id}/documents (document upload support)"
+          - "File attachment handling for UC-002 (Document upload)"
+        backwardCompatibility: "✅ Fully backward-compatible (additive endpoints only)"
+        rationale: |
+          Phase 4 AUTONOMOUS DECISION (api-landscape-governance/SKILL.md):
+          
+          Coverage Analysis:
+          - CreditApplicationAPI v1.3 covers 80% of Phase 1 requirements
+          - Existing endpoints: POST /credit-applications, GET /credit-applications, submit flow
+          - Missing: Document upload endpoint for UC-002
+          - Fit: Partial but backward-compatible extension possible
+          
+          Decision Logic:
+          1. Coverage 70-95% → EXTEND candidate (not REUSE or CREATE)
+          2. Existing consumers (Web Banking, Mobile) accept backward-compatible v1.4
+          3. New endpoint isolation (POST /credit-applications/{id}/documents)
+          4. No contract breaking changes
+          
+          Recommendation: EXTEND v1.3 with document upload support
+          - Avoids duplicate endpoints for customer-facing loan requests
+          - Maintains single source of truth for application state
+          - Version 1.4+ will add: POST /credit-applications/{id}/documents
+          - Preserves existing consumer compatibility
+          
+          Impact on Experience Layer:
+          - LoanRequest-Experience-API wraps CreditApplicationAPI v1.4
+          - No new BFF endpoints required (extension is at domain layer)
+          - Experience-level wrapper delegates to extended v1.4
+      
+      analysis:
+        coverage: "75%"
+        coverageDetail: |
+          ✓ Loan request capture (UC-001, UC-002) — 80% coverage
+          ✗ Automated credit evaluation (UC-003) — 0% (requires Underwriting domain API)
+          ✗ Offer generation with pricing (UC-004) — 20% (basic offer structure exists, pricing logic absent)
+          ✗ Digital signature (UC-005) — 0% (requires external signature provider integration)
+          ✗ Manual review (UC-006) — 0% (requires Underwriting domain API)
+        
+        alignmentWithPhase1Output: |
+          Phase 1 identified 4 BIAN Service Domains for this functionality:
+          1. CustomerOffer (primary for loan request + offer generation)
+          2. Underwriting (primary for credit evaluation)
+          3. Disbursement (primary for disbursement)
+          4. PartyLifecycleManagement (supporting for KYC check)
+          
+          CreditApplicationAPI v1.3 covers only CustomerOffer partially.
+          It lacks explicit contracts for Underwriting integration.
+          Extension with document upload enables UC-002 without breaking existing contracts.
+      
+      phase2Recommendation: "EXTEND_FINALIZED_BY_PHASE4"
+
+    - componentId: "CAT-API-002"
+      componentName: "DisbursementAPI"
+      catalogDomain: "Loans/LoanOrigination"
+      version: "1.1.0"
+      status: "Published"
+      componentType: "REST API (Domain Layer)"
+      owner: "Lending Disbursement Squad"
+      sla: "99.9%"
+      criticalityTier: "Tier 1"
+      
+      decisionRecommendation: "REUSE"  # ✅ FINALIZED by Phase 4: api-landscape-governance
+      decisionPhase: "Phase 4: api-landscape-design (COMPLETED 2026-06-25)"
+      
+      phase4Decision:
+        decision: "REUSE DisbursementAPI v1.1 as-is (finalized)"
+        decidedBy: "api-landscape-governance/SKILL.md (autonomous)"
+        decisionDate: "2026-06-25"
+        rationale: |
+          Phase 4 AUTONOMOUS DECISION (api-landscape-governance/SKILL.md):
+          
+          Coverage Analysis:
+          - DisbursementAPI v1.1 covers 100% of Phase 1 Disbursement SD requirements
+          - Existing endpoints: POST /disbursements, GET /disbursements/{id}, async confirmation callback
+          - BIAN mapping: Disbursement SD (confidence 0.90)
+          - Gap: None — existing API is fully sufficient
+          
+          Decision Logic:
+          1. Coverage ≥95% → REUSE candidate
+          2. Existing consumers (already integrated)
+          3. SLA 99.9% and Tier 1 criticality
+          4. No contract breaking changes needed
+          
+          Recommendation: REUSE v1.1 directly
+          - Avoids redundant implementation
+          - Maintains single source of truth for disbursement operations
+          - Already integrated with EXT-003 (Core Banking) and INT-002 (Audit)
+          - Existing monitoring/observability in place
+      
+      analysis:
+        coverage: "100%"
+        coverageDetail: |
+          ✓ Disbursement instruction (UC-007) — 100% coverage
+          ✓ Audit trail (UC-007 + BR-011) — Integrated with Compliance/Records/AuditTrailAPI
+          ✓ Status tracking — GET endpoint available
+          ✓ Core Banking integration (EXT-003) — Dependency documented
+          ✓ Async callback pattern — Confirmation flow implemented
+      
+      phase4CompletionStatus: "✅ FINALIZED (REUSE DisbursementAPI v1.1 as-is)"
+      
+      downstreamImpact:
+        phase6:
+          task: "Validate DisbursementAPI v1.1 contract against semantic-dictionary.yaml"
+          validationChecklist:
+            - "✓ Confirm callback/confirmation pattern for fund transfer"
+            - "✓ Validate async event publishing for notifications (INT-002)"
+            - "✓ Verify idempotency-key header support (for safe retries)"
+            - "✓ Test integration with Core Banking (EXT-003)"
+          effort: "LOW"
+          risk: "LOW"
+        
+        phase7:
+          task: "Confirm OpenAPI contract for DisbursementAPI v1.1 is canonical"
+          validation: "Use existing published contract; no new derivation required (non-BIAN domain)"
+          effort: "LOW"
+
+    - componentId: "CAT-API-003"
+      componentName: "LoanServicingAPI"
+      catalogDomain: "Loans/LoanOrigination"
+      version: "2.2.0"
+      status: "Published"
+      componentType: "REST API (Domain Layer)"
+      
+      decisionRecommendation: "NOT_APPLICABLE"
+      
+      analysis:
+        inScope: false
+        reason: |
+          LoanServicingAPI covers loan servicing & repayment (post-origination).
+          This functionality is explicitly out of scope:
+          - "Collections or delinquency management" — OUT OF SCOPE
+          - "Refinancing or debt restructuring" — OUT OF SCOPE
+          
+          LoanServicingAPI is relevant for a future functionality (e.g., "Loan Servicing & Repayment").
+      
+      phase2Recommendation: "SKIP"
+      futureRelevance: "Relevant for future loan servicing functionality"
+
+    # —— INTERNAL SYSTEMS ——
+    - componentId: "INT-SYS-001"
+      componentName: "Identity & KYC (INT-001)"
+      systemType: "Shared Service"
+      criticality: "HIGH"
+      
+      decisionRecommendation: "MANDATORY_REUSE"
+      decisionPhase: "Phase 6: backend-component-design (design integration pattern)"
+      
+      analysis:
+        appliedToUseCases: ["UC-001"]
+        appliedToBusinessRules: ["BR-001"]
+        requirement: |
+          BR-001 requires KYC approval before loan request acceptance.
+          INT-001 is the authoritative KYC source.
+          No alternative system available.
+      
+      impactAnalysis:
+        integrationPattern: "TBD in Phase 6"
+        options:
+          - "REST sync: PartyLifecycleMgmt-Domain-API calls INT-001 synchronously for KYC lookup"
+          - "Cached read: Cache KYC status locally with TTL; refresh asynchronously"
+          - "Event-driven: Subscribe to KYC status change events from INT-001"
+        
+        risks:
+          - "INT-001 unavailability blocks loan request (no fallback) → requires high-availability SLA"
+          - "KYC status cache staleness → must define TTL based on compliance requirements"
+      
+      effortEstimate: "LOW"
+      riskLevel: "MEDIUM"  # Due to criticality and no fallback
+      
+      phase2Recommendation: "MANDATORY_REUSE_WITH_INTEGRATION_DESIGN"
+      integrationDesignPhase: "Phase 6"
+
+    - componentId: "INT-SYS-002"
+      componentName: "Audit & Compliance Log (INT-002)"
+      systemType: "Shared Service"
+      criticality: "HIGH"
+      
+      decisionRecommendation: "MANDATORY_REUSE"
+      decisionPhase: "Phase 6: backend-component-design (design event publishing pattern)"
+      
+      analysis:
+        appliedToBusinessRules: ["BR-010"]
+        requirement: |
+          BR-010 requires audit trail for all credit decisions and state transitions.
+          INT-002 is the authoritative compliance log.
+          Mandatory for regulatory compliance.
+      
+      impactAnalysis:
+        eventTriggers:
+          - "Credit decision (APPROVED/REFERRED/REJECTED) → publish to INT-002"
+          - "State transition (DRAFT → SUBMITTED → UNDER_REVIEW) → publish to INT-002"
+          - "Manual review outcome → publish with analyst justification"
+          - "Disbursement confirmation → publish"
+        
+        eventSchema: "TBD in Phase 6; may produce AsyncAPI in Phase 7"
+        
+        integrationPattern: "Async event publishing (preferred) with sync fallback"
+        
+        risks:
+          - "Event loss if async queue fails → must implement retry logic"
+          - "Eventual consistency (audit events may lag) → acceptable for compliance"
+      
+      effortEstimate: "LOW-MEDIUM"
+      riskLevel: "LOW"  # Async allows graceful degradation
+      
+      phase2Recommendation: "MANDATORY_REUSE_WITH_EVENT_DESIGN"
+      eventDesignPhase: "Phase 6"
+      asyncApiPhase: "Phase 7"
+
+  # ============================================================================
+  # CATALOG COLLISION: CreditApplicationAPI v1.3
+  # ============================================================================
+  catalogCollision:
+    collisionId: "COLL-001"
+    severity: "MEDIUM"
+    flaggedInPhase: "Phase 1 (enterprise-capability-alignment)"
+    
+    collisionDetails:
+      existingAPI: "CreditApplicationAPI v1.3"
+      catalogLocation: "catalog/domains/loans.yaml#LoanOrigination/CreditApplicationAPI"
+      capabilityId: "CAP-LOAN-001"
+      capabilityName: "Loan Origination & Underwriting"
+      
+      overlap:
+        percentage: 75  # CreditApplicationAPI covers ~75% of Phase 1 requirements
+        useCasesOverlap: ["UC-001", "UC-002"]  # Direct overlap; UC-003..UC-008 require new design
+        businessRulesOverlap: ["BR-001", "BR-002", "BR-008"]
+      
+      collisionReason: |
+        This functionality (Digital Personal Loan Origination) overlaps with existing
+        CreditApplicationAPI v1.3 which already covers loan application intake.
+        
+        However, CreditApplicationAPI v1.3 was designed for a broader scope
+        (personal + auto loans) and does not explicitly integrate with:
+        - Automated credit evaluation (Underwriting SD)
+        - Personalized offer generation (pricing, terms)
+        - Digital signature capture (e-signature integration)
+        
+        Gap: CreditApplicationAPI lacks orchestration layer for UC-003 through UC-008.
+    
+    resolutionMechanism: |
+      Phase 4 (api-landscape-design) invokes api-landscape-governance/SKILL.md which:
+      
+      1. Reads CreditApplicationAPI v1.3 contract (OpenAPI)
+      2. Compares against Phase 1 BIAN Service Domain evaluation
+      3. Checks coverage of all 8 use cases
+      4. Evaluates existing consumers (Web Banking, Mobile App)
+      5. Decides autonomously:
+         - REUSE: if coverage ≥95% and no consumers conflict
+         - EXTEND: if coverage 70-95% and extension is low-risk
+         - CREATE: if coverage <70% or risks are high
+      6. Documents decision in design/api-landscape.yaml
+      7. Records impact on existing consumers
+    
+    phase2Note: "Collision resolution is deferred to Phase 4 and handled autonomously by api-landscape-governance/SKILL.md. Do NOT make decision here."
+
+  # ============================================================================
+  # IMPACT SUMMARY TABLE
+  # ============================================================================
+  impactSummaryTable:
+    |
+    Component                    | Decision        | Phase | Effort | Risk   | Status        | Notes
+    --------                     | ----------      | ----- | ------ | ------ | ------------- | ------
+    CreditApplicationAPI v1.3    | EXTEND          | 4✅    | MED    | MED    | FINALIZED     | Extend to v1.4+ with document upload (Phase 4 decision)
+    DisbursementAPI v1.1         | REUSE           | 4✅    | LOW    | LOW    | FINALIZED     | Validate contract + callbacks in Phase 6
+    LoanServicingAPI v2.2        | NOT_APPLICABLE  | -     | -      | -      | SKIPPED       | Out of scope (post-origination servicing)
+    Identity & KYC (INT-001)     | MANDATORY_REUSE | 6     | LOW    | MED    | PENDING       | Design integration pattern in Phase 6
+    Audit & Compliance (INT-002) | MANDATORY_REUSE | 6     | LOW    | LOW    | PENDING       | Design event schema in Phase 6; AsyncAPI in Phase 7
+
+  # ============================================================================
+  # PHASE 2 RE-RUN COMPLETION STATUS (2026-06-25)
+  # ============================================================================
+  phase2RerunStatus:
+    executedDate: "2026-06-25"
+    purpose: "Validate Phase 2 outputs against Phase 4 finalized API landscape decisions"
+    findings:
+      - "✅ CreditApplicationAPI collision RESOLVED by Phase 4: EXTEND decision finalized"
+      - "✅ DisbursementAPI REUSE decision confirmed and validated"
+      - "✅ 7 new CREATE decisions align with Phase 1 BIAN SD evaluation"
+      - "✅ execution-plan.yaml remains VALID (standard execution mode, required views unchanged)"
+      - "✅ existing-component-impact.yaml UPDATED with finalized decisions"
+    
+    conclusion: |
+      Phase 2 outputs are CONSISTENT with Phase 4 finalized landscape.
+      Collision resolution has been autonomous and documented.
+      Phase 2 is re-validated and ready to proceed to Phase 6 (backend-component-design).
+
+  # ============================================================================
+  # RECOMMENDATIONS FOR DOWNSTREAM PHASES (UPDATED)
+  # ============================================================================
+  recommendationsForDownstreamPhases:
+    phase3:
+      status: "COMPLETED 2026-06-24"
+      output: "API landscape in draft; component inventory sequenced"
+    
+    phase4:
+      status: "COMPLETED 2026-06-25"
+      completion: "✅ Autonomous governance decisions finalized"
+      decisions:
+        - "✅ EXTEND: CreditApplicationAPI v1.3 → v1.4 (document upload support)"
+        - "✅ REUSE: DisbursementAPI v1.1 (no changes required)"
+        - "✅ CREATE: 7 new APIs across all layers (experience/business/domain/support)"
+      outputs:
+        - "design/api-landscape.yaml (FINALIZED)"
+        - "design/experience-api-style-evaluation.md (REST confirmed)"
+        - "design/diagrams/api-landscape-diagram.md (4 layers, 9 APIs)"
+        - "design/diagrams/api-landscape-inventory-delta.md (catalog delta analysis)"
+    
+    phase6:
+      status: "PENDING (next phase)"
+      activity: "Backend Component Design"
+      processingOrder: "Per-component (batch size 1, max 2)"
+      components:
+        - order: 1
+          name: "LoanOriginationOrchestrator-Business-API"
+          type: "Saga Orchestrator"
+          priority: "P0 (blocks all use cases)"
+          bian_sd: null
+          rationale: "Business orchestration layer; no BIAN SD; coordinates domain APIs"
+          dependencies: ["PartyLifecycleMgmt", "CustomerOffer", "Underwriting", "Disbursement"]
+        
+        - order: 2
+          name: "PartyLifecycleMgmt-Domain-API"
+          type: "Domain Service (KYC lookup)"
+          priority: "P0 (blocks UC-001)"
+          bian_sd: "PartyLifecycleManagement"
+          dependencies: ["INT-001:Identity & KYC"]
+        
+        - order: 3
+          name: "CustomerOffer-Domain-API"
+          type: "Domain Service (offer lifecycle)"
+          priority: "P0 (UC-001, UC-004, UC-005)"
+          bian_sd: "CustomerOffer"
+          dependencies: ["EXT-004:Digital Signature", "EXT-006:Document Storage", "INT-002:Audit"]
+        
+        - order: 4
+          name: "Underwriting-Domain-API"
+          type: "Domain Service (credit evaluation)"
+          priority: "P0 (UC-003, UC-006)"
+          bian_sd: "Underwriting"
+          dependencies: ["EXT-001:Credit Bureau", "EXT-002:Scoring Engine", "INT-002:Audit"]
+        
+        - order: 5
+          name: "Disbursement-Domain-API (reuse wrapper)"
+          type: "Domain Service Adapter (wraps existing DisbursementAPI v1.1)"
+          priority: "P0 (UC-007)"
+          bian_sd: "Disbursement"
+          action: "REUSE"
+          validationTasks:
+            - "Verify contract against semantic-dictionary.yaml"
+            - "Confirm callback/confirmation pattern"
+            - "Validate async event publishing"
+          dependencies: ["EXT-003:Core Banking", "INT-002:Audit"]
+        
+        - order: 6
+          name: "LoanRequest-Experience-API (CreditApplicationAPI extension)"
+          type: "Experience Layer BFF"
+          priority: "P1 (UC-001, UC-002)"
+          action: "EXTEND"
+          extension: "CreditApplicationAPI v1.3 → v1.4 with document upload"
+          dependencies: ["LoanOriginationOrchestrator-Business-API"]
+        
+        - order: 7
+          name: "LoanOffer-Experience-API"
+          type: "Experience Layer BFF"
+          priority: "P1 (UC-004, UC-005)"
+          action: "CREATE"
+          dependencies: ["LoanOriginationOrchestrator-Business-API"]
+        
+        - order: 8
+          name: "LoanStatus-Experience-API"
+          type: "Experience Layer BFF (read-only)"
+          priority: "P2 (UC-008)"
+          action: "CREATE"
+          dependencies: ["LoanOriginationOrchestrator-Business-API"]
+        
+        - order: 9
+          name: "LoanAuditLog-Support-API"
+          type: "Support Service (event publisher)"
+          priority: "P0 (cross-cutting compliance)"
+          action: "CREATE"
+          apiStyle: "AsyncAPI (Kafka/RabbitMQ)"
+          dependencies: ["INT-002:Audit & Compliance", "EXT-005:Notification Service"]
+      
+      detailedActions:
+        - "Process components in order (1-9 above)"
+        - "For each component, generate: component.yaml, readme.md, integration-model.yaml, domain-model.yaml (if BIAN)"
+        - "For EXTEND/REUSE components: document adaptation rationale"
+        - "For CREATE components: record design decisions (framework, persistence, messaging)"
+        - "Generate ADRs for significant architectural decisions"
+        - "Identify NFR/security/observability requirements per component"
+    
+    phase7:
+      status: "PENDING"
+      activity: "Backend Contract Design"
+      actions:
+        - "CreditApplicationAPI v1.4 (extension): Add document upload operations to published contract"
+        - "DisbursementAPI v1.1 (reuse): Validate existing published contract"
+        - "Remaining 7 APIs: Derive OpenAPI/AsyncAPI contracts using:"
+          - "bian-contract-deriver/SKILL.md for PartyLifecycleMgmt, CustomerOffer, Underwriting, Disbursement (BIAN-aligned)"
+          - "experience-contract-designer.skill.md for Experience APIs + semantic-dictionary"
+          - "AsyncAPI schema definition for LoanAuditLog-Support-API event publisher"
+    
+    phase8:
+      status: "PENDING"
+      activity: "Backend Diagram Design"
+      actions:
+        - "Generate 4-layer architecture diagram (experience/business/domain/support)"
+        - "Highlight reuse decisions: CreditApplicationAPI v1.3 extension, DisbursementAPI v1.1 direct use"
+        - "Diagram saga orchestration patterns in business layer"
+        - "Show all external (EXT-001..EXT-006) and internal (INT-001, INT-002) integrations"
+        - "Document component sequencing and dependencies"
+
+  # ============================================================================
+  # SUCCESS CRITERIA (PHASE 2 RE-RUN VALIDATION)
+  # ============================================================================
+  successCriteria:
+    - "✅ CreditApplicationAPI v1.3 collision RESOLVED by Phase 4 (EXTEND to v1.4)"
+    - "✅ DisbursementAPI v1.1 REUSE decision finalized and documented"
+    - "✅ LoanServicingAPI correctly marked as OUT_OF_SCOPE (future relevance noted)"
+    - "✅ INT-001 (Identity & KYC) and INT-002 (Audit & Compliance) marked as MANDATORY_REUSE"
+    - "✅ Execution plan VALID for standard execution mode (no changes required)"
+    - "✅ 9 APIs finalized (1 EXTEND + 1 REUSE + 7 CREATE) and ordered for Phase 6"
+    - "✅ Impact summary table UPDATED with Phase 4 finalized decisions and statuses"
+    - "✅ All downstream phases (Phase 6-8) have clear guidance, priorities, and task lists"
+    - "✅ Phase 2 re-run COMPLETE; catalog collision autonomously resolved by Phase 4"

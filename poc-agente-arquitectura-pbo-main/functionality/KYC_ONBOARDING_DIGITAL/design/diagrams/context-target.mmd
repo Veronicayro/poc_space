@@ -1,0 +1,28 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#e8f4f8', 'edgeLabelBackground': '#fff'}}}%%
+C4Context
+    title KYC Onboarding — System Context (TO-BE)
+
+    Person(customer, "CUSTOMER", "New bank customer\nWeb / Mobile")
+    Person(analyst, "KYC_ANALYST", "KYC compliance analyst\nBackoffice")
+
+    System_Boundary(bank, "Produbanco Banking Platform") {
+        System(kyc_api, "kyc-onboarding-api", "Business API orchestrator\nfor digital KYC onboarding lifecycle\n[Java | BIAN PartyLifecycleManagement]")
+
+        System_Ext(customer_profile, "CustomerProfileAPI", "Customer master data\n[Catalog v1.2.0]")
+        System_Ext(customer_identity, "CustomerIdentityAPI", "Document management\n& identity verification\n[Catalog v1.1.0]")
+        System_Ext(kyc_screening, "KYCScreeningAPI", "AML/PEP/Sanctions screening\n[Catalog v3.0.0]")
+    }
+
+    System_Ext(aml_service, "AML_SERVICE", "External AML\nregulatory screening\n[HIGH criticality]")
+    System_Ext(id_verify, "ID_VERIFICATION_PROVIDER", "External identity\ndocument verification\n[HIGH criticality]")
+    System_Ext(notification, "NOTIFICATION_SERVICE", "Customer notification delivery\n[async events]")
+
+    Rel(customer, kyc_api, "Initiates onboarding\nUploads documents\nChecks status", "HTTPS / OAuth2")
+    Rel(analyst, kyc_api, "Reviews cases\nSubmits decisions", "HTTPS / OAuth2 RBAC")
+
+    Rel(kyc_api, customer_profile, "Creates/updates\ncustomer profile", "REST sync")
+    Rel(kyc_api, customer_identity, "Registers documents\nInitiates verification", "REST sync")
+    Rel(kyc_api, kyc_screening, "Initiates AML screening\nRetrieves results", "REST sync")
+    Rel(kyc_api, aml_service, "Executes AML check\n[circuit breaker]", "REST sync")
+    Rel(kyc_api, id_verify, "Verifies identity document\n[circuit breaker]", "REST sync")
+    Rel(kyc_api, notification, "OnboardingStatusChanged\nOnboardingApproved\nOnboardingRejected", "Async events\n[outbox pattern]")

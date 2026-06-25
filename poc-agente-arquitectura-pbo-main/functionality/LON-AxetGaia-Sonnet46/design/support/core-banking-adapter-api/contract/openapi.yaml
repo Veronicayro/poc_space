@@ -1,0 +1,211 @@
+openapi: 3.0.1
+info:
+  title: Core Banking Adapter API — LON
+  description: >
+    Adaptador de integración con el Core Bancario para validación KYC,
+    creación de productos crédito, ejecución de desembolsos y consulta
+    de tablas de amortización.
+  version: 1.0.0
+  contact:
+    name: LON Architecture Team
+servers:
+  - url: https://api.bank.internal/lon-core/v1
+    description: Producción (internal)
+
+tags:
+  - name: KYC
+    description: Validación de cliente existente en Core Bancario
+  - name: LoanProducts
+    description: Creación de productos crédito en Core
+  - name: Disbursements
+    description: Ejecución y consulta de desembolsos
+  - name: Amortization
+    description: Tabla de amortización del crédito
+
+paths:
+  /customers/{customerId}/kyc:
+    get:
+      tags: [KYC]
+      summary: Validate customer existence (KYC)
+      operationId: validateCustomerKYC
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Customer validated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KYCResponse'
+        '404':
+          description: Customer not found in core
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HTTPError'}
+        '503':
+          description: Core banking unavailable
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HTTPError'}
+
+  /loan-products:
+    post:
+      tags: [LoanProducts]
+      summary: Create loan product in core banking post-approval
+      operationId: createLoanProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLoanProductRequest'
+      responses:
+        '200':
+          description: Loan product created in core
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanProductResponse'
+
+  /disbursements:
+    post:
+      tags: [Disbursements]
+      summary: Execute disbursement instruction to core (idempotent)
+      operationId: executeDisbursement
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisbursementInstructionRequest'
+      responses:
+        '200':
+          description: Disbursement executed by core
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisbursementInstructionResponse'
+        '503':
+          description: Core banking unavailable — disbursement blocked
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HTTPError'}
+
+  /disbursements/{disbursementId}/status:
+    get:
+      tags: [Disbursements]
+      summary: Check disbursement status
+      operationId: getDisbursementStatus
+      parameters:
+        - name: disbursementId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Disbursement status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisbursementInstructionResponse'
+
+  /amortization-schedules/{loanId}:
+    get:
+      tags: [Amortization]
+      summary: Get amortization schedule for loan
+      operationId: getAmortizationSchedule
+      parameters:
+        - name: loanId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Amortization schedule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AmortizationScheduleResponse'
+
+components:
+  schemas:
+    KYCResponse:
+      type: object
+      properties:
+        customer_id: {type: string}
+        kyc_status: {type: string, enum: [VALIDATED, NOT_FOUND, BLOCKED]}
+        customer_name: {type: string}
+        customer_type: {type: string, enum: [NATURAL, EMPRESARIAL]}
+        account_status: {type: string}
+
+    CreateLoanProductRequest:
+      type: object
+      required: [credit_request_id, customer_id, credit_type, amount, term_months, currency]
+      properties:
+        credit_request_id: {type: string, format: uuid}
+        customer_id: {type: string}
+        credit_type: {type: string}
+        amount: {type: number, format: double}
+        term_months: {type: integer}
+        currency: {type: string}
+        interest_rate: {type: number, format: double}
+
+    LoanProductResponse:
+      type: object
+      properties:
+        loan_product_id: {type: string}
+        account_number: {type: string}
+        created_at: {type: string, format: date-time}
+
+    DisbursementInstructionRequest:
+      type: object
+      required: [loan_product_id, destination_account, amount, currency]
+      properties:
+        loan_product_id: {type: string}
+        destination_account: {type: string}
+        amount: {type: number, format: double}
+        currency: {type: string}
+        reference: {type: string, description: "LON disbursement UUID for reconciliation"}
+
+    DisbursementInstructionResponse:
+      type: object
+      properties:
+        core_reference: {type: string}
+        status: {type: string, enum: [EXECUTED, FAILED, PENDING]}
+        executed_at: {type: string, format: date-time}
+        error_message: {type: string}
+
+    AmortizationScheduleResponse:
+      type: object
+      properties:
+        loan_id: {type: string}
+        total_amount: {type: number, format: double}
+        currency: {type: string}
+        installments:
+          type: array
+          items:
+            type: object
+            properties:
+              number: {type: integer}
+              due_date: {type: string, format: date}
+              principal: {type: number, format: double}
+              interest: {type: number, format: double}
+              total: {type: number, format: double}
+              balance: {type: number, format: double}
+
+    HTTPError:
+      type: object
+      properties:
+        type: {type: string}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        correlation_id: {type: string}

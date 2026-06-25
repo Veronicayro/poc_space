@@ -1,0 +1,193 @@
+component_name: kyc-onboarding-api
+component_type: api
+layer: business
+decision: create
+purpose: >
+  Business API orchestrator for the digital KYC onboarding lifecycle.
+  Owns the OnboardingCase aggregate (state machine) and orchestrates identity
+  registration, document upload, AML/identity validation, analyst review, and
+  customer notification. Implements BIAN PartyLifecycleManagement semantics (adapted).
+owner_scope: "Customer Platform / KYC Squad"
+technology: Java
+base_path: /api/kyc-onboarding/v1
+
+bian:
+  aligned: true
+  release: "14.0.0"
+  selected_service_domain: PartyLifecycleManagement
+  alignment_type: adapted
+  adoption_file: "functionality/KYC_ONBOARDING_DIGITAL/design/business/kyc-onboarding-api/contract/bian-adoption.yaml"
+
+responsibilities:
+  - "Initiate OnboardingCase and coordinate customer profile creation via CustomerProfileAPI (UC-001)"
+  - "Accept and register identity document uploads via CustomerIdentityAPI (UC-002)"
+  - "Orchestrate automatic KYC validation: identity proofing (ID_VERIFICATION_PROVIDER), AML screening (AML_SERVICE + KYCScreeningAPI) (UC-003)"
+  - "Enforce BR-003: AML validation mandatory — blocks flow if unavailable"
+  - "Enforce BR-004: auto-escalate failed validations to REVIEW_REQUIRED state"
+  - "Manage analyst review queue and accept APPROVED/REJECTED decisions (UC-004)"
+  - "Publish OnboardingStatusChanged domain events to NOTIFICATION_SERVICE on every state transition (UC-005)"
+  - "Enforce BR-001: mandatory fields gate before state advance"
+  - "Enforce BR-002: document expiry validation"
+  - "Enforce BR-005: KYC gate — APPROVED state required before product access (status exposed via GET)"
+  - "Maintain append-only audit log per validation step (BR-006)"
+  - "Enforce PII encryption at persistence layer (BR-007)"
+
+non_responsibilities:
+  - "Customer profile master data management (CustomerProfileAPI owns)"
+  - "Identity document binary storage (CustomerIdentityAPI owns)"
+  - "AML/PEP screening logic (KYCScreeningAPI + AML_SERVICE own)"
+  - "Customer notification delivery (NOTIFICATION_SERVICE owns)"
+  - "Credit scoring or financial product eligibility (out of scope)"
+  - "Product account provisioning post-KYC approval (downstream systems own)"
+
+dependencies:
+  synchronous:
+    - name: CustomerProfileAPI
+      version: "1.2.0"
+      type: internal_catalog_api
+      base_url_ref: "catalog/domains/customers.yaml"
+      calls:
+        - operation: "POST /customers"
+          purpose: "Create preliminary customer profile (UC-001)"
+          idempotency: "Idempotency-Key header required"
+        - operation: "PATCH /customers/{customerId}"
+          purpose: "Update customer status to KYC_APPROVED after successful onboarding"
+    - name: CustomerIdentityAPI
+      version: "1.1.0"
+      type: internal_catalog_api
+      base_url_ref: "catalog/domains/customers.yaml"
+      calls:
+        - operation: "POST /customers/{customerId}/identities"
+          purpose: "Register identity document reference (UC-002)"
+          idempotency: "Idempotency-Key header required"
+        - operation: "POST /customers/{customerId}/identities/{identityId}/verify"
+          purpose: "Initiate identity verification (UC-003)"
+        - operation: "GET /customers/{customerId}/identities/{identityId}"
+          purpose: "Poll/retrieve verification result"
+    - name: KYCScreeningAPI
+      version: "3.0.0"
+      type: internal_catalog_api
+      base_url_ref: "catalog/domains/compliance.yaml"
+      calls:
+        - operation: "POST /screenings"
+          purpose: "Initiate AML/PEP/Sanctions screening (UC-003, BR-003)"
+          idempotency: "Idempotency-Key header required"
+        - operation: "GET /screenings/{screeningId}"
+          purpose: "Retrieve screening result"
+    - name: AML_SERVICE
+      type: external
+      integration_pattern: adapter
+      adapter_ref: "integration/integration-model.yaml#aml-service-adapter"
+      criticality: HIGH
+      circuit_breaker: true
+    - name: ID_VERIFICATION_PROVIDER
+      type: external
+      integration_pattern: adapter
+      adapter_ref: "integration/integration-model.yaml#id-verification-adapter"
+      criticality: HIGH
+      circuit_breaker: true
+  asynchronous:
+    publishes:
+      - event: OnboardingCaseInitiated
+        channel: onboarding.events
+        trigger: "OnboardingCase state → INITIATED"
+      - event: OnboardingStatusChanged
+        channel: onboarding.events
+        trigger: "Any OnboardingCase state transition"
+      - event: OnboardingApproved
+        channel: onboarding.events
+        trigger: "OnboardingCase state → APPROVED"
+      - event: OnboardingRejected
+        channel: onboarding.events
+        trigger: "OnboardingCase state → REJECTED"
+    consumes: []
+
+consumers:
+  - id: CUSTOMER
+    channel: [Web, Mobile]
+    auth_scheme: OAuth2/OIDC (authorization_code)
+    scopes:
+      - kyc.onboarding.initiate
+      - kyc.onboarding.documents.write
+      - kyc.onboarding.read
+  - id: KYC_ANALYST
+    channel: [Backoffice]
+    auth_scheme: OAuth2/OIDC (client_credentials + RBAC)
+    scopes:
+      - kyc.onboarding.read
+      - kyc.onboarding.review.write
+
+state_owner_if_any: OnboardingCase
+state_map_ref: "state/state-map.yaml"
+
+data_ownership:
+  owns_persistent_data: true
+  persistence_model: "relational"
+  persistence_ref: "data/persistence-model.yaml"
+  pii_fields_encrypted: true
+  audit_log: true
+
+cache_usage:
+  uses_cache: false
+  cache_model: null
+  rationale: "No caching required for MVP; onboarding cases are write-heavy and low-frequency per customer"
+
+events:
+  publishes:
+    - OnboardingCaseInitiated
+    - OnboardingStatusChanged
+    - OnboardingApproved
+    - OnboardingRejected
+  consumes: []
+  event_model_ref: "events/event-model.yaml"
+
+nfrs:
+  security:
+    authn: "OAuth2/OIDC"
+    authz: "RBAC (scopes: kyc.onboarding.*)"
+    transport_encryption: "TLS 1.2+"
+    pii_at_rest: "AES-256 encryption on PII fields (nombre, documento)"
+    idempotency: "Idempotency-Key on all POST/PUT operations"
+    secrets_management: "Credentials for downstream APIs stored in secrets manager (not in code)"
+    input_validation: "Strict schema validation on all inbound payloads; reject unknown fields"
+    audit: "Append-only audit_entries table; every state transition and validation logged"
+  performance:
+    p95_latency_ms: 2000
+    throughput_rps: 500
+    timeout_downstream_sync_ms: 1500
+    circuit_breaker: "Applied to AML_SERVICE and ID_VERIFICATION_PROVIDER"
+  observability:
+    logging:
+      format: "structured JSON"
+      level: INFO
+      pii_redaction: true
+      fields: [timestamp, level, correlationId, caseId, customerId, actorId, event, durationMs]
+    tracing:
+      enabled: true
+      propagation: "W3C Trace Context (traceparent header)"
+      sample_rate: "1.0 (100%) for error paths; 0.1 (10%) for success paths"
+    metrics:
+      - request_count
+      - latency_ms_p50
+      - latency_ms_p95
+      - error_rate_5xx
+      - onboarding_cases_initiated
+      - onboarding_cases_approved
+      - onboarding_cases_rejected
+      - onboarding_cases_in_review
+      - aml_service_circuit_breaker_open
+  resiliency:
+    retry_policy: "3 retries with exponential backoff for AML_SERVICE and ID_VERIFICATION_PROVIDER"
+    circuit_breaker: "Open after 5 failures in 30s; half-open probe after 60s"
+    timeout: "1500ms per downstream sync call"
+  compliance:
+    gdpr:
+      data_subject_erasure: "Pseudonymization of PII in audit_entries; personal fields nullified on erasure request"
+      data_minimization: "Only collect mandatory fields (BR-001)"
+      retention: "OnboardingCase records retained 5 years per regulatory requirement"
+    iso27001:
+      access_control: "Least-privilege scopes per actor"
+      change_management: "API contract changes require API Review Board sign-off"
+      incident_management: "Alert on error_rate_5xx > 1% sustained 5 minutes"
+
+status: draft

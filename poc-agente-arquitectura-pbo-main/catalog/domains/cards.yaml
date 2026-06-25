@@ -1,0 +1,242 @@
+domain:
+  name: "Cards"
+  description: "Tarjetas débito/crédito, autorizaciones y disputas."
+
+  capabilities:
+
+    CardServicing:
+      apiProducts:
+
+        CardManagementAPI:
+          metadata:
+            name: "Card Management API"
+            description: "Emisión, activación, bloqueo, reemplazo y gestión de tarjetas."
+            owner: "Cards Platform Squad"
+            sla: "99.95%"
+            dataClassification: ["PCI", "PII", "Confidential"]
+            criticalityTier: "Tier 0"
+            region: "global"
+            tags: ["cards", "servicing", "pci"]
+          apiType: "Internal"
+          versions:
+            - version: "1.5.0"
+              status: "Published"
+              x-contract-version: "2026-06-08"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/card-management/v1"
+                qa: "https://api.qa.globalbank.example.com/card-management/v1"
+                uat: "https://api.uat.globalbank.example.com/card-management/v1"
+                prod: "https://api.globalbank.example.com/card-management/v1"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Customers/CustomerOnboarding/CustomerProfileAPI"
+                  reason: "Validar cliente."
+                - api: "Risk/Fraud/FraudDecisioningAPI"
+                  reason: "Controles antifraude para cambios críticos."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code"]
+                scopes:
+                  - "cards.read"
+                  - "cards.write"
+                  - "cards.block"
+                  - "cards.replace"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "tokenization_failures"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "cardId", "customerId", "action", "status"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "PCI review + vendor certification."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Card Management API"
+              version: "v1"
+            paths:
+              /customers/{customerId}/cards:
+                get:
+                  summary: "Listar tarjetas del cliente"
+                  responses:
+                    "200":
+                      description: "Tarjetas"
+                      schemaRef: "#/components/schemas/CardList"
+                post:
+                  summary: "Solicitar emisión"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Solicitud creada"
+                      schemaRef: "#/components/schemas/CardOrder"
+              /cards/{cardId}:
+                get:
+                  summary: "Detalle de tarjeta"
+                  responses:
+                    "200":
+                      description: "Tarjeta"
+                      schemaRef: "#/components/schemas/Card"
+              /cards/{cardId}/block:
+                post:
+                  summary: "Bloquear tarjeta"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "200":
+                      description: "Bloqueada"
+                      schemaRef: "#/components/schemas/Card"
+
+        CardAuthorizationAPI:
+          metadata:
+            name: "Card Authorization API"
+            description: "Consulta de autorizaciones y decisiones (approve/decline) con motivos y MCC."
+            owner: "Card Authorization Squad"
+            sla: "99.99%"
+            dataClassification: ["PCI", "Confidential"]
+            criticalityTier: "Tier 0"
+            region: "global"
+            tags: ["cards", "authorization", "real-time"]
+          apiType: "Internal"
+          versions:
+            - version: "2.0.0"
+              status: "Published"
+              x-contract-version: "2026-05-01"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/card-authorization/v2"
+                qa: "https://api.qa.globalbank.example.com/card-authorization/v2"
+                uat: "https://api.uat.globalbank.example.com/card-authorization/v2"
+                prod: "https://api.globalbank.example.com/card-authorization/v2"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Risk/Fraud/FraudDecisioningAPI"
+                  reason: "Señales antifraude para decisiones."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials"]
+                scopes:
+                  - "cards.auth.read"
+                  - "cards.auth.decision"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "decline_rate"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "authId", "cardId", "amount", "currency", "decision"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Latency budget approval required."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Card Authorization API"
+              version: "v2"
+            paths:
+              /authorizations:
+                post:
+                  summary: "Registrar/solicitar decisión de autorización"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Autorización procesada"
+                      schemaRef: "#/components/schemas/Authorization"
+              /authorizations/{authorizationId}:
+                get:
+                  summary: "Consultar autorización"
+                  responses:
+                    "200":
+                      description: "Autorización"
+                      schemaRef: "#/components/schemas/Authorization"
+
+        CardDisputesAPI:
+          metadata:
+            name: "Card Disputes API"
+            description: "Gestión de disputas/chargebacks: creación, evidencias, plazos y resolución."
+            owner: "Disputes & Chargebacks Squad"
+            sla: "99.5%"
+            dataClassification: ["PCI", "PII", "Confidential"]
+            criticalityTier: "Tier 2"
+            region: "global"
+            tags: ["cards", "disputes", "chargeback"]
+          apiType: "Internal"
+          versions:
+            - version: "1.1.0"
+              status: "Published"
+              x-contract-version: "2026-04-01"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/card-disputes/v1"
+                qa: "https://api.qa.globalbank.example.com/card-disputes/v1"
+                uat: "https://api.uat.globalbank.example.com/card-disputes/v1"
+                prod: "https://api.globalbank.example.com/card-disputes/v1"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Compliance/Records/DocumentArchiveAPI"
+                  reason: "Evidencias y archivado."
+                - api: "Channels/Notifications/NotificationDispatchAPI"
+                  reason: "Notificaciones de hitos de disputa."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code"]
+                scopes:
+                  - "cards.disputes.read"
+                  - "cards.disputes.write"
+                  - "cards.disputes.evidence.write"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "case_resolution_time_days"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "disputeId", "cardId", "status", "reasonCode"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Regulatory timelines impact assessment."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Card Disputes API"
+              version: "v1"
+            paths:
+              /disputes:
+                post:
+                  summary: "Crear disputa"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Disputa creada"
+                      schemaRef: "#/components/schemas/DisputeCase"
+              /disputes/{disputeId}:
+                get:
+                  summary: "Consultar disputa"
+                  responses:
+                    "200":
+                      description: "Disputa"
+                      schemaRef: "#/components/schemas/DisputeCase"
+              /disputes/{disputeId}/evidence:
+                post:
+                  summary: "Adjuntar evidencia (metadata + upload token)"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "202":
+                      description: "Evidencia recibida"
+                      schemaRef: "#/components/schemas/EvidenceReceipt"

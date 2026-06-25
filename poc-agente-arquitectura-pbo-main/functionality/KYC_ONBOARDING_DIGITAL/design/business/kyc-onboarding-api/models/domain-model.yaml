@@ -1,0 +1,199 @@
+component: kyc-onboarding-api
+generated_at: "2026-06-22"
+bian_service_domain: PartyLifecycleManagement
+
+aggregates:
+
+  - aggregate_name: OnboardingCase
+    role: aggregate_root
+    description: >
+      Central aggregate for the digital KYC onboarding lifecycle.
+      Enforces all business rules and controls state transitions.
+      Corresponds to the BIAN PartyLifecycleManagement Control Record.
+    bian_cr: PartyLifecycleManagement
+    fields:
+      - name: id
+        type: UUID
+        constraints: [PRIMARY KEY, NOT NULL]
+        bian_ref: "BIAN: PartyLifecycleManagement.partylifecyclemanagementid"
+        pii: false
+      - name: customer_id
+        type: UUID
+        constraints: [NOT NULL, FK → CustomerProfileAPI]
+        bian_ref: "BIAN: PartyLifecycleManagement.PartyReference"
+        pii: false
+      - name: status
+        type: OnboardingStatus (enum)
+        constraints: [NOT NULL]
+        bian_ref: "BIAN: PartyLifecycleManagement.Status (adapted)"
+        pii: false
+      - name: customer_name_encrypted
+        type: String (AES-256)
+        constraints: [NOT NULL, ENCRYPTED]
+        bian_ref: "BIAN: PartyLifecycleManagement.PartyName"
+        pii: true
+      - name: document_number_encrypted
+        type: String (AES-256)
+        constraints: [NOT NULL, ENCRYPTED]
+        bian_ref: "BIAN: PartyLifecycleManagement.PartyIdentification"
+        pii: true
+      - name: initiated_at
+        type: Timestamp
+        constraints: [NOT NULL]
+        pii: false
+      - name: updated_at
+        type: Timestamp
+        constraints: [NOT NULL]
+        pii: false
+      - name: approved_at
+        type: Timestamp
+        constraints: [nullable]
+        pii: false
+      - name: channel
+        type: String (enum: WEB, MOBILE, BACKOFFICE)
+        constraints: [NOT NULL]
+        pii: false
+      - name: correlation_id
+        type: String
+        constraints: [NOT NULL, UNIQUE]
+        pii: false
+        notes: "Idempotency key / external correlation reference"
+    invariants:
+      - "status transitions must follow the defined state machine (state-map.yaml)"
+      - "customer_id must be set before advancing beyond INITIATED"
+      - "kyc_result must exist before setting status to APPROVED"
+      - "review_decision must exist before setting status to APPROVED/REJECTED from REVIEW_REQUIRED"
+    owned_entities: [KYCResult, ReviewDecision, AuditEntry]
+
+  - aggregate_name: KYCResult
+    role: entity
+    parent_aggregate: OnboardingCase
+    description: >
+      Aggregates the results of all KYC validation steps: identity verification,
+      AML screening, and overall composite result. Immutable after creation.
+      Corresponds to BIAN Qualification sub-behavior result.
+    bian_ref: "BIAN: PartyLifecycleManagement.Qualification sub-behavior"
+    fields:
+      - name: id
+        type: UUID
+        constraints: [PRIMARY KEY, NOT NULL]
+        pii: false
+      - name: onboarding_case_id
+        type: UUID
+        constraints: [NOT NULL, FK → onboarding_cases.id]
+        pii: false
+      - name: overall_status
+        type: KYCStatus (enum: APPROVED, REVIEW_REQUIRED, REJECTED)
+        constraints: [NOT NULL]
+        bian_ref: "BIAN: Qualification.Status"
+        pii: false
+      - name: identity_verification_status
+        type: String (enum: PASSED, FAILED, PENDING)
+        constraints: [NOT NULL]
+        pii: false
+      - name: aml_screening_status
+        type: String (enum: CLEAR, MATCH, PENDING)
+        constraints: [NOT NULL]
+        pii: false
+      - name: aml_screening_id
+        type: String
+        constraints: [nullable]
+        notes: "Reference to KYCScreeningAPI.screeningId"
+        pii: false
+      - name: id_verification_job_id
+        type: String
+        constraints: [nullable]
+        notes: "Reference to CustomerIdentityAPI verification job"
+        pii: false
+      - name: failure_reason
+        type: String
+        constraints: [nullable]
+        pii: false
+      - name: validated_at
+        type: Timestamp
+        constraints: [NOT NULL]
+        pii: false
+
+  - aggregate_name: ReviewDecision
+    role: entity
+    parent_aggregate: OnboardingCase
+    description: >
+      Records the KYC analyst's manual decision on a case that required review.
+      Immutable after creation. Corresponds to BIAN Control behavior result.
+    bian_ref: "BIAN: PartyLifecycleManagement.Control behavior"
+    fields:
+      - name: id
+        type: UUID
+        constraints: [PRIMARY KEY, NOT NULL]
+        pii: false
+      - name: onboarding_case_id
+        type: UUID
+        constraints: [NOT NULL, FK → onboarding_cases.id]
+        pii: false
+      - name: decision
+        type: String (enum: APPROVED, REJECTED)
+        constraints: [NOT NULL]
+        pii: false
+      - name: analyst_id
+        type: String
+        constraints: [NOT NULL]
+        notes: "Identity of the KYC_ANALYST; from OAuth token subject"
+        pii: false
+      - name: justification
+        type: String
+        constraints: [nullable]
+        pii: false
+      - name: decided_at
+        type: Timestamp
+        constraints: [NOT NULL]
+        pii: false
+
+  - aggregate_name: AuditEntry
+    role: entity
+    parent_aggregate: OnboardingCase
+    description: >
+      Append-only audit log entry for every significant event in the onboarding lifecycle.
+      Supports BR-006 (audit trail) and GDPR traceability. PII fields are pseudonymized
+      to support GDPR right-to-erasure without breaking audit immutability.
+    fields:
+      - name: id
+        type: UUID
+        constraints: [PRIMARY KEY, NOT NULL]
+        pii: false
+      - name: onboarding_case_id
+        type: UUID
+        constraints: [NOT NULL, FK → onboarding_cases.id]
+        pii: false
+      - name: event_type
+        type: String
+        constraints: [NOT NULL]
+        examples: [CASE_INITIATED, DOCUMENT_SUBMITTED, VALIDATION_STARTED, VALIDATION_COMPLETED, REVIEW_ASSIGNED, DECISION_RECORDED, STATUS_CHANGED]
+        pii: false
+      - name: actor_id
+        type: String
+        constraints: [NOT NULL]
+        notes: "System, CUSTOMER.sub, or KYC_ANALYST.sub from OAuth token"
+        pii: false
+      - name: metadata
+        type: JSONB
+        constraints: [nullable]
+        notes: "Non-PII context (e.g., from_status, to_status, validation_type)"
+        pii: false
+      - name: occurred_at
+        type: Timestamp
+        constraints: [NOT NULL]
+        pii: false
+
+value_objects:
+  - name: OnboardingStatus
+    type: enum
+    values: [INITIATED, DOCS_SUBMITTED, UNDER_VALIDATION, REVIEW_REQUIRED, APPROVED, REJECTED]
+    bian_ref: "BIAN: PartyLifecycleManagement.Status (adapted)"
+
+  - name: DocumentReference
+    description: "Lightweight reference to a document stored in CustomerIdentityAPI"
+    fields:
+      - identity_id: UUID (FK to CustomerIdentityAPI)
+      - document_type: String (enum: CEDULA, PASAPORTE, OTRO)
+      - expires_at: Date
+      - submitted_at: Timestamp

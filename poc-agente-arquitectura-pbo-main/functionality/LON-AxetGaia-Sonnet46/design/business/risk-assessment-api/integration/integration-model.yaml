@@ -1,0 +1,42 @@
+# integration-model.yaml — risk-assessment-api
+component_id: COMP-LON-BUS-002
+name: risk-assessment-api
+generated_at: "2026-06-17"
+
+integrations:
+  - id: INT-LON-BUS002-01
+    name: bureau-report-fetch
+    target_service: credit-bureau-adapter-api
+    direction: outbound
+    type: synchronous
+    protocol: REST / HTTP
+    trigger: "POST /v1/Underwriting/Initiate — al iniciar evaluación de riesgo"
+    description: >
+      Obtiene el reporte crediticio del cliente del bureau externo.
+      El adaptador gestiona el caché Redis TTL 24h internamente.
+    request:
+      endpoint: "GET /v1/credit-reports/{customerId}"
+      payload: "customerId (path param)"
+    response:
+      success: "{ score, risk_level, debts, blacklist_status, report_date }"
+      failure: "HTTP 503 → bureau no disponible"
+    error_handling:
+      timeout_ms: 1000
+      circuit_breaker: true
+      fallback: "HTTP 503 — evaluación bloqueada hasta disponibilidad del bureau"
+
+  - id: INT-LON-BUS002-02
+    name: state-update-notification
+    target_service: credit-request-api
+    direction: outbound
+    type: synchronous
+    protocol: "Internal REST call"
+    trigger: "PUT /v1/Underwriting/{id}/Update — al completar evaluación"
+    description: >
+      Notifica a credit-request-api para actualizar el estado de la solicitud
+      a RISK_ASSESSED y disparar la transición automática a PENDING_APPROVAL.
+    request:
+      endpoint: "PUT /v1/CustomerOffer/{creditRequestId}/Exchange"
+      payload: "{ action: 'risk_assessed', risk_level, recommendation }"
+    response:
+      success: "{ status: PENDING_APPROVAL }"

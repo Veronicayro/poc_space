@@ -1,0 +1,22 @@
+# domain-standard-alignment.schema.yaml
+functionality_id: string
+provider: BIAN | ACORD | TMForum | EnterpriseCapabilityMap | Other
+provider_version: string
+source_index_path: string
+alignments:
+  - capability_id: string
+    capability_name: string
+    selected_domain_or_service_domain: string
+    source_file_or_reference: string
+    selected_operations_or_capabilities: []
+    alignment_type: direct | adapted | partial | unresolved
+    confidence: number
+    rationale: string
+    rejected_candidates:
+      - candidate: string
+        reason: string
+    gaps: []
+blocking_issues:
+  - issue_id: string
+    description: string
+    required_action: string

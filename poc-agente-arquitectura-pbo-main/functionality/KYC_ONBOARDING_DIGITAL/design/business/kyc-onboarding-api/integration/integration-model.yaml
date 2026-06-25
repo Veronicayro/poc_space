@@ -1,0 +1,214 @@
+component: kyc-onboarding-api
+generated_at: "2026-06-22"
+
+integrations:
+
+  # ─── Internal catalog API integrations ────────────────────────────────────
+
+  - integration_id: customer-profile-api
+    name: CustomerProfileAPI
+    type: internal_catalog_api
+    protocol: REST
+    direction: outbound_sync
+    version: "1.2.0"
+    catalog_ref: "catalog/domains/customers.yaml"
+    base_url_config_key: "CUSTOMER_PROFILE_API_BASE_URL"
+    auth:
+      scheme: OAuth2
+      grant_type: client_credentials
+      scope: "customers.profile.write"
+      token_source: internal_iam
+    idempotency:
+      header: "Idempotency-Key"
+      applies_to: [POST, PATCH]
+    timeout_ms: 1500
+    retry:
+      max_attempts: 3
+      backoff: exponential
+    circuit_breaker: false
+    calls:
+      - operation_id: createCustomer
+        method: POST
+        path: /customers
+        purpose: "Create preliminary customer profile on onboarding initiation (UC-001)"
+        triggered_by: "InitiateOnboarding command"
+        request_mapping:
+          onboarding_case.customer_data → CustomerCreateRequest
+        response_mapping:
+          Customer.id → onboarding_case.customer_id
+        error_handling:
+          "409 Conflict": "Check idempotency — existing customer; link case to existing customerId"
+          "400 Bad Request": "Propagate as 422 Unprocessable Entity to caller"
+      - operation_id: patchCustomer
+        method: PATCH
+        path: /customers/{customerId}
+        purpose: "Update customer estadoKYC=APPROVED after onboarding completes"
+        triggered_by: "OnboardingCase state → APPROVED"
+        request_mapping:
+          "{estadoKYC: APPROVED}" → CustomerPatchRequest
+        error_handling:
+          "404 Not Found": "Log as data consistency error; emit alert; do not block event publication"
+
+  - integration_id: customer-identity-api
+    name: CustomerIdentityAPI
+    type: internal_catalog_api
+    protocol: REST
+    direction: outbound_sync
+    version: "1.1.0"
+    catalog_ref: "catalog/domains/customers.yaml"
+    base_url_config_key: "CUSTOMER_IDENTITY_API_BASE_URL"
+    auth:
+      scheme: OAuth2
+      grant_type: client_credentials
+      scope: "customers.identity.write"
+      token_source: internal_iam
+    idempotency:
+      header: "Idempotency-Key"
+      applies_to: [POST]
+    timeout_ms: 1500
+    retry:
+      max_attempts: 3
+      backoff: exponential
+    circuit_breaker: false
+    calls:
+      - operation_id: registerIdentity
+        method: POST
+        path: /customers/{customerId}/identities
+        purpose: "Register identity document reference (UC-002)"
+        triggered_by: "SubmitDocument command"
+        request_mapping:
+          IdentityDocument → Identity request body
+        response_mapping:
+          Identity.identityId → onboarding_case.document_ref.identity_id
+      - operation_id: initiateVerification
+        method: POST
+        path: /customers/{customerId}/identities/{identityId}/verify
+        purpose: "Initiate identity verification with external provider (UC-003)"
+        triggered_by: "TriggerKYCValidation command"
+        response_mapping:
+          VerificationJob.jobId → onboarding_case.verification_job_id
+      - operation_id: getIdentity
+        method: GET
+        path: /customers/{customerId}/identities/{identityId}
+        purpose: "Poll identity verification result"
+        triggered_by: "Polling loop or webhook callback from CustomerIdentityAPI"
+
+  - integration_id: kyc-screening-api
+    name: KYCScreeningAPI
+    type: internal_catalog_api
+    protocol: REST
+    direction: outbound_sync
+    version: "3.0.0"
+    catalog_ref: "catalog/domains/compliance.yaml"
+    base_url_config_key: "KYC_SCREENING_API_BASE_URL"
+    auth:
+      scheme: OAuth2
+      grant_type: client_credentials
+      scope: "compliance.kyc.screen"
+      token_source: internal_iam
+    idempotency:
+      header: "Idempotency-Key"
+      applies_to: [POST]
+    timeout_ms: 1500
+    retry:
+      max_attempts: 3
+      backoff: exponential
+    circuit_breaker: false
+    calls:
+      - operation_id: initiateScreening
+        method: POST
+        path: /screenings
+        purpose: "Initiate AML/PEP screening (UC-003, BR-003)"
+        triggered_by: "TriggerKYCValidation command"
+        request_mapping:
+          Customer.{nombre, documento} → Screening subject fields
+        response_mapping:
+          ScreeningJob.screeningId → onboarding_case.screening_id
+      - operation_id: getScreeningResult
+        method: GET
+        path: /screenings/{screeningId}
+        purpose: "Retrieve screening result"
+        triggered_by: "Polling loop after initiateScreening"
+        response_mapping:
+          ScreeningResult.status → kyc_result.aml_status
+
+  # ─── External integrations (adapter pattern) ─────────────────────────────
+
+  - integration_id: aml-service-adapter
+    name: AML_SERVICE
+    type: external
+    protocol: REST
+    direction: outbound_sync
+    criticality: HIGH
+    base_url_config_key: "AML_SERVICE_BASE_URL"
+    auth:
+      scheme: API_KEY
+      secret_config_key: "AML_SERVICE_API_KEY"
+      secret_source: secrets_manager
+    timeout_ms: 1500
+    retry:
+      max_attempts: 2
+      backoff: fixed_500ms
+    circuit_breaker:
+      enabled: true
+      failure_threshold: 5
+      reset_timeout_s: 60
+      half_open_probe_calls: 1
+    notes: >
+      Adapter wraps AML_SERVICE REST contract behind an internal port (AmlServicePort interface).
+      Actual request/response schema TBD (G-002: spec not yet provided).
+      Failures are BLOCKING for onboarding flow (BR-003); circuit breaker open → case held in
+      UNDER_VALIDATION until service recovers or timeout + manual escalation.
+    fallback_behavior: "Circuit open: hold case in UNDER_VALIDATION; alert on-call; do not auto-escalate to REVIEW_REQUIRED"
+
+  - integration_id: id-verification-adapter
+    name: ID_VERIFICATION_PROVIDER
+    type: external
+    protocol: REST
+    direction: outbound_sync
+    criticality: HIGH
+    base_url_config_key: "ID_VERIFICATION_BASE_URL"
+    auth:
+      scheme: OAuth2_CLIENT_CREDENTIALS
+      token_url_config_key: "ID_VERIFICATION_TOKEN_URL"
+      client_id_config_key: "ID_VERIFICATION_CLIENT_ID"
+      client_secret_config_key: "ID_VERIFICATION_CLIENT_SECRET"
+      secret_source: secrets_manager
+    timeout_ms: 1500
+    retry:
+      max_attempts: 2
+      backoff: fixed_500ms
+    circuit_breaker:
+      enabled: true
+      failure_threshold: 5
+      reset_timeout_s: 60
+    notes: >
+      Adapter wraps ID_VERIFICATION_PROVIDER behind IdVerificationPort interface.
+      Actual request/response schema TBD (G-002).
+      Called as part of UC-003 identity proofing step; failure → REVIEW_REQUIRED (BR-004).
+    fallback_behavior: "Provider unavailable: auto-escalate to REVIEW_REQUIRED (BR-004)"
+
+  # ─── Async event publishing ───────────────────────────────────────────────
+
+  - integration_id: notification-event-publisher
+    name: NOTIFICATION_SERVICE
+    type: event_broker
+    protocol: async_events
+    direction: outbound_async
+    criticality: MEDIUM
+    broker_config_key: "EVENT_BROKER_URL"
+    channel: onboarding.events
+    schema_format: JSON
+    delivery_semantics: at-least-once
+    idempotency: "Consumers must handle duplicate events via event_id deduplication"
+    events_published:
+      - OnboardingCaseInitiated
+      - OnboardingStatusChanged
+      - OnboardingApproved
+      - OnboardingRejected
+    notes: >
+      Internal event publisher module (not a separate deployable).
+      Event publication is fire-and-forget; failure to publish does NOT block state persistence
+      (outbox pattern recommended: persist event to outbox table in same DB transaction,
+      relay asynchronously to broker).
+    pattern: outbox

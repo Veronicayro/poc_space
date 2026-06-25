@@ -1,0 +1,338 @@
+domain:
+  name: "Risk"
+  description: "Riesgo de crédito, fraude, riesgo de mercado e indicadores."
+
+  capabilities:
+
+    Fraud:
+      apiProducts:
+
+        FraudDecisioningAPI:
+          metadata:
+            name: "Fraud Decisioning API"
+            description: "Servicio de decisión antifraude en tiempo real (score + decisión + reason codes) para pagos y tarjetas."
+            owner: "Fraud Platform Squad"
+            sla: "99.99%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 0"
+            region: "global"
+            tags: ["risk", "fraud", "decisioning", "real-time"]
+          apiType: "Internal"
+          versions:
+            - version: "1.8.0"
+              status: "Published"
+              x-contract-version: "2026-06-09"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/fraud-decisioning/v1"
+                qa: "https://api.qa.globalbank.example.com/fraud-decisioning/v1"
+                uat: "https://api.uat.globalbank.example.com/fraud-decisioning/v1"
+                prod: "https://api.globalbank.example.com/fraud-decisioning/v1"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Compliance/Records/AuditTrailAPI"
+                  reason: "Auditoría de decisiones automatizadas."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials"]
+                scopes:
+                  - "risk.fraud.decide"
+                  - "risk.fraud.scores.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "decision_time_ms_p95"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "decisionId", "entityType", "entityId", "decision", "score"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Model validation + MRM approval."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Fraud Decisioning API"
+              version: "v1"
+            paths:
+              /fraud/decisions:
+                post:
+                  summary: "Solicitar decisión antifraude"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Decisión generada"
+                      schemaRef: "#/components/schemas/FraudDecision"
+              /fraud/decisions/{decisionId}:
+                get:
+                  summary: "Consultar decisión"
+                  responses:
+                    "200":
+                      description: "Decisión"
+                      schemaRef: "#/components/schemas/FraudDecision"
+
+        TransactionMonitoringAPI:
+          metadata:
+            name: "Transaction Monitoring API"
+            description: "Monitoreo post-transaccional (batch/near real-time) para alertas AML/fraude y casos."
+            owner: "Transaction Monitoring Squad"
+            sla: "99.9%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 1"
+            region: "global"
+            tags: ["risk", "monitoring", "alerts", "cases"]
+          apiType: "Internal"
+          versions:
+            - version: "1.2.0"
+              status: "Published"
+              x-contract-version: "2026-04-10"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/transaction-monitoring/v1"
+                qa: "https://api.qa.globalbank.example.com/transaction-monitoring/v1"
+                uat: "https://api.uat.globalbank.example.com/transaction-monitoring/v1"
+                prod: "https://api.globalbank.example.com/transaction-monitoring/v1"
+              consumers:
+                - "Web Banking"
+              dependencies:
+                - api: "Compliance/Records/AuditTrailAPI"
+                  reason: "Auditoría de casos."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials"]
+                scopes:
+                  - "risk.alerts.read"
+                  - "risk.cases.write"
+                  - "risk.cases.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "alerts_generated"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "caseId", "alertId", "severity", "status"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Operations approval for rule changes."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Transaction Monitoring API"
+              version: "v1"
+            paths:
+              /alerts:
+                get:
+                  summary: "Listar alertas"
+                  queryParams: ["severity", "status", "cursor", "limit"]
+                  responses:
+                    "200":
+                      description: "Alertas"
+                      schemaRef: "#/components/schemas/AlertList"
+              /cases:
+                post:
+                  summary: "Crear caso"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Caso creado"
+                      schemaRef: "#/components/schemas/Case"
+              /cases/{caseId}:
+                get:
+                  summary: "Consultar caso"
+                  responses:
+                    "200":
+                      description: "Caso"
+                      schemaRef: "#/components/schemas/Case"
+
+    CreditRisk:
+      apiProducts:
+
+        CreditDecisioningAPI:
+          metadata:
+            name: "Credit Decisioning API"
+            description: "Decisión crediticia (score, límites, pricing) para originación de préstamos."
+            owner: "Credit Risk Models Squad"
+            sla: "99.95%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 0"
+            region: "global"
+            tags: ["risk", "credit", "decisioning", "models"]
+          apiType: "Internal"
+          versions:
+            - version: "2.0.0"
+              status: "Published"
+              x-contract-version: "2026-05-22"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/credit-decisioning/v2"
+                qa: "https://api.qa.globalbank.example.com/credit-decisioning/v2"
+                uat: "https://api.uat.globalbank.example.com/credit-decisioning/v2"
+                prod: "https://api.globalbank.example.com/credit-decisioning/v2"
+              consumers:
+                - "Web Banking"
+              dependencies:
+                - api: "Customers/CustomerOnboarding/CustomerIdentityAPI"
+                  reason: "Verificación de identidad."
+                - api: "Compliance/KYC/KYCScreeningAPI"
+                  reason: "KYC/AML antes de decisión."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials"]
+                scopes:
+                  - "risk.credit.decide"
+                  - "risk.credit.scores.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "approval_rate"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "decisionId", "applicationId", "decision", "scoreBand"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "MRM + credit policy governance."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Credit Decisioning API"
+              version: "v2"
+            paths:
+              /credit/decisions:
+                post:
+                  summary: "Solicitar decisión crediticia"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Decisión generada"
+                      schemaRef: "#/components/schemas/CreditDecision"
+              /credit/decisions/{decisionId}:
+                get:
+                  summary: "Consultar decisión"
+                  responses:
+                    "200":
+                      description: "Decisión"
+                      schemaRef: "#/components/schemas/CreditDecision"
+
+    MarketRisk:
+      apiProducts:
+
+        MarketRiskIndicatorsAPI:
+          metadata:
+            name: "Market Risk Indicators API"
+            description: "Indicadores de riesgo de mercado (FX volatility, stress factors) para pricing y límites."
+            owner: "Market Risk Analytics Squad"
+            sla: "99.9%"
+            dataClassification: ["Confidential"]
+            criticalityTier: "Tier 1"
+            region: "global"
+            tags: ["risk", "market", "indicators"]
+          apiType: "Internal"
+          versions:
+            - version: "1.1.0"
+              status: "Published"
+              x-contract-version: "2026-06-03"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/market-risk-indicators/v1"
+                qa: "https://api.qa.globalbank.example.com/market-risk-indicators/v1"
+                uat: "https://api.uat.globalbank.example.com/market-risk-indicators/v1"
+                prod: "https://api.globalbank.example.com/market-risk-indicators/v1"
+              consumers:
+                - "Web Banking"
+                - "Partner Fintech"
+              dependencies: []
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials"]
+                scopes:
+                  - "risk.market.indicators.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "stale_indicators"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: false
+                  fields: ["timestamp", "correlationId", "indicator", "asOf", "source"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Risk committee governance."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Market Risk Indicators API"
+              version: "v1"
+            paths:
+              /market-risk/indicators:
+                get:
+                  summary: "Consultar indicadores"
+                  queryParams: ["indicator", "asOf"]
+                  responses:
+                    "200":
+                      description: "Indicadores"
+                      schemaRef: "#/components/schemas/MarketRiskIndicatorSet"
+
+    CustomerRisk:
+      apiProducts:
+
+        CustomerRiskScoringAPI:
+          metadata:
+            name: "Customer Risk Scoring API"
+            description: "Scoring de riesgo del cliente (riesgo inherente, comportamiento, segmentación) para controles y monitoreo."
+            owner: "Enterprise Risk Squad"
+            sla: "99.9%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 1"
+            region: "global"
+            tags: ["risk", "customer", "scoring"]
+          apiType: "Internal"
+          versions:
+            - version: "1.0.0"
+              status: "Published"
+              x-contract-version: "2026-03-15"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/customer-risk-scoring/v1"
+                qa: "https://api.qa.globalbank.example.com/customer-risk-scoring/v1"
+                uat: "https://api.uat.globalbank.example.com/customer-risk-scoring/v1"
+                prod: "https://api.globalbank.example.com/customer-risk-scoring/v1"
+              consumers:
+                - "Web Banking"
+                - "Mobile Banking App"
+              dependencies:
+                - api: "Compliance/KYC/KYCScreeningAPI"
+                  reason: "Resultados KYC como señal."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials"]
+                scopes:
+                  - "risk.customer.score.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "customerId", "riskTier", "asOf"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "ERM governance."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Customer Risk Scoring API"
+              version: "v1"
+            paths:
+              /customers/{customerId}/risk-score:
+                get:
+                  summary: "Obtener score de riesgo del cliente"
+                  responses:
+                    "200":
+                      description: "Score"
+                      schemaRef: "#/components/schemas/CustomerRiskScore"

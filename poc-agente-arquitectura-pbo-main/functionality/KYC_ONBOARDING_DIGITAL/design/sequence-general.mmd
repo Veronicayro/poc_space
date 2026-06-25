@@ -1,0 +1,41 @@
+%%{init: {'theme': 'base'}}%%
+sequenceDiagram
+    autonumber
+    actor CUSTOMER
+    actor ANALYST as KYC_ANALYST
+    participant KYC as kyc-onboarding-api
+    participant DEPS as Downstream APIs<br/>(CustomerProfileAPI<br/>CustomerIdentityAPI<br/>KYCScreeningAPI)
+    participant EXT as External Providers<br/>(AML_SERVICE<br/>ID_VERIFICATION)
+    participant NOTIF as NOTIFICATION_SERVICE
+
+    rect rgb(232, 245, 232)
+        Note over CUSTOMER,NOTIF: Happy Path — Auto-Approved
+        CUSTOMER->>KYC: Register (UC-001)
+        KYC->>DEPS: Create customer profile
+        KYC-->>CUSTOMER: Case INITIATED
+
+        CUSTOMER->>KYC: Upload document (UC-002)
+        KYC->>DEPS: Register identity document
+        KYC-->>CUSTOMER: Case DOCS_SUBMITTED
+
+        KYC->>DEPS: Initiate identity verification
+        KYC->>EXT: AML screening + ID proofing
+        EXT-->>KYC: All PASSED
+        KYC->>DEPS: Patch customer estadoKYC=APPROVED
+        KYC->>NOTIF: OnboardingApproved (UC-005)
+        NOTIF-->>CUSTOMER: ✓ Approved notification
+    end
+
+    rect rgb(255, 243, 224)
+        Note over CUSTOMER,NOTIF: Manual Review Path
+        CUSTOMER->>KYC: Register + Upload (UC-001, UC-002)
+        KYC->>DEPS: Create profile + Register document
+        KYC->>EXT: AML screening — result: MATCH
+        KYC->>NOTIF: OnboardingStatusChanged (REVIEW_REQUIRED)
+        NOTIF-->>CUSTOMER: ⚠ Under review notification
+
+        ANALYST->>KYC: Submit review decision (UC-004)
+        KYC->>DEPS: Patch customer estadoKYC=APPROVED
+        KYC->>NOTIF: OnboardingApproved (UC-005)
+        NOTIF-->>CUSTOMER: ✓ Approved notification
+    end

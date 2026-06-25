@@ -1,0 +1,192 @@
+# business-rules.yaml — Derived from input.yaml (LON)
+# Source: functionality/LON-AxetGaia-Sonnet46/input.yaml – DDA, ADR, Acceptance Criteria sections
+functionality_id: LON
+
+business_rules:
+  - id: BR-LON-001
+    title: Validación KYC obligatoria al crear solicitud
+    description: >
+      Toda solicitud de crédito debe validar que el cliente existe y está activo
+      en el core bancario (KYC) antes de permitir el registro.
+    source: HU-LON-001 / ADR-003
+    enforcement: system
+    applies_to: [UC-LON-001]
+
+  - id: BR-LON-002
+    title: Prevención de solicitudes duplicadas activas
+    description: >
+      No puede existir más de una solicitud activa (estado != REJECTED, CANCELLED,
+      EXPIRED, DISBURSED) para el mismo cliente y tipo de crédito simultáneamente.
+    source: HU-LON-001
+    enforcement: system
+    applies_to: [UC-LON-001]
+
+  - id: BR-LON-003
+    title: Estado inicial siempre DRAFT
+    description: >
+      Toda solicitud recién creada debe iniciar en estado DRAFT.
+      No se permite crear solicitudes directamente en otro estado.
+    source: HU-LON-001
+    enforcement: system
+    applies_to: [UC-LON-001]
+
+  - id: BR-LON-004
+    title: Solo solicitudes DRAFT pueden enviarse a evaluación
+    description: >
+      Únicamente solicitudes en estado DRAFT pueden transicionar a SUBMITTED.
+      El intento de enviar una solicitud en otro estado debe ser rechazado.
+    source: HU-LON-002
+    enforcement: system
+    applies_to: [UC-LON-002]
+
+  - id: BR-LON-005
+    title: Completitud documental obligatoria antes de envío
+    description: >
+      Todos los documentos marcados como obligatorios (is_mandatory=true) según
+      el tipo de crédito deben estar adjuntos antes de permitir el envío.
+    source: HU-LON-002
+    enforcement: system
+    applies_to: [UC-LON-002]
+
+  - id: BR-LON-006
+    title: Evaluación de riesgo solo en estados SUBMITTED o UNDER_REVIEW
+    description: >
+      El Analista de Riesgo solo puede registrar la evaluación si la solicitud
+      se encuentra en estado SUBMITTED o UNDER_REVIEW.
+    source: HU-LON-003
+    enforcement: system
+    applies_to: [UC-LON-003]
+
+  - id: BR-LON-007
+    title: Score mínimo configurable para sugerencia de rechazo automático
+    description: >
+      Si el score del bureau es inferior al umbral mínimo configurable
+      (parámetro externalizable), el sistema sugiere rechazo automático.
+      El umbral es configurable sin cambios de código.
+    source: HU-LON-003 / DDA-004
+    enforcement: system
+    applies_to: [UC-LON-003]
+
+  - id: BR-LON-008
+    title: DTI ratio calculado automáticamente
+    description: >
+      El sistema calcula el Debt-to-Income ratio como parte de la evaluación
+      de riesgo, combinando deudas vigentes del bureau y monto solicitado.
+    source: HU-LON-003
+    enforcement: system
+    applies_to: [UC-LON-003]
+
+  - id: BR-LON-009
+    title: Escalado automático por umbral de monto o riesgo
+    description: >
+      Si el monto solicitado supera el límite de atribución del gerente
+      (configurable) O el nivel de riesgo es HIGH o CRITICAL, la solicitud
+      debe ser escalada automáticamente a PENDING_COMMITTEE.
+      Los umbrales son parámetros externalizables.
+    source: HU-LON-004 / DDA-004 / ADR-004
+    enforcement: system
+    applies_to: [UC-LON-004, UC-LON-006]
+
+  - id: BR-LON-010
+    title: Registro obligatorio de decisión con trazabilidad completa
+    description: >
+      Toda decisión de aprobación o rechazo debe registrar: usuario decisor,
+      rol, timestamp, condiciones (opcional) y motivo (obligatorio en rechazo).
+      Este registro es inmutable (AuditLog).
+    source: HU-LON-004 / HU-LON-005 / ADR-004
+    enforcement: system
+    applies_to: [UC-LON-004, UC-LON-005, UC-LON-006]
+
+  - id: BR-LON-011
+    title: Motivo de rechazo obligatorio
+    description: >
+      El rechazo de una solicitud requiere que el actor registre un motivo
+      de rechazo. El campo no puede estar vacío ni ser nulo.
+    source: HU-LON-005
+    enforcement: system
+    applies_to: [UC-LON-005]
+
+  - id: BR-LON-012
+    title: Justificación de escalamiento obligatoria
+    description: >
+      El escalamiento al comité requiere que el gerente registre una
+      justificación. El campo no puede estar vacío ni ser nulo.
+    source: HU-LON-006
+    enforcement: system
+    applies_to: [UC-LON-006]
+
+  - id: BR-LON-013
+    title: Solo solicitudes APPROVED pueden desembolsarse
+    description: >
+      El desembolso solo puede iniciarse si la solicitud está en estado APPROVED.
+      Cualquier otro estado debe bloquear la operación.
+    source: HU-LON-007
+    enforcement: system
+    applies_to: [UC-LON-007]
+
+  - id: BR-LON-014
+    title: Idempotencia en ejecución de desembolso
+    description: >
+      El endpoint de desembolso debe ser idempotente para prevenir doble
+      desembolso ante reintentos. Se usa una clave de idempotencia por solicitud.
+    source: HU-LON-007 / NFR-Reliability
+    enforcement: system
+    applies_to: [UC-LON-007]
+
+  - id: BR-LON-015
+    title: Visibilidad de solicitudes filtrada por rol
+    description: >
+      Cada actor solo puede ver las solicitudes que le corresponden según su rol
+      y permisos (RBAC). CREDIT_OFFICER ve las suyas; CREDIT_MANAGER ve las de
+      su ámbito; RISK_ANALYST ve las asignadas; DISBURSEMENT_OFFICER ve las APPROVED.
+    source: HU-LON-008 / ADR-003
+    enforcement: system
+    applies_to: [UC-LON-008]
+
+  - id: BR-LON-016
+    title: Caché de reportes bureau con TTL 24 horas
+    description: >
+      Los reportes del bureau de crédito se almacenan en caché (Redis) con TTL
+      de 24 horas por cliente. Pasado el TTL, se consulta directamente al bureau.
+      La invalidación manual debe ser posible.
+    source: DDA-003 / ADR-005
+    enforcement: system
+    applies_to: [UC-LON-002, UC-LON-003]
+
+  - id: BR-LON-017
+    title: Consentimiento del cliente para consulta al bureau
+    description: >
+      El sistema debe registrar el consentimiento explícito del cliente para
+      la consulta al bureau de crédito (requerimiento de compliance/GDPR).
+    source: NFR-Compliance
+    enforcement: system
+    applies_to: [UC-LON-001, UC-LON-002]
+
+  - id: BR-LON-018
+    title: Retención de expedientes crediticios por 7 años
+    description: >
+      Los expedientes crediticios completos (solicitud, evaluación, decisión,
+      documentos) deben retenerse por un mínimo de 7 años, con acceso
+      auditado durante ese período.
+    source: NFR-Compliance
+    enforcement: system
+    applies_to: [UC-LON-001, UC-LON-007]
+
+  - id: BR-LON-019
+    title: Circuit breaker para integraciones externas
+    description: >
+      Las llamadas al bureau de crédito y al core bancario deben estar
+      protegidas por circuit breakers (umbral: 5 fallos en 30 segundos)
+      con fallback definido.
+    source: NFR-Reliability
+    enforcement: infrastructure
+    applies_to: [UC-LON-002, UC-LON-007]
+
+  - id: BR-LON-020
+    title: Alerta automática por solicitudes sin evaluación > 48h
+    description: >
+      Las solicitudes en estado SUBMITTED que superen 48 horas sin transicionar
+      a UNDER_REVIEW o RISK_ASSESSED deben disparar una alerta automática.
+    source: NFR-Observability
+    enforcement: system
+    applies_to: [UC-LON-003]

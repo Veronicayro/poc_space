@@ -1,0 +1,26 @@
+schema_id: adr
+artifact_path_pattern: design/adr/<tobe-or-transition>/ADR-xxxx-<decision>.md
+required_sections:
+  - decision_id
+  - title
+  - architecture_view
+  - layer
+  - context
+  - decision
+  - rationale
+  - alternatives_considered
+  - implications
+  - affected_components
+fields:
+  decision_id: string
+  title: string
+  architecture_view:
+    enum: [tobe, transition]
+  layer:
+    enum: [frontend, experience, business, domain, support, cloud, data, cache, events, cross-cutting]
+  context: markdown
+  decision: markdown
+  rationale: markdown
+  alternatives_considered: array
+  implications: array
+  affected_components: array

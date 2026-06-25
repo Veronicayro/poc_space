@@ -1,0 +1,24 @@
+schema_id: cache-model
+artifact_path_pattern: design/<layer>/<component>/cache/cache-model.yaml
+required_fields:
+  - cache_purpose
+  - ownership
+  - data_model
+  - keys
+  - ttl
+  - invalidation_strategy
+  - eviction_strategy
+  - consistency_expectations
+fields:
+  cache_purpose: string
+  ownership:
+    owner_component: string
+    read_by: array
+    written_by: array
+  data_model: object
+  keys: array
+  ttl: string
+  invalidation_strategy: string
+  eviction_strategy: string
+  consistency_expectations: string
+  warmup_or_reload_behavior: string_or_null

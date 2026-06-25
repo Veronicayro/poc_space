@@ -1,0 +1,37 @@
+schema_id: bian-service-domain-evaluation
+artifact_path: design/bian/bian-service-domain-evaluation.yaml
+required_fields:
+  - evaluations
+fields:
+  evaluations:
+    type: array
+    item_required:
+      - target_api_name
+      - target_layer
+      - orchestration_role
+      - functional_capabilities
+      - candidate_service_domains_evaluated
+      - selected_service_domain
+      - confidence
+      - rationale
+    item_fields:
+      target_api_name: string
+      target_layer:
+        enum: [business, domain]
+      orchestration_role:
+        enum: [orchestrating, non-orchestrating]
+      functional_capabilities: array
+      candidate_service_domains_evaluated:
+        type: array
+        item_fields:
+          service_domain: string
+          source_file: string
+          fit_score: number
+          fit_rationale: string
+      selected_service_domain: string_or_null
+      selected_bian_file_oas3: string_or_null
+      selected_bian_file_asyncapi: string_or_null
+      confidence: number
+      rationale: string
+      rejected_candidates: array
+      unresolved_gaps: array

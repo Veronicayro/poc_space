@@ -1,0 +1,75 @@
+use_cases:
+  - id: UC-001
+    name: "Registro de cliente digital"
+    primary_actor: CUSTOMER
+    secondary_actors: [SYSTEM]
+    outcome: "Cliente registrado con datos básicos"
+    trigger: "Cliente inicia proceso de apertura de cuenta"
+    preconditions:
+      - "Cliente no tiene registro previo en el sistema"
+    acceptance_criteria:
+      - given: "cliente no registrado"
+        when: "ingresa datos personales válidos"
+        then: "se crea registro preliminar de cliente con estado INITIATED"
+    related_capabilities: [CAP-001, CAP-004]
+    related_business_rules: [BR-001, BR-007]
+
+  - id: UC-002
+    name: "Carga de documentos de identidad"
+    primary_actor: CUSTOMER
+    secondary_actors: [SYSTEM]
+    outcome: "Documentos almacenados y listos para validación"
+    trigger: "Cliente completa datos básicos y procede a cargar documentos"
+    preconditions:
+      - "UC-001 completado exitosamente"
+    acceptance_criteria:
+      - given: "cliente registrado"
+        when: "carga documento válido (vigente)"
+        then: "el sistema almacena el documento correctamente y actualiza estado a DOCS_SUBMITTED"
+    related_capabilities: [CAP-001, CAP-004]
+    related_business_rules: [BR-002, BR-007]
+
+  - id: UC-003
+    name: "Validación automática KYC"
+    primary_actor: SYSTEM
+    secondary_actors: []
+    outcome: "Resultado de validación aprobado o rechazado"
+    trigger: "Documentos cargados y listos para validación"
+    preconditions:
+      - "UC-002 completado exitosamente"
+    acceptance_criteria:
+      - given: "documentos cargados"
+        when: "se ejecuta validación automática"
+        then: "el sistema emite un resultado de validación (APPROVED o REVIEW_REQUIRED)"
+    related_capabilities: [CAP-002, CAP-004]
+    related_business_rules: [BR-003, BR-004, BR-006]
+
+  - id: UC-004
+    name: "Revisión manual de caso"
+    primary_actor: KYC_ANALYST
+    secondary_actors: [SYSTEM]
+    outcome: "Caso aprobado o rechazado manualmente"
+    trigger: "Validación automática falla o es inconclusa"
+    preconditions:
+      - "UC-003 emitió resultado REVIEW_REQUIRED"
+    acceptance_criteria:
+      - given: "validación automática fallida"
+        when: "analista revisa el caso"
+        then: "se define resultado final manual (APPROVED o REJECTED)"
+    related_capabilities: [CAP-003, CAP-004]
+    related_business_rules: [BR-004, BR-006]
+
+  - id: UC-005
+    name: "Notificación al cliente"
+    primary_actor: SYSTEM
+    secondary_actors: []
+    outcome: "Cliente informado del estado"
+    trigger: "Cambio de estado del proceso de onboarding"
+    preconditions:
+      - "Resultado final definido (UC-003 aprobado o UC-004 completado)"
+    acceptance_criteria:
+      - given: "resultado final definido"
+        when: "cambia estado del onboarding"
+        then: "se envía notificación al cliente vía canal preferido"
+    related_capabilities: [CAP-005, CAP-004]
+    related_business_rules: [BR-005]

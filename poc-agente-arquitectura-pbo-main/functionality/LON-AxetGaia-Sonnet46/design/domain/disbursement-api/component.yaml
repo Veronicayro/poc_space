@@ -1,0 +1,73 @@
+# component.yaml — disbursement-api
+# Layer: Domain | BIAN: Disbursement (direct adoption)
+component_id: COMP-LON-DOM-001
+name: disbursement-api
+functionality_id: LON
+layer: domain
+type: Domain API
+version: "1.0.0"
+status: design_complete
+generated_at: "2026-06-17"
+
+bian:
+  service_domain: Disbursement
+  release: "14.0.0"
+  adoption_level: direct
+  control_record: DisbursementTransaction
+  source_oas3: architecture/cache/bian/release14.0.0/oas3/yamls/Disbursement.yaml
+
+description: >
+  API de ejecución de desembolso de créditos aprobados. Coordina la instrucción
+  de transferencia al core bancario, recibe la confirmación con referencia del
+  core, actualiza el estado a DISBURSED y registra fecha y referencia. Adopción
+  directa del BIAN Disbursement SD — Control Record DisbursementTransaction.
+
+responsibilities:
+  - Iniciar instrucción de desembolso hacia el core bancario
+  - Ejecutar la transferencia de fondos vía core-banking-adapter-api
+  - Confirmar y registrar el desembolso ejecutado con referencia del core
+  - Registrar fecha, monto y cuenta destino del desembolso
+  - Notificar a credit-request-api para actualizar estado a DISBURSED
+
+technology:
+  runtime: "Node.js (Express) / Java (Spring Boot)"
+  database: PostgreSQL
+  patterns:
+    - Layered Architecture
+    - Repository Pattern
+    - DTO/Mapper
+
+api:
+  style: REST
+  versioning: URI (/v1)
+  base_path: /v1
+  bian_path_prefix: /Disbursement
+
+endpoints:
+  - POST /v1/Disbursement/Initiate
+  - PUT /v1/Disbursement/{disbursementid}/Execute
+  - PUT /v1/Disbursement/{disbursementid}/Exchange
+  - GET /v1/Disbursement/{disbursementid}/Retrieve
+
+security:
+  authentication: "OAuth2 / OpenID Connect / JWT"
+  authorization: RBAC
+  roles: [DISBURSEMENT_OFFICER]
+
+persistence:
+  technology: PostgreSQL
+  tables: [disbursements]
+  acid: true
+
+dependencies:
+  - name: core-banking-adapter-api
+    purpose: "Instrucción y confirmación del desembolso"
+    type: synchronous
+
+consumers:
+  - credit-origination-exp-api
+
+nfr:
+  sla_ms: 2000
+  idempotency: true
+  audit: complete

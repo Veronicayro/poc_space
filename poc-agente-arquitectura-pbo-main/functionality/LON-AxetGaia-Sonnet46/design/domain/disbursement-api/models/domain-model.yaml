@@ -1,0 +1,60 @@
+# domain-model.yaml — disbursement-api
+# Layer: Domain | BIAN: Disbursement / DisbursementTransaction CR
+component_id: COMP-LON-DOM-001
+name: disbursement-api
+generated_at: "2026-06-17"
+
+entities:
+  - name: Disbursement
+    table: disbursements
+    description: >
+      Registro del desembolso de fondos. Representa el Control Record
+      DisbursementTransaction del SD BIAN Disbursement.
+    bian_cr_mapping: DisbursementTransaction
+    fields:
+      - name: id
+        type: UUID
+        pk: true
+        description: "BIAN: DisbursementTransaction.DisbursementProcessReference"
+      - name: credit_request_id
+        type: UUID
+        fk: credit_requests.id
+        nullable: false
+        indexed: true
+        description: "BIAN: DisbursementTransaction.ProductInstanceReference (LoanAgreement)"
+      - name: destination_account
+        type: VARCHAR(50)
+        nullable: false
+        description: "BIAN: DisbursementTransaction.BeneficiaryAccountReference"
+      - name: beneficiary_name
+        type: VARCHAR(200)
+        description: "BIAN: DisbursementTransaction.BeneficiaryName"
+      - name: amount
+        type: DECIMAL(15,2)
+        nullable: false
+        description: "BIAN: DisbursementTransaction.PaymentAmount"
+      - name: currency
+        type: CHAR(3)
+        nullable: false
+        default: USD
+        description: "BIAN: DisbursementTransaction.PaymentCurrency"
+      - name: status
+        type: ENUM
+        values: [PENDING, EXECUTED, FAILED]
+        nullable: false
+        indexed: true
+        description: "BIAN: DisbursementTransaction.DisbursementStatus"
+      - name: core_reference
+        type: VARCHAR(100)
+        description: "Referencia del core bancario para reconciliación"
+      - name: disbursed_at
+        type: TIMESTAMP WITH TIME ZONE
+        description: "BIAN: DisbursementTransaction.DisbursementExecutionDate"
+      - name: executed_by
+        type: VARCHAR(50)
+        nullable: false
+        description: "ID del oficial de desembolso"
+      - name: created_at
+        type: TIMESTAMP WITH TIME ZONE
+        nullable: false
+        default: NOW()

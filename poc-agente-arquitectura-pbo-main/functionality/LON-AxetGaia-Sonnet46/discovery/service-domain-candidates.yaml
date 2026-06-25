@@ -1,0 +1,128 @@
+# service-domain-candidates.yaml — Derived from input.yaml (LON)
+# Source: BIAN Release 14 index + LON business capabilities
+functionality_id: LON
+
+candidates:
+  - id: SDC-LON-001
+    capability_ref: Gestión y orquestación del proceso de originación de crédito
+    provider: BIAN
+    service_domain: CustomerOffer
+    description: >
+      Orquesta el procesamiento de una oferta de producto para un cliente
+      nuevo o existente. Incluye verificación documental, evaluación crediticia,
+      decisiones de underwriting, revisiones regulatorias y de elegibilidad.
+    fit_score: 0.92
+    rationale: >
+      CustomerOffer es el Service Domain BIAN que más directamente cubre el
+      ciclo completo de originación: desde la captura de la solicitud hasta
+      la decisión final. Cubre el use case de orchestration de la oferta de
+      producto crediticio incluyendo checks, evaluaciones y decisiones.
+    source_file: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml
+    status: selected
+
+  - id: SDC-LON-002
+    capability_ref: Evaluación de riesgo crediticio y decisión de underwriting
+    provider: BIAN
+    service_domain: Underwriting
+    description: >
+      Gestiona el proceso de decisión de underwriting para productos
+      apropiados, incluyendo múltiples tipos de préstamos e
+      instrumentos de seguro.
+    fit_score: 0.90
+    rationale: >
+      Underwriting cubre directamente la evaluación de riesgo, score
+      crediticio y la decisión de aprobación/rechazo multinivel.
+      Complementa CustomerOffer para la fase de risk assessment.
+    source_file: architecture/cache/bian/release14.0.0/oas3/yamls/Underwriting.yaml
+    status: selected
+
+  - id: SDC-LON-003
+    capability_ref: Consulta de historial crediticio y score del cliente
+    provider: BIAN
+    service_domain: CustomerCreditRating
+    description: >
+      Mantiene y administra la evaluación crediticia del banco para
+      clientes, basada en datos internos consolidados y opcionalmente
+      en reportes de agencias externas de crédito (bureau).
+    fit_score: 0.88
+    rationale: >
+      CustomerCreditRating cubre la consulta al bureau externo, el
+      mantenimiento del score del cliente y la política de caché de
+      reportes de bureau. Directamente mapeado a UC-LON-003.
+    source_file: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerCreditRating.yaml
+    status: selected
+
+  - id: SDC-LON-004
+    capability_ref: Desembolso de fondos a cuentas de clientes
+    provider: BIAN
+    service_domain: Disbursement
+    description: >
+      Maneja el desembolso de fondos a préstamos/facilidades recién
+      establecidos según sea necesario.
+    fit_score: 0.95
+    rationale: >
+      Disbursement es el Service Domain BIAN con alineación directa
+      al proceso de ejecución del desembolso crediticio. Cubre
+      completamente el UC-LON-007.
+    source_file: architecture/cache/bian/release14.0.0/oas3/yamls/Disbursement.yaml
+    status: selected
+
+  - id: SDC-LON-005
+    capability_ref: Ciclo de vida del producto crédito de consumo en core
+    provider: BIAN
+    service_domain: ConsumerLoan
+    description: >
+      Maneja el fulfillment del producto préstamo de consumo,
+      incluyendo la configuración inicial de la facilidad de crédito
+      y la ejecución de tareas de procesamiento programadas.
+    fit_score: 0.75
+    rationale: >
+      ConsumerLoan cubre el ciclo de vida post-originación del crédito
+      de consumo. Su relevancia en LON es para el registro del producto
+      en core bancario post-desembolso. Candidato secundario.
+    source_file: architecture/cache/bian/release14.0.0/oas3/yamls/ConsumerLoan.yaml
+    status: rejected
+    rejection_reason: >
+      LON se enfoca en originación (pre-producto). El fulfillment del
+      producto en core bancario es responsabilidad del core, no de LON.
+      Se delega al Core Bancario externo.
+
+  - id: SDC-LON-006
+    capability_ref: Ciclo de vida del producto crédito corporativo en core
+    provider: BIAN
+    service_domain: CorporateLoan
+    description: >
+      Maneja el fulfillment del producto préstamo corporativo,
+      incluyendo la configuración inicial de la facilidad de crédito.
+    fit_score: 0.70
+    rationale: >
+      Similar a ConsumerLoan pero para créditos empresariales.
+    source_file: architecture/cache/bian/release14.0.0/oas3/yamls/CorporateLoan.yaml
+    status: rejected
+    rejection_reason: >
+      Misma razón que ConsumerLoan: el fulfillment del producto en
+      core es responsabilidad del core bancario externo.
+
+  - id: SDC-LON-007
+    capability_ref: Gestión de ciclo de vida del cliente y KYC
+    provider: BIAN
+    service_domain: PartyLifecycleManagement
+    description: >
+      Rastrea el estado de la relación de una parte con el banco,
+      incluyendo verificaciones KYC y regulatorias.
+    fit_score: 0.65
+    rationale: >
+      PartyLifecycleManagement cubre la validación KYC requerida en
+      UC-LON-001. Sin embargo, en LON esta validación se delega al
+      Core Bancario externo mediante integración.
+    source_file: architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml
+    status: rejected
+    rejection_reason: >
+      La validación KYC es responsabilidad del Core Bancario externo.
+      LON consume esta capacidad via integración, no la posee.
+
+selected_domains:
+  - CustomerOffer
+  - Underwriting
+  - CustomerCreditRating
+  - Disbursement

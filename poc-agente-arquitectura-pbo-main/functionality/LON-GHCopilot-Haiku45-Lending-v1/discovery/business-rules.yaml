@@ -1,0 +1,89 @@
+businessRules:
+  metadata:
+    functionality: "Digital Personal Loan Origination"
+    created: "2026-06-24"
+    source: "GHCopilot-Haiku45"
+
+  rules:
+    - id: "BR-001"
+      title: "KYC aprobado requerido"
+      description: "El cliente debe tener KYC aprobado antes de iniciar una solicitud de préstamo"
+      severity: "CRITICAL"
+      appliesTo: ["UC-001"]
+
+    - id: "BR-002"
+      title: "Límite de endeudamiento"
+      description: "El monto solicitado no puede superar el límite de endeudamiento calculado por el scoring engine"
+      severity: "CRITICAL"
+      appliesTo: ["UC-001"]
+
+    - id: "BR-003"
+      title: "Consulta obligatoria de buró de crédito"
+      description: "La consulta al buró de crédito es obligatoria para toda solicitud"
+      severity: "CRITICAL"
+      appliesTo: ["UC-003"]
+
+    - id: "BR-004"
+      title: "Rechazo automático por score mínimo"
+      description: "Un score inferior al umbral mínimo configurable genera rechazo automático sin revisión manual"
+      severity: "HIGH"
+      appliesTo: ["UC-003"]
+      configurable: true
+      parameter: "minimumCreditScore"
+
+    - id: "BR-005"
+      title: "Referral para zona gris"
+      description: "Los casos con score en rango gris (entre umbral mínimo y umbral de aprobación automática) deben ser referidos a revisión manual"
+      severity: "HIGH"
+      appliesTo: ["UC-003", "UC-006"]
+      configurable: true
+      parameters: ["minGrayZoneScore", "maxGrayZoneScore"]
+
+    - id: "BR-006"
+      title: "Tasas máximas regulatorias"
+      description: "La oferta generada debe respetar las tasas máximas regulatorias vigentes"
+      severity: "CRITICAL"
+      appliesTo: ["UC-004"]
+      compliance: true
+
+    - id: "BR-007"
+      title: "Expiración de oferta"
+      description: "El cliente dispone de máximo 72 horas para aceptar una oferta antes de que expire"
+      severity: "HIGH"
+      appliesTo: ["UC-004", "UC-005"]
+      configurable: true
+      parameter: "offerExpirationHours"
+      defaultValue: 72
+
+    - id: "BR-008"
+      title: "Una solicitud activa por cliente"
+      description: "No se puede generar más de una solicitud activa simultánea por cliente"
+      severity: "HIGH"
+      appliesTo: ["UC-001"]
+
+    - id: "BR-009"
+      title: "Firma electrónica avanzada"
+      description: "El contrato debe incluir firma electrónica avanzada con validez legal"
+      severity: "CRITICAL"
+      appliesTo: ["UC-005"]
+      compliance: true
+
+    - id: "BR-010"
+      title: "Log de auditoría de decisiones"
+      description: "Toda decisión crediticia debe quedar registrada en el log de auditoría con timestamp, actor y motivo"
+      severity: "CRITICAL"
+      appliesTo: ["UC-003", "UC-006"]
+      compliance: true
+
+    - id: "BR-011"
+      title: "Validación previa a desembolso"
+      description: "El desembolso solo puede instruirse si el contrato está firmado y la cuenta destino está validada"
+      severity: "CRITICAL"
+      appliesTo: ["UC-007"]
+
+    - id: "BR-012"
+      title: "Cifrado de datos sensibles"
+      description: "Los datos sensibles del cliente (ingresos, score) deben almacenarse cifrados en reposo"
+      severity: "CRITICAL"
+      appliesTo: ["UC-002", "UC-003"]
+      compliance: true

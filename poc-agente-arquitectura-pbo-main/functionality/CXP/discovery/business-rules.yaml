@@ -1,0 +1,174 @@
+# Discovery: Business Rules - Cuentas por Pagar (CXP)
+schema_version: "1.0"
+functionality_id: CXP
+generated_at: "2026-06-17"
+
+business_rules:
+  - id: BR-CXP-001
+    title: "Validación de Proveedor"
+    category: validation
+    use_case_ref: UC-CXP-001
+    description: >
+      Toda factura debe estar asociada a un proveedor que exista y esté activo
+      en el sistema ERP. La validación se realiza antes de persistir la factura.
+    enforcement: hard
+    error_code: SUPPLIER_NOT_FOUND
+    error_message: "El proveedor especificado no existe o está inactivo en el sistema"
+
+  - id: BR-CXP-002
+    title: "Prevención de Facturas Duplicadas"
+    category: uniqueness
+    use_case_ref: UC-CXP-001
+    description: >
+      No se pueden registrar dos facturas con el mismo número de factura para
+      el mismo proveedor. La combinación (supplier_id, invoice_number) debe ser única.
+    enforcement: hard
+    error_code: DUPLICATE_INVOICE
+    error_message: "Ya existe una factura con ese número para el proveedor especificado"
+
+  - id: BR-CXP-003
+    title: "Estado Inicial de Factura"
+    category: state-management
+    use_case_ref: UC-CXP-001
+    description: >
+      Toda factura recién registrada debe iniciar con estado PENDING.
+      No se permite crear facturas en otro estado inicial.
+    enforcement: hard
+    initial_state: PENDING
+
+  - id: BR-CXP-004
+    title: "Transiciones de Estado Válidas"
+    category: state-management
+    use_case_refs: [UC-CXP-002, UC-CXP-003, UC-CXP-004, UC-CXP-005, UC-CXP-006]
+    description: >
+      Solo se permiten las siguientes transiciones de estado en la máquina de estados:
+      - PENDING → APPROVED (aprobación)
+      - PENDING → REJECTED (rechazo)
+      - PENDING → CANCELLED (cancelación directa)
+      - APPROVED → SCHEDULED (programación de pago)
+      - APPROVED → CANCELLED (cancelación antes de programar)
+      - SCHEDULED → PAID (ejecución de pago exitosa)
+      - SCHEDULED → CANCELLED (cancelación de pago programado)
+      Cualquier otra transición debe ser rechazada con error.
+    enforcement: hard
+    error_code: INVALID_STATE_TRANSITION
+    error_message: "La transición de estado solicitada no es válida para el estado actual"
+    valid_transitions:
+      PENDING: [APPROVED, REJECTED, CANCELLED]
+      APPROVED: [SCHEDULED, CANCELLED]
+      SCHEDULED: [PAID, CANCELLED]
+      REJECTED: []
+      PAID: []
+      CANCELLED: []
+
+  - id: BR-CXP-005
+    title: "Registro de Auditoría en Aprobación"
+    category: audit
+    use_case_ref: UC-CXP-002
+    description: >
+      Toda aprobación de factura debe registrar en el historial de estados:
+      el identificador del usuario aprobador, el timestamp exacto (UTC),
+      y el comentario/motivo (opcional). Esta información es inmutable una vez registrada.
+    enforcement: hard
+    audit_fields: [approver_user_id, approval_timestamp, approval_comment]
+
+  - id: BR-CXP-006
+    title: "Motivo de Rechazo Obligatorio"
+    category: validation
+    use_case_ref: UC-CXP-003
+    description: >
+      El rechazo de una factura requiere un motivo explícito no vacío.
+      El motivo debe tener entre 10 y 500 caracteres.
+    enforcement: hard
+    min_length: 10
+    max_length: 500
+    error_code: REJECTION_REASON_REQUIRED
+    error_message: "El motivo de rechazo es obligatorio (10-500 caracteres)"
+
+  - id: BR-CXP-007
+    title: "Solo Facturas APPROVED Pueden Programarse"
+    category: state-management
+    use_case_ref: UC-CXP-004
+    description: >
+      Una factura solo puede programarse para pago si su estado actual es APPROVED.
+      Intentar programar una factura en cualquier otro estado resulta en error.
+    enforcement: hard
+    required_state: APPROVED
+    error_code: INVOICE_NOT_APPROVED
+    error_message: "Solo facturas en estado APPROVED pueden ser programadas para pago"
+
+  - id: BR-CXP-008
+    title: "Fecha de Pago Válida"
+    category: validation
+    use_case_ref: UC-CXP-004
+    description: >
+      La fecha de pago programada debe ser mayor o igual a la fecha actual.
+      No se permiten fechas de pago en el pasado.
+    enforcement: hard
+    error_code: INVALID_PAYMENT_DATE
+    error_message: "La fecha de pago debe ser una fecha futura o el día actual"
+
+  - id: BR-CXP-009
+    title: "Idempotencia en Ejecución de Pagos"
+    category: integration
+    use_case_ref: UC-CXP-005
+    description: >
+      La ejecución de pagos hacia el sistema bancario debe ser idempotente.
+      Se debe generar un idempotency_key único por orden de pago para prevenir
+      pagos duplicados en caso de reintentos.
+    enforcement: hard
+    idempotency_key_strategy: "invoice_id + payment_id + execution_date"
+
+  - id: BR-CXP-010
+    title: "Restricción de Cancelación"
+    category: state-management
+    use_case_ref: UC-CXP-006
+    description: >
+      Una factura en estado PAID no puede ser cancelada.
+      Las facturas PENDING, APPROVED y SCHEDULED pueden cancelarse
+      siempre que exista un motivo válido.
+    enforcement: hard
+    cancellable_states: [PENDING, APPROVED, SCHEDULED]
+    non_cancellable_states: [PAID, CANCELLED, REJECTED]
+    error_code: INVOICE_CANNOT_BE_CANCELLED
+    error_message: "Las facturas en estado PAID, CANCELLED o REJECTED no pueden cancelarse"
+
+  - id: BR-CXP-011
+    title: "Control de Acceso por Rol (RBAC)"
+    category: security
+    description: >
+      Las operaciones sobre facturas y pagos están restringidas por rol:
+      - ANALYST: puede crear, ver y editar facturas (solo en estado PENDING)
+      - MANAGER: puede aprobar, rechazar y ver facturas
+      - TREASURER: puede programar, ejecutar pagos y ver estado de pagos
+      Ningún rol puede ejecutar operaciones fuera de sus permisos.
+    enforcement: hard
+    roles:
+      ANALYST:
+        permissions: [create_invoice, view_invoice, edit_invoice]
+        edit_restriction: "Solo facturas en estado PENDING pueden editarse"
+      MANAGER:
+        permissions: [approve_invoice, reject_invoice, view_invoice]
+      TREASURER:
+        permissions: [schedule_payment, execute_payment, view_payment_status]
+
+  - id: BR-CXP-012
+    title: "SLA de Respuesta"
+    category: performance
+    description: >
+      Todos los endpoints REST deben responder en menos de 300ms bajo carga normal
+      (hasta 500 usuarios concurrentes).
+    enforcement: soft
+    sla_ms: 300
+    concurrent_users: 500
+
+  - id: BR-CXP-013
+    title: "Auditoría Completa del Ciclo de Vida"
+    category: compliance
+    description: >
+      Todo cambio de estado, creación, modificación y cancelación de facturas y pagos
+      debe quedar registrado en la tabla de auditoría (AuditLog) con:
+      entity, entity_id, action, user, timestamp.
+      Requerimiento de cumplimiento ISO 27001 / SOX readiness.
+    enforcement: hard
+    audit_fields: [entity, entity_id, action, user, timestamp, previous_state, new_state]

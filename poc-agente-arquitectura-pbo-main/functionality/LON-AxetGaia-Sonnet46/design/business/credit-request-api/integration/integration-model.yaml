@@ -1,0 +1,79 @@
+# integration-model.yaml — credit-request-api
+# Layer: Business | Integrations with downstream adapters
+component_id: COMP-LON-BUS-001
+name: credit-request-api
+generated_at: "2026-06-17"
+
+integrations:
+
+  - id: INT-LON-BUS001-01
+    name: kyc-validation
+    target_service: core-banking-adapter-api
+    direction: outbound
+    type: synchronous
+    protocol: REST / HTTP
+    trigger: "POST /v1/CustomerOffer/Initiate — durante creación de solicitud"
+    description: >
+      Valida que el cliente existe en el Core Bancario antes de crear la solicitud.
+      Si el cliente no existe (KYC falla), la solicitud es rechazada con error 422.
+    request:
+      endpoint: "GET /v1/customers/{customerId}/kyc"
+      payload: "customerId (path param)"
+    response:
+      success: "{ kyc_status: VALIDATED, customer_name, customer_type }"
+      failure: "HTTP 404 → cliente no existe; HTTP 503 → core no disponible"
+    error_handling:
+      timeout_ms: 3000
+      retry: "1 reintento con backoff 500ms"
+      circuit_breaker: true
+      fallback: "HTTP 503 con message: 'KYC service temporarily unavailable'"
+
+  - id: INT-LON-BUS001-02
+    name: document-store
+    target_service: dms-adapter-api
+    direction: outbound
+    type: synchronous
+    protocol: REST / HTTP
+    trigger: "POST /v1/CustomerOffer/{id}/Exchange — acción: upload_document"
+    description: >
+      Almacena documentos del expediente crediticio en el DMS externo.
+      Retorna una referencia DMS que se almacena en credit_documents.
+    request:
+      endpoint: "POST /v1/documents"
+      payload: "{ credit_request_id, document_type, file_content (base64), filename }"
+    response:
+      success: "{ dms_reference: 'DMS-UUID', document_id, stored_at }"
+      failure: "HTTP 503 → DMS no disponible"
+    error_handling:
+      timeout_ms: 5000
+      retry: "2 reintentos con backoff exponencial"
+      fallback: "Almacenamiento temporal local hasta restaurar DMS"
+
+  - id: INT-LON-BUS001-03
+    name: document-retrieve
+    target_service: dms-adapter-api
+    direction: outbound
+    type: synchronous
+    protocol: REST / HTTP
+    trigger: "GET /v1/CustomerOffer/{id}/Retrieve — incluye documentos del expediente"
+    description: >
+      Recupera metadatos y referencias de documentos del DMS por solicitud.
+    request:
+      endpoint: "GET /v1/documents?creditRequestId={id}"
+      payload: "creditRequestId (query param)"
+    response:
+      success: "[ { dms_reference, document_type, uploaded_at, uploaded_by } ]"
+      failure: "HTTP 503 → retornar referencias sin metadatos completos"
+
+  - id: INT-LON-BUS001-04
+    name: bureau-trigger
+    target_service: risk-assessment-api
+    direction: event_trigger
+    type: async_notification
+    protocol: "Internal call / Event"
+    trigger: "PUT /v1/CustomerOffer/{id}/Exchange — acción: submit"
+    description: >
+      Al enviar la solicitud (DRAFT → SUBMITTED), notifica al risk-assessment-api
+      para disparar la consulta automática al bureau de crédito.
+    payload: "{ credit_request_id, customer_id, credit_type }"
+    note: "Puede implementarse como llamada directa o evento interno según el runtime elegido"

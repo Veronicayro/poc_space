@@ -1,0 +1,75 @@
+%%{init: {'theme': 'base'}}%%
+flowchart TD
+    START([Customer initiates onboarding]) --> UC001
+
+    subgraph UC001["UC-001 Registration"]
+        R1[POST /onboarding-cases] --> R2{BR-001\nMandatory fields\ncomplete?}
+        R2 -- No --> R2E[422 Unprocessable Entity]
+        R2 -- Yes --> R3[Create CustomerProfile\nvia CustomerProfileAPI]
+        R3 --> R4[(INSERT onboarding_cases\nstatus=INITIATED)]
+        R4 --> R5[Emit OnboardingCaseInitiated]
+    end
+
+    R5 --> UC002
+
+    subgraph UC002["UC-002 Document Upload"]
+        D1[PUT .../documents/.../execute] --> D2{BR-002\ndocument_expires_at\n> today?}
+        D2 -- No --> D2E[422 Document expired]
+        D2 -- Yes --> D3[Register identity ref\nvia CustomerIdentityAPI]
+        D3 --> D4[(UPDATE status=DOCS_SUBMITTED\nINSERT audit_entry)]
+        D4 --> D5[Emit OnboardingStatusChanged]
+    end
+
+    D5 --> UC003
+
+    subgraph UC003["UC-003 Automatic KYC Validation"]
+        V0[(UPDATE status=UNDER_VALIDATION)] --> V1
+        V1[Initiate identity verification\nCustomerIdentityAPI + IDV] & V2[Initiate AML screening\nKYCScreeningAPI + AML_SERVICE]
+        V1 --> V3{IDV result}
+        V2 --> V4{AML result}
+
+        V3 -- PASSED --> V5
+        V3 -- FAILED --> VFAIL
+        V3 -- IDV circuit OPEN --> VFAIL
+
+        V4 -- CLEAR --> V5
+        V4 -- MATCH --> VFAIL
+        V4 -- AML circuit OPEN --> VHOLD
+
+        V5{All checks\nPASSED?} -- Yes --> VAPPROVED
+        V5 -- No --> VFAIL
+    end
+
+    VAPPROVED["APPROVED\nPATCH CustomerProfile\nstatuKYC=APPROVED"] --> APPROVED_DB
+    APPROVED_DB[(UPDATE status=APPROVED\nINSERT kyc_results\nINSERT outbox_events)]
+    APPROVED_DB --> UC005_APPROVED[Emit OnboardingApproved]
+    UC005_APPROVED --> CUSTOMER_APPROVED([Notify CUSTOMER: APPROVED\nBR-005 gate OPEN])
+
+    VFAIL["REVIEW_REQUIRED\nBR-004 auto-escalation"] --> FAIL_DB
+    FAIL_DB[(UPDATE status=REVIEW_REQUIRED\nINSERT kyc_results\nINSERT outbox_events)]
+    FAIL_DB --> NOTIF_REVIEW[Emit OnboardingStatusChanged\nREVIEW_REQUIRED]
+
+    VHOLD["HOLD in UNDER_VALIDATION\nAML circuit breaker open\nAlert on-call"] --> HOLD_DB
+    HOLD_DB[(INSERT outbox_events\nALERT)]
+
+    NOTIF_REVIEW --> UC004
+
+    subgraph UC004["UC-004 Manual Review (KYC_ANALYST)"]
+        MR1[PUT .../control\nparty_lifecycle_maintenance_task_result] --> MR2{Analyst decision}
+        MR2 -- APPROVED --> MR_APPROVED["PATCH CustomerProfile\nstatuKYC=APPROVED"]
+        MR2 -- REJECTED --> MR_REJECTED["Record rejection reason"]
+        MR_APPROVED --> MR_DB_A[(UPDATE status=APPROVED\nINSERT review_decisions\nINSERT outbox_events)]
+        MR_REJECTED --> MR_DB_R[(UPDATE status=REJECTED\nINSERT review_decisions\nINSERT outbox_events)]
+        MR_DB_A --> EMIT_APPROVED[Emit OnboardingApproved]
+        MR_DB_R --> EMIT_REJECTED[Emit OnboardingRejected]
+    end
+
+    EMIT_APPROVED --> CUSTOMER_MANUAL_APPROVED([Notify CUSTOMER: APPROVED])
+    EMIT_REJECTED --> CUSTOMER_REJECTED([Notify CUSTOMER: REJECTED])
+
+    style VAPPROVED fill:#d5f5e3,stroke:#27ae60
+    style APPROVED_DB fill:#d5f5e3,stroke:#27ae60
+    style VFAIL fill:#fdebd0,stroke:#e67e22
+    style VHOLD fill:#fadbd8,stroke:#e74c3c
+    style MR_APPROVED fill:#d5f5e3,stroke:#27ae60
+    style MR_REJECTED fill:#fadbd8,stroke:#e74c3c

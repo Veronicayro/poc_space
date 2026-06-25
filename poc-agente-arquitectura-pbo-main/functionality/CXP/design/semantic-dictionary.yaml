@@ -1,0 +1,138 @@
+# Phase 1 Output: Semantic Dictionary - Cuentas por Pagar (CXP)
+schema_version: "1.0"
+functionality_id: CXP
+phase: enterprise-capability-alignment
+generated_at: "2026-06-17"
+domain_standard: BIAN-Release-14
+
+terms:
+  - term: Invoice
+    domain_term: "Factura"
+    bian_equivalent: "AccountsReceivableProcedure"
+    definition: >
+      Documento emitido por un proveedor que representa una obligación de pago
+      por bienes o servicios recibidos. En CXP es la entidad central del ciclo de vida.
+    type: entity
+    attributes: [id, supplier_id, invoice_number, amount, currency, status, issue_date, due_date]
+
+  - term: InvoiceStatus
+    domain_term: "Estado de Factura"
+    bian_equivalent: "AccountsReceivableProcedureStatus"
+    definition: >
+      Estado actual de una factura dentro del ciclo de vida gestionado por la máquina de estados.
+    type: enum
+    values:
+      PENDING: "Factura registrada, pendiente de aprobación"
+      APPROVED: "Factura aprobada por el Gerente Financiero"
+      REJECTED: "Factura rechazada, no procede para pago"
+      SCHEDULED: "Pago programado con fecha definida"
+      PAID: "Pago ejecutado y confirmado por el banco"
+      CANCELLED: "Factura cancelada antes del pago"
+
+  - term: Supplier
+    domain_term: "Proveedor"
+    bian_equivalent: "ContractorAndSupplierAgreementParty"
+    definition: >
+      Entidad externa que provee bienes o servicios y emite facturas para cobro.
+      Debe estar registrado y activo en el ERP para ser válido en CXP.
+    type: entity
+    attributes: [supplier_id, name, status, tax_id]
+
+  - term: PaymentOrder
+    domain_term: "Orden de Pago"
+    bian_equivalent: "DisbursementTransaction"
+    definition: >
+      Instrucción de pago generada a partir de una factura aprobada y programada.
+      Se envía al sistema bancario para ejecución.
+    type: entity
+    attributes: [id, invoice_id, scheduled_date, execution_date, amount, currency, status, idempotency_key]
+
+  - term: PaymentSchedule
+    domain_term: "Programación de Pago"
+    bian_equivalent: "DisbursementProcedure"
+    definition: >
+      Proceso de definir la fecha y condiciones de ejecución de una PaymentOrder.
+    type: process
+
+  - term: AuditLog
+    domain_term: "Registro de Auditoría"
+    bian_equivalent: "ControlRecordLog"
+    definition: >
+      Registro inmutable de todas las acciones realizadas sobre facturas y pagos.
+      Incluye actor, acción, timestamp y estados anterior/nuevo.
+    type: entity
+    attributes: [id, entity, entity_id, action, user, timestamp, previous_state, new_state]
+
+  - term: StateTransition
+    domain_term: "Transición de Estado"
+    bian_equivalent: "StatusUpdate"
+    definition: >
+      Cambio de estado de una factura validado por la máquina de estados (WorkflowService).
+    type: process
+    rule_ref: BR-CXP-004
+
+  - term: AccountingEntry
+    domain_term: "Asiento Contable"
+    bian_equivalent: "LedgerPosting"
+    definition: >
+      Registro contable generado en el ERP tras la ejecución de un pago.
+      Asegura integridad contable y trazabilidad financiera.
+    type: entity
+
+  - term: IdempotencyKey
+    domain_term: "Clave de Idempotencia"
+    bian_equivalent: "UniqueTransactionIdentifier"
+    definition: >
+      Identificador único por orden de pago usado para prevenir pagos duplicados
+      en caso de reintentos en la integración bancaria.
+    type: technical
+    format: "UUID v4 o hash(invoice_id + payment_id + execution_date)"
+    rule_ref: BR-CXP-009
+
+  - term: RBAC
+    domain_term: "Control de Acceso Basado en Roles"
+    bian_equivalent: "AccessEntitlement"
+    definition: >
+      Modelo de seguridad que restringe operaciones según el rol del usuario:
+      ANALYST, MANAGER, TREASURER.
+    type: security_pattern
+    rule_ref: BR-CXP-011
+
+  - term: CircuitBreaker
+    domain_term: "Cortacircuitos"
+    definition: >
+      Patrón de resiliencia que previene cascada de fallos en integraciones externas.
+      Monitorea fallos consecutivos y abre el circuito para evitar saturar sistemas externos.
+    type: resilience_pattern
+
+  - term: WebhookEvent
+    domain_term: "Evento Webhook"
+    bian_equivalent: "FinancialGatewayOutcome"
+    definition: >
+      Notificación entrante del sistema bancario confirmando el resultado de un pago.
+      Requiere validación de firma HMAC-SHA256 e idempotencia.
+    type: integration_event
+
+  - term: ExperienceAPI
+    domain_term: "API de Experiencia"
+    definition: >
+      Capa de API orientada al canal (BFF - Backend for Frontend).
+      Agrega y adapta datos de APIs de negocio para la interfaz web.
+    type: architecture_pattern
+    layer: experience
+
+  - term: BusinessAPI
+    domain_term: "API de Negocio"
+    definition: >
+      Capa de API que encapsula la lógica de negocio del dominio CXP.
+      Expone operaciones de facturación y pagos con validaciones de negocio.
+    type: architecture_pattern
+    layer: business
+
+  - term: DomainAPI
+    domain_term: "API de Dominio"
+    definition: >
+      Capa de API que gestiona reglas de dominio puras (state machine, invariantes).
+      Sin dependencias externas directas.
+    type: architecture_pattern
+    layer: domain

@@ -1,0 +1,90 @@
+# Phase 2 Output: Execution Plan - Cuentas por Pagar (CXP)
+schema_version: "1.0"
+functionality_id: CXP
+phase: scope-and-execution-planning
+generated_at: "2026-06-17"
+
+execution_mode: full
+rationale: >
+  Sistema greenfield con 5 capacidades empresariales, 7 casos de uso,
+  2 integraciones externas críticas y requisitos SOX/ISO27001.
+  Requiere diseño completo de 6 APIs + contratos + diagramas + ADRs.
+
+scope:
+  type: greenfield
+  includes_frontend: true
+  includes_backend: true
+  includes_integrations: true
+  includes_cloud: false
+  total_apis: 6
+
+api_plan:
+  experience:
+    - id: accounts-payable-exp-api
+      description: "BFF para React SPA - agrega invoice + payment"
+      capabilities: [CAP-CXP-005]
+      use_cases: [UC-CXP-001, UC-CXP-002, UC-CXP-003, UC-CXP-004, UC-CXP-007]
+      priority: 1
+
+  business:
+    - id: invoice-management-api
+      description: "Gestión ciclo de vida de facturas con lógica de negocio"
+      capabilities: [CAP-CXP-001]
+      use_cases: [UC-CXP-001, UC-CXP-002, UC-CXP-003, UC-CXP-006]
+      bian_alignment: AccountsReceivable
+      priority: 2
+
+    - id: payment-management-api
+      description: "Programación y ejecución de pagos"
+      capabilities: [CAP-CXP-002]
+      use_cases: [UC-CXP-004, UC-CXP-005, UC-CXP-007]
+      bian_alignment: Disbursement
+      priority: 3
+
+  domain:
+    - id: invoice-lifecycle-api
+      description: "State machine pura de facturas + audit trail"
+      capabilities: [CAP-CXP-001, CAP-CXP-004]
+      bian_alignment: AccountsReceivable
+      priority: 4
+
+  support:
+    - id: erp-integration-api
+      description: "Adaptador ERP (validación proveedores + asientos contables)"
+      capabilities: [CAP-CXP-003]
+      bian_alignment: "[FinancialAccounting, ContractorandSupplierAgreement]"
+      priority: 5
+
+    - id: banking-integration-api
+      description: "Adaptador Banking System (pagos + webhooks)"
+      capabilities: [CAP-CXP-003]
+      bian_alignment: FinancialGateway
+      priority: 6
+
+nfr_decisions:
+  performance:
+    sla_ms: 300
+    concurrent_users: 500
+    strategy: "PostgreSQL connection pooling, índices por status+supplier_id"
+
+  security:
+    auth: "OAuth2/OIDC (Keycloak)"
+    authorization: "RBAC: ANALYST, MANAGER, TREASURER"
+    transport: "TLS 1.2+"
+    integrations: "mTLS (Banking), OAuth2 client_credentials (ERP)"
+
+  observability:
+    tracing: OpenTelemetry
+    metrics: Prometheus
+    logging: "Structured JSON + X-Correlation-ID"
+
+  reliability:
+    retry: "Exponential backoff max 3 retries"
+    circuit_breaker: "Resilience4j / opossum"
+    idempotency: "X-Idempotency-Key para banking"
+
+  database:
+    technology: PostgreSQL
+    pattern: schema-per-service
+    indexes: "[status, supplier_id, due_date, created_at]"
+    audit: "AuditLog table inmutable"

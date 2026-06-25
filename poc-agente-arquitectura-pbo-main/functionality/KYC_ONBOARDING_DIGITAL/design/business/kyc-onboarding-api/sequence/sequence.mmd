@@ -1,0 +1,65 @@
+%%{init: {'theme': 'base'}}%%
+sequenceDiagram
+    autonumber
+    actor CUSTOMER
+    participant KYC as kyc-onboarding-api<br/>[Business]
+    participant CP as CustomerProfileAPI<br/>[Catalog]
+    participant CI as CustomerIdentityAPI<br/>[Catalog]
+    participant KS as KYCScreeningAPI<br/>[Catalog]
+    participant AML as AML_SERVICE<br/>[External]
+    participant IDV as ID_VERIFICATION_PROVIDER<br/>[External]
+    participant DB as PostgreSQL<br/>[Persistence]
+    participant BROKER as Event Broker<br/>[Outbox]
+    participant NOTIF as NOTIFICATION_SERVICE
+
+    rect rgb(232, 245, 232)
+        Note over CUSTOMER,DB: UC-001 — Customer Digital Registration (INITIATED)
+        CUSTOMER->>+KYC: POST /onboarding-cases<br/>{party_reference, channel}<br/>[Idempotency-Key]
+        KYC->>+CP: POST /customers {name, document}
+        CP-->>-KYC: 201 {customerId}
+        KYC->>DB: INSERT onboarding_cases (INITIATED)<br/>INSERT audit_entries<br/>INSERT outbox_events
+        DB-->>KYC: committed
+        KYC->>BROKER: relay OnboardingCaseInitiated
+        BROKER->>NOTIF: OnboardingCaseInitiated
+        KYC-->>-CUSTOMER: 201 {partylifecyclemanagementid, status:INITIATED}
+    end
+
+    rect rgb(232, 244, 253)
+        Note over CUSTOMER,DB: UC-002 — Document Upload (DOCS_SUBMITTED)
+        CUSTOMER->>+KYC: PUT /onboarding-cases/{id}/documents/{docId}/execute<br/>{party_lifecycle_required_documentation,<br/>document_directory_entry_instance_reference,<br/>document_expires_at}<br/>[Idempotency-Key]
+        KYC->>CI: POST /customers/{id}/identities {documentRef}
+        CI-->>KYC: 201 {identityId}
+        KYC->>DB: UPDATE status→DOCS_SUBMITTED<br/>INSERT audit_entries<br/>INSERT outbox_events
+        DB-->>KYC: committed
+        KYC->>BROKER: relay OnboardingStatusChanged (DOCS_SUBMITTED)
+        BROKER->>NOTIF: OnboardingStatusChanged
+        KYC-->>-CUSTOMER: 200 {documentationid, onboarding_case_status:DOCS_SUBMITTED}
+    end
+
+    rect rgb(255, 248, 225)
+        Note over KYC,DB: UC-003 — Automatic KYC Validation (UNDER_VALIDATION → APPROVED)
+        KYC->>DB: UPDATE status→UNDER_VALIDATION<br/>INSERT audit_entries
+        Note over KYC: Parallel validation calls
+        par Identity Proofing
+            KYC->>+CI: POST /customers/{id}/identities/{identityId}/verify
+            CI->>IDV: verify document [circuit breaker]
+            IDV-->>CI: PASSED
+            CI-->>-KYC: 202 {verificationJobId}
+            KYC->>CI: GET /customers/{id}/identities/{identityId}
+            CI-->>KYC: identity_verification=PASSED
+        and AML Screening
+            KYC->>+KS: POST /screenings {customerData} [Idempotency-Key]
+            KS->>AML: AML check [circuit breaker]
+            AML-->>KS: CLEAR
+            KS-->>-KYC: 202 {screeningId}
+            KYC->>KS: GET /screenings/{screeningId}
+            KS-->>KYC: aml_screening=CLEAR
+        end
+        KYC->>CP: PATCH /customers/{id} {estadoKYC:APPROVED}
+        CP-->>KYC: 200
+        KYC->>DB: INSERT kyc_results (APPROVED)<br/>UPDATE onboarding_cases→APPROVED<br/>INSERT audit_entries<br/>INSERT outbox_events (x2)
+        DB-->>KYC: committed
+        KYC->>BROKER: relay OnboardingStatusChanged + OnboardingApproved
+        BROKER->>NOTIF: OnboardingApproved
+        Note over NOTIF: UC-005 — Notifies CUSTOMER: APPROVED
+    end

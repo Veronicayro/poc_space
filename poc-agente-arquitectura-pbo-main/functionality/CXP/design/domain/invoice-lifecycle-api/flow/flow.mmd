@@ -1,0 +1,42 @@
+flowchart TD
+    title["Flujo: Ciclo de Vida de Factura - CXP"]
+
+    Start([Inicio]) --> CreateInvoice
+
+    CreateInvoice["Analista registra factura\nPOST /invoices"]
+    CreateInvoice --> ValidateSupplier{"Proveedor\nactivo en ERP?"}
+    ValidateSupplier -->|No| Error422["❌ Error 422\nProveedor no registrado"]
+    ValidateSupplier -->|Sí| CheckDuplicate{"Factura\nduplicada?"}
+    CheckDuplicate -->|Sí| Error409["❌ Error 409\nFactura duplicada"]
+    CheckDuplicate -->|No| StatePending["Estado: PENDING\n🟡 Factura registrada"]
+
+    StatePending --> ReviewManager["Gerente revisa\nfactura"]
+    ReviewManager --> ApproveOrReject{"Decisión\ndel Gerente"}
+    ApproveOrReject -->|Aprobar| StateApproved["Estado: APPROVED\n🔵 Factura aprobada"]
+    ApproveOrReject -->|Rechazar| StateRejected["Estado: REJECTED\n🔴 Factura rechazada"]
+    ApproveOrReject -->|Cancelar| StateCancelled["Estado: CANCELLED\n⚫ Factura cancelada"]
+
+    StateRejected --> EndRejected([Fin - Rechazada])
+    StateCancelled --> EndCancelled([Fin - Cancelada])
+
+    StateApproved --> TreasurerSchedule["Tesorero programa\npago - POST /payments"]
+    TreasurerSchedule --> ValidateDate{"Fecha de pago\nválida?"}
+    ValidateDate -->|No| Error400["❌ Error 400\nFecha inválida"]
+    ValidateDate -->|Sí| StateScheduled["Estado: SCHEDULED\n🟣 Pago programado"]
+
+    StateScheduled --> ExecutePayment["Sistema envía orden\nal Banking System\nPOST /banking/payment-orders"]
+    ExecutePayment --> BankResponse{"Respuesta\nbancaria?"}
+    BankResponse -->|Confirmado| WebhookConfirm["Webhook: PAYMENT_CONFIRMED"]
+    BankResponse -->|Fallido| WebhookFail["Webhook: PAYMENT_FAILED\nReintentar (max 3)"]
+    BankResponse -->|Cancelar| StateCancelledPayment["Estado: CANCELLED\n⚫ Pago cancelado"]
+
+    WebhookConfirm --> StatePaid["Estado: PAID\n🟢 Pago ejecutado"]
+    StatePaid --> RegisterAccounting["Registrar asiento\nen ERP\nPOST /erp/accounting/entries"]
+    RegisterAccounting --> EndPaid([Fin - Pagado ✅])
+
+    WebhookFail --> RetryCheck{"Reintentos\nagotados?"}
+    RetryCheck -->|No| ExecutePayment
+    RetryCheck -->|Sí| AlertTreasurer["⚠️ Alertar Tesorero\nPago fallido"]
+    AlertTreasurer --> EndFailed([Fin - Fallido])
+
+    StateCancelledPayment --> EndCancelled

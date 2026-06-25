@@ -1,0 +1,71 @@
+# Discovery: Internal Module Inventory - Cuentas por Pagar (CXP)
+schema_version: "1.0"
+functionality_id: CXP
+generated_at: "2026-06-17"
+
+note: >
+  Sistema greenfield. Módulos internos propuestos para el diseño TO-BE.
+
+proposed_modules:
+  - id: MOD-CXP-001
+    name: FacturaController
+    type: REST Controller
+    layer: experience
+    technology: "Node.js (Express) / Java (Spring Boot)"
+    responsibilities:
+      - "Exposición de endpoints REST para gestión de facturas"
+      - "Validación de entrada y mapeo request → DTO"
+      - "Delegación a servicios de negocio"
+    endpoints_hint: ["POST /v1/invoices", "GET /v1/invoices/{id}", "PUT /v1/invoices/{id}", "GET /v1/invoices"]
+
+  - id: MOD-CXP-002
+    name: FacturaService
+    type: Application Service
+    layer: business
+    technology: "Node.js / Java (Spring Boot)"
+    responsibilities:
+      - "Lógica de negocio de facturas"
+      - "Validaciones (duplicados, montos, proveedor)"
+      - "Coordinación con WorkflowService"
+
+  - id: MOD-CXP-003
+    name: WorkflowService
+    type: Domain Service
+    layer: domain
+    technology: "Node.js / Java (Spring Boot)"
+    responsibilities:
+      - "Máquina de estados de facturas"
+      - "Validación de transiciones (BR-CXP-004)"
+      - "Registro de historial de estados"
+    states: [PENDING, APPROVED, REJECTED, SCHEDULED, PAID, CANCELLED]
+
+  - id: MOD-CXP-004
+    name: PaymentScheduler
+    type: "Domain/Application Service"
+    layer: business
+    technology: "Node.js / Java (Spring Boot)"
+    responsibilities:
+      - "Programación y ejecución de pagos"
+      - "Generación de órdenes de pago con idempotency_key"
+      - "Integración con sistema bancario"
+
+  - id: MOD-CXP-005
+    name: IntegrationAdapter
+    type: Infrastructure Component
+    layer: support
+    technology: "Node.js / Java (Spring Boot)"
+    responsibilities:
+      - "Consumo de APIs externas (ERP, Banking)"
+      - "Manejo de webhooks entrantes"
+      - "Transformación DTO ↔ External Schema"
+      - "Retry policies y circuit breaker"
+
+  - id: MOD-CXP-006
+    name: "Frontend Web"
+    type: "SPA Frontend"
+    layer: frontend
+    technology: "React (SPA)"
+    responsibilities:
+      - "UI/UX gestión de facturas (tablas + filtros)"
+      - "Color-coded status indicators"
+      - "Consumo de APIs REST con OAuth2/OIDC"

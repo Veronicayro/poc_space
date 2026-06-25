@@ -1,0 +1,56 @@
+schema_id: component
+artifact_path_pattern: design/<layer>/<component>/component.yaml
+required_fields:
+  - component_name
+  - component_type
+  - layer
+  - decision
+  - purpose
+  - owner_scope
+  - responsibilities
+  - dependencies
+  - consumers
+  - state_owner_if_any
+  - data_ownership
+  - cache_usage
+  - events
+  - nfrs
+  - status
+fields:
+  component_name: string
+  component_type:
+    enum: [frontend-shell, microfrontend, api, service, data-store, cache, event, cloud-capability, external-system]
+  layer:
+    enum: [frontend, experience, business, domain, support, cloud, data, cache, events, cross-cutting]
+  decision:
+    enum: [reuse, modify, create, deprecate]
+  purpose: string
+  owner_scope: string
+  responsibilities: array
+  non_responsibilities: array
+  dependencies:
+    synchronous: array
+    asynchronous:
+      publishes: array
+      consumes: array
+  consumers: array
+  state_owner_if_any: string_or_null
+  data_ownership:
+    owns_persistent_data: boolean
+    persistence_model: string_or_null
+  cache_usage:
+    uses_cache: boolean
+    cache_model: string_or_null
+  events:
+    publishes: array
+    consumes: array
+  bian:
+    aligned: boolean
+    release: string_or_null
+    selected_service_domain: string_or_null
+    alignment_type:
+      enum: [direct, adapted, partial, unresolved, n/a]
+    adoption_file: string_or_null
+  nfrs: object
+  status:
+    enum: [draft, complete, blocked, needs_more_context]

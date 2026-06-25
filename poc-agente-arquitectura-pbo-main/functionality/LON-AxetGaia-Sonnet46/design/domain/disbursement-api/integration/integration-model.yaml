@@ -1,0 +1,45 @@
+# integration-model.yaml — disbursement-api
+# Layer: Domain | BIAN: Disbursement (direct)
+component_id: COMP-LON-DOM-001
+name: disbursement-api
+generated_at: "2026-06-17"
+
+integrations:
+  - id: INT-LON-DOM001-01
+    name: core-disbursement-execute
+    target_service: core-banking-adapter-api
+    direction: outbound
+    type: synchronous
+    protocol: REST / HTTP
+    trigger: "PUT /v1/Disbursement/{id}/Execute — al ejecutar el desembolso"
+    description: >
+      Envía la instrucción de desembolso al Core Bancario. Recibe referencia
+      del core y fecha de ejecución como confirmación.
+    request:
+      endpoint: "POST /v1/disbursements"
+      payload: "{ credit_request_id, destination_account, amount, currency, loan_product_id }"
+    response:
+      success: "{ core_reference, executed_at, status: EXECUTED }"
+      failure: "HTTP 503 → core no disponible; HTTP 422 → datos inválidos"
+    error_handling:
+      timeout_ms: 5000
+      retry: "2 reintentos con backoff exponencial"
+      circuit_breaker: true
+      idempotency_key: "disbursement_id en header"
+      fallback: "HTTP 503 — desembolso bloqueado; requiere intervención manual"
+
+  - id: INT-LON-DOM001-02
+    name: state-update-disbursed
+    target_service: credit-request-api
+    direction: outbound
+    type: synchronous
+    protocol: "Internal REST call"
+    trigger: "PUT /v1/Disbursement/{id}/Exchange — al confirmar desembolso"
+    description: >
+      Notifica a credit-request-api para actualizar el estado de la solicitud
+      de PENDING_DISBURSEMENT a DISBURSED, registrando la referencia del core.
+    request:
+      endpoint: "PUT /v1/CustomerOffer/{creditRequestId}/Exchange"
+      payload: "{ action: 'disbursed', core_reference, disbursed_at }"
+    response:
+      success: "{ status: DISBURSED }"

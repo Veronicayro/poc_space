@@ -1,0 +1,281 @@
+domain:
+  name: "Compliance"
+  description: "Controles regulatorios, KYC/AML, sanciones, auditoría y retención documental."
+
+  capabilities:
+
+    KYC:
+      apiProducts:
+
+        KYCScreeningAPI:
+          metadata:
+            name: "KYC Screening API"
+            description: "Screening KYC/AML/PEP y listas de vigilancia, con resultados y evidencias."
+            owner: "Financial Crime (FCC) Squad"
+            sla: "99.95%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 0"
+            region: "global"
+            tags: ["compliance", "kyc", "aml", "pep"]
+          apiType: "Internal"
+          versions:
+            - version: "3.0.0"
+              status: "Published"
+              x-contract-version: "2026-05-05"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/kyc-screening/v3"
+                qa: "https://api.qa.globalbank.example.com/kyc-screening/v3"
+                uat: "https://api.uat.globalbank.example.com/kyc-screening/v3"
+                prod: "https://api.globalbank.example.com/kyc-screening/v3"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Compliance/Records/AuditTrailAPI"
+                  reason: "Auditoría de screenings."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials"]
+                scopes:
+                  - "compliance.kyc.screen"
+                  - "compliance.kyc.results.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "matches_rate"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "screeningId", "entityType", "result", "matchCount"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "24 months notice for compliance APIs where possible."
+                changeManagement: "Model validation + compliance sign-off."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "KYC Screening API"
+              version: "v3"
+            paths:
+              /screenings:
+                post:
+                  summary: "Iniciar screening"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "202":
+                      description: "Screening en proceso"
+                      schemaRef: "#/components/schemas/ScreeningJob"
+              /screenings/{screeningId}:
+                get:
+                  summary: "Obtener resultado de screening"
+                  responses:
+                    "200":
+                      description: "Resultado"
+                      schemaRef: "#/components/schemas/ScreeningResult"
+
+    Sanctions:
+      apiProducts:
+
+        SanctionsScreeningAPI:
+          metadata:
+            name: "Sanctions Screening API"
+            description: "Screening de sanciones para contrapartes, beneficiarios y pagos."
+            owner: "Sanctions Control Squad"
+            sla: "99.99%"
+            dataClassification: ["Confidential"]
+            criticalityTier: "Tier 0"
+            region: "global"
+            tags: ["compliance", "sanctions", "ofac", "eu"]
+          apiType: "Internal"
+          versions:
+            - version: "2.3.0"
+              status: "Published"
+              x-contract-version: "2026-06-07"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/sanctions-screening/v2"
+                qa: "https://api.qa.globalbank.example.com/sanctions-screening/v2"
+                uat: "https://api.uat.globalbank.example.com/sanctions-screening/v2"
+                prod: "https://api.globalbank.example.com/sanctions-screening/v2"
+              consumers:
+                - "Partner Fintech"
+                - "Web Banking"
+              dependencies:
+                - api: "Compliance/Records/AuditTrailAPI"
+                  reason: "Auditoría regulatoria."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials"]
+                scopes:
+                  - "compliance.sanctions.screen"
+                  - "compliance.sanctions.results.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "screening_time_ms_p95"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "screeningId", "paymentId", "result"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "24 months notice."
+                changeManagement: "Regulatory change management process."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Sanctions Screening API"
+              version: "v2"
+            paths:
+              /sanctions/screenings:
+                post:
+                  summary: "Iniciar screening de sanciones"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "202":
+                      description: "En proceso"
+                      schemaRef: "#/components/schemas/SanctionsJob"
+              /sanctions/screenings/{screeningId}:
+                get:
+                  summary: "Consultar resultado"
+                  responses:
+                    "200":
+                      description: "Resultado"
+                      schemaRef: "#/components/schemas/SanctionsResult"
+
+    Records:
+      apiProducts:
+
+        AuditTrailAPI:
+          metadata:
+            name: "Audit Trail API"
+            description: "Registro de auditoría inmutable para eventos críticos (consentimientos, desembolsos, cambios de límites)."
+            owner: "Regulatory Records Squad"
+            sla: "99.9%"
+            dataClassification: ["Confidential"]
+            criticalityTier: "Tier 0"
+            region: "global"
+            tags: ["compliance", "audit", "immutability"]
+          apiType: "Internal"
+          versions:
+            - version: "1.2.0"
+              status: "Published"
+              x-contract-version: "2026-05-18"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/audit-trail/v1"
+                qa: "https://api.qa.globalbank.example.com/audit-trail/v1"
+                uat: "https://api.uat.globalbank.example.com/audit-trail/v1"
+                prod: "https://api.globalbank.example.com/audit-trail/v1"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+                - "Partner Fintech"
+              dependencies: []
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials"]
+                scopes:
+                  - "audit.write"
+                  - "audit.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "append_success_rate"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "eventType", "entityId", "actor", "hash"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "24 months notice."
+                changeManagement: "Legal/regulatory approval required."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Audit Trail API"
+              version: "v1"
+            paths:
+              /audit-events:
+                post:
+                  summary: "Registrar evento de auditoría"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Registrado"
+                      schemaRef: "#/components/schemas/AuditEvent"
+                get:
+                  summary: "Consultar eventos"
+                  queryParams: ["entityId", "eventType", "fromTime", "toTime", "cursor", "limit"]
+                  responses:
+                    "200":
+                      description: "Eventos"
+                      schemaRef: "#/components/schemas/AuditEventList"
+
+        DocumentArchiveAPI:
+          metadata:
+            name: "Document Archive API"
+            description: "Archivado y retención de documentos con políticas regulatorias (WORM), metadata y evidencias."
+            owner: "Records & Retention Squad"
+            sla: "99.5%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 2"
+            region: "global"
+            tags: ["compliance", "documents", "retention"]
+          apiType: "Internal"
+          versions:
+            - version: "1.0.0"
+              status: "Published"
+              x-contract-version: "2026-01-20"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/document-archive/v1"
+                qa: "https://api.qa.globalbank.example.com/document-archive/v1"
+                uat: "https://api.uat.globalbank.example.com/document-archive/v1"
+                prod: "https://api.globalbank.example.com/document-archive/v1"
+              consumers:
+                - "Web Banking"
+                - "Mobile Banking App"
+              dependencies:
+                - api: "Compliance/Records/AuditTrailAPI"
+                  reason: "Auditoría de archivado."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials"]
+                scopes:
+                  - "documents.archive.write"
+                  - "documents.archive.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "storage_write_time_ms_p95"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "documentId", "entityId", "retentionPolicy", "checksum"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "24 months notice."
+                changeManagement: "Retention policy governance."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Document Archive API"
+              version: "v1"
+            paths:
+              /documents:
+                post:
+                  summary: "Archivar documento (metadata + upload token)"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Archivado"
+                      schemaRef: "#/components/schemas/ArchivedDocument"
+              /documents/{documentId}:
+                get:
+                  summary: "Obtener metadata de documento"
+                  responses:
+                    "200":
+                      description: "Documento"
+                      schemaRef: "#/components/schemas/ArchivedDocument"

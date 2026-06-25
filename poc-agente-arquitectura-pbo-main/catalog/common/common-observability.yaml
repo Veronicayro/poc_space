@@ -1,0 +1,33 @@
+commonObservability:
+  headers:
+    correlationId: "X-Request-Id"
+    traceparent: "traceparent"
+  metricsStandard:
+    required:
+      - "request_count"
+      - "latency_ms_p95"
+      - "error_rate_5xx"
+    recommended:
+      - "error_rate_4xx"
+      - "auth_failures"
+      - "db_time_ms_p95"
+      - "cache_hit_ratio"
+  tracing:
+    enabled: true
+    propagation: "W3C Trace Context"
+  logs:
+    format: "json"
+    defaultLevel: "INFO"
+    piiRedactionDefault: true
+    pciHandling:
+      pan: "tokenize"
+      cvv: "never-store-never-log"
+  sloExamples:
+    latencyP95:
+      tier0: "<= 250ms"
+      tier1: "<= 500ms"
+      tier2: "<= 1500ms"
+    availability:
+      tier0: "99.99%"
+      tier1: "99.95%"
+      tier2: "99.5%"

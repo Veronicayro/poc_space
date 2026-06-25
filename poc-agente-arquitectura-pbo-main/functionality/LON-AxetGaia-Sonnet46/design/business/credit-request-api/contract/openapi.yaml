@@ -1,0 +1,491 @@
+openapi: 3.0.1
+info:
+  title: Credit Request API — LON
+  description: >
+    API de gestión del ciclo de vida de solicitudes de crédito.
+    Derivada del BIAN Release 14 Service Domain: CustomerOffer.
+    Control Record: CustomerOffer (alineación semántica con extensiones de dominio LON).
+  version: 1.0.0
+  x-bian-sd: CustomerOffer
+  x-bian-release: "14.0.0"
+  x-bian-control-record: CustomerOffer
+  x-bian-adoption-level: semantic_alignment
+  x-bian-adoption-file: design/business/credit-request-api/contract/bian-adoption.yaml
+  contact:
+    name: LON Architecture Team
+servers:
+  - url: https://api.bank.internal/LON-AxetGaia-Sonnet46/v1
+    description: Producción
+
+tags:
+  - name: CustomerOffer
+    description: >
+      BIAN CR: CustomerOffer — Orquestación del proceso de solicitud de crédito
+      desde registro hasta aprobación o rechazo. Estado machine de 12 estados.
+
+paths:
+  /CustomerOffer/Initiate:
+    post:
+      tags:
+        - CustomerOffer
+      summary: InCR Initiate a new credit application (CustomerOffer)
+      description: >
+        Registra una nueva solicitud de crédito con estado inicial DRAFT.
+        Valida KYC del cliente en el core bancario y verifica ausencia de
+        solicitudes duplicadas activas.
+      operationId: initiateCustomerOffer
+      x-bian-operation: Initiate
+      x-bian-cr: CustomerOffer
+      security:
+        - BearerAuth: [credit:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiateCustomerOfferRequest'
+      responses:
+        '200':
+          description: Credit application initiated (status DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerOfferResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Conflict — solicitud duplicada activa para este cliente y tipo de crédito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPError'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /CustomerOffer/{customerofferid}/Retrieve:
+    get:
+      tags:
+        - CustomerOffer
+      summary: ReCR Retrieve details of a credit application
+      description: >
+        Retorna el estado actual, datos completos, documentos adjuntos e
+        historial de transiciones de la solicitud de crédito.
+      operationId: retrieveCustomerOffer
+      x-bian-operation: Retrieve
+      x-bian-cr: CustomerOffer
+      security:
+        - BearerAuth: [credit:read]
+      parameters:
+        - $ref: '#/components/parameters/customerofferid'
+      responses:
+        '200':
+          description: Credit application details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerOfferDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /CustomerOffer/{customerofferid}/Update:
+    put:
+      tags:
+        - CustomerOffer
+      summary: UpCR Update credit application data (DRAFT only)
+      description: >
+        Actualiza los datos de la solicitud. Solo permitido cuando el estado es DRAFT.
+      operationId: updateCustomerOffer
+      x-bian-operation: Update
+      x-bian-cr: CustomerOffer
+      security:
+        - BearerAuth: [credit:write]
+      parameters:
+        - $ref: '#/components/parameters/customerofferid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomerOfferRequest'
+      responses:
+        '200':
+          description: Credit application updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerOfferResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /CustomerOffer/{customerofferid}/Exchange:
+    put:
+      tags:
+        - CustomerOffer
+      summary: EcCR Exchange — execute a workflow transition on the credit application
+      description: >
+        Ejecuta una transición de estado en el workflow crediticio.
+        Acciones soportadas: submit, approve, reject, escalate, upload_document, disbursed.
+        La transición es validada contra la tabla de transiciones permitidas por rol.
+      operationId: exchangeCustomerOffer
+      x-bian-operation: Exchange
+      x-bian-cr: CustomerOffer
+      security:
+        - BearerAuth: [credit:write, credit:approve]
+      parameters:
+        - $ref: '#/components/parameters/customerofferid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerOfferExchangeNotification'
+      responses:
+        '200':
+          description: Workflow transition executed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerOfferResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /CustomerOffer:
+    get:
+      tags:
+        - CustomerOffer
+      summary: Query credit applications with filters (role-based)
+      description: >
+        Lista solicitudes de crédito filtradas por rol del usuario, estado,
+        fecha, tipo de crédito y cliente. Paginación cursor-based.
+      operationId: listCustomerOffers
+      x-bian-operation: Query
+      x-bian-cr: CustomerOffer
+      security:
+        - BearerAuth: [credit:read]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/CustomerOfferStatusEnum'
+        - name: credit_type
+          in: query
+          schema:
+            type: string
+            enum: [PERSONAL, MORTGAGE, VEHICLE, BUSINESS]
+        - name: customer_id
+          in: query
+          schema:
+            type: string
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: List of credit applications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerOfferListResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    customerofferid:
+      name: customerofferid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: "BIAN: CustomerOffer.CustomerOfferReference — UUID de la solicitud de crédito"
+
+  schemas:
+    InitiateCustomerOfferRequest:
+      type: object
+      required:
+        - customer_id
+        - credit_type
+        - requested_amount
+        - currency
+        - term_months
+      properties:
+        customer_id:
+          type: string
+          description: "BIAN: CustomerOffer.CustomerReference. ID del cliente en el core bancario."
+        credit_type:
+          type: string
+          enum: [PERSONAL, MORTGAGE, VEHICLE, BUSINESS]
+          description: "BIAN: CustomerOffer.ProductType. Tipo de producto crediticio."
+        requested_amount:
+          type: number
+          format: double
+          description: "BIAN: CustomerOffer.ProductInstanceReference (monto). Monto solicitado."
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: "Código ISO 4217. AP adaptation: extensión LON no en BIAN CustomerOffer CR."
+        term_months:
+          type: integer
+          minimum: 1
+          description: "Plazo del crédito en meses. AP adaptation: extensión LON."
+        purpose:
+          type: string
+          description: "Propósito del crédito. AP adaptation: extensión LON."
+        assigned_officer_id:
+          type: string
+          description: "BIAN: CustomerOffer.SalesPersonReference. ID del oficial de crédito asignado."
+
+    UpdateCustomerOfferRequest:
+      type: object
+      properties:
+        requested_amount:
+          type: number
+          format: double
+          description: "BIAN: CustomerOffer.ProductInstanceReference (monto)."
+        term_months:
+          type: integer
+        purpose:
+          type: string
+
+    CustomerOfferExchangeNotification:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum: [submit, approve, reject, escalate, upload_document, disbursed]
+          description: "BIAN: CustomerOffer exchange action. LON workflow transition trigger."
+        conditions:
+          type: string
+          description: "Condiciones de aprobación (obligatorio si action=approve)."
+        rejection_reason:
+          type: string
+          description: "Motivo de rechazo (obligatorio si action=reject)."
+        escalation_reason:
+          type: string
+          description: "Justificación de escalado (obligatorio si action=escalate)."
+        document_type:
+          type: string
+          enum: [ID, INCOME_PROOF, FINANCIAL_STATEMENT, PROPERTY_APPRAISAL, OTHER]
+          description: "Tipo de documento (obligatorio si action=upload_document)."
+        document_dms_reference:
+          type: string
+          description: "Referencia DMS del documento subido (obligatorio si action=upload_document)."
+
+    CustomerOfferResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "BIAN: CustomerOffer.CustomerOfferReference."
+        customer_id:
+          type: string
+          description: "BIAN: CustomerOffer.CustomerReference."
+        credit_type:
+          type: string
+          description: "BIAN: CustomerOffer.ProductType."
+        requested_amount:
+          type: number
+          format: double
+        currency:
+          type: string
+        term_months:
+          type: integer
+        purpose:
+          type: string
+        status:
+          $ref: '#/components/schemas/CustomerOfferStatusEnum'
+        assigned_officer_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CustomerOfferDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/CustomerOfferResponse'
+        - type: object
+          properties:
+            documents:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreditDocumentSummary'
+            workflow_history:
+              type: array
+              items:
+                $ref: '#/components/schemas/WorkflowHistoryEntry'
+            allowed_actions:
+              type: array
+              items:
+                type: string
+              description: "Acciones disponibles para el rol del usuario en el estado actual."
+
+    CustomerOfferListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerOfferResponse'
+        pagination:
+          type: object
+          properties:
+            cursor:
+              type: string
+            limit:
+              type: integer
+            total:
+              type: integer
+            has_next:
+              type: boolean
+
+    CreditDocumentSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        document_type:
+          type: string
+        dms_reference:
+          type: string
+
+    WorkflowHistoryEntry:
+      type: object
+      properties:
+        action:
+          type: string
+        previous_status:
+          type: string
+        new_status:
+          type: string
+        actor_id:
+          type: string
+        actor_role:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    CustomerOfferStatusEnum:
+      type: string
+      enum:
+        - DRAFT
+        - SUBMITTED
+        - UNDER_REVIEW
+        - RISK_ASSESSED
+        - PENDING_APPROVAL
+        - PENDING_COMMITTEE
+        - APPROVED
+        - REJECTED
+        - PENDING_DISBURSEMENT
+        - DISBURSED
+        - CANCELLED
+        - EXPIRED
+      description: >
+        BIAN: CustomerOffer CR lifecycle status (extended for LON domain).
+        States beyond BIAN standard (PENDING_COMMITTEE, RISK_ASSESSED, etc.) are LON domain extensions.
+
+    HTTPError:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        correlation_id:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad Request — datos de entrada inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    Unauthorized:
+      description: Unauthorized — token JWT faltante o inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    Forbidden:
+      description: Forbidden — rol sin permiso para esta operación
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    NotFound:
+      description: Not Found — customerofferid no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    UnprocessableEntity:
+      description: Unprocessable Entity — regla de negocio violada (transición inválida, etc.)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'

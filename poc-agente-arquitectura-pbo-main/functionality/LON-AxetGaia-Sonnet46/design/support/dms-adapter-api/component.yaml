@@ -1,0 +1,72 @@
+# component.yaml — dms-adapter-api
+# Layer: Support | External: Document Management System (DMS)
+component_id: COMP-LON-SUP-003
+name: dms-adapter-api
+functionality_id: LON
+layer: support
+type: Integration Adapter
+version: "1.0.0"
+status: design_complete
+generated_at: "2026-06-17"
+
+description: >
+  Adaptador de integración con el Document Management System (DMS) externo.
+  Gestiona el almacenamiento, recuperación y validación de documentos del
+  expediente crediticio, con fallback local si el DMS no está disponible.
+
+responsibilities:
+  - Almacenar documentos del expediente en el DMS externo
+  - Recuperar documentos por referencia DMS o por solicitud
+  - Validar integridad (checksum) de documentos almacenados
+  - Implementar fallback temporal si DMS no disponible
+  - Transformar formatos DMS a DTOs internos de LON
+
+technology:
+  runtime: "Node.js (Express) / Java (Spring Boot)"
+  patterns:
+    - Adapter Pattern
+    - Retry with Backoff
+    - Fallback Pattern
+
+api:
+  style: REST
+  versioning: URI (/v1)
+  base_path: /v1
+
+key_endpoints:
+  - "POST /v1/documents"
+  - "GET /v1/documents/{documentId}"
+  - "GET /v1/documents?creditRequestId={id}"
+  - "DELETE /v1/documents/{documentId}"
+
+external_system:
+  name: Document Management System (DMS)
+  integration_type: "REST API"
+  max_file_size_mb: 20
+
+document_types:
+  - ID
+  - INCOME_PROOF
+  - FINANCIAL_STATEMENT
+  - PROPERTY_APPRAISAL
+  - OTHER
+
+resilience:
+  retry:
+    max_attempts: 2
+    backoff: exponential
+  timeout_ms: 5000
+  fallback: "Almacenamiento temporal en filesystem local hasta restaurar DMS"
+
+consumers:
+  - credit-request-api
+
+security:
+  authentication: "API Key / OAuth2 client credentials hacia DMS"
+  internal_auth: "JWT Bearer (inter-service)"
+
+nfr:
+  max_file_size_mb: 20
+  supported_formats: [PDF, JPG, PNG, DOCX]
+  sla_upload_ms: 5000
+  sla_retrieve_ms: 2000

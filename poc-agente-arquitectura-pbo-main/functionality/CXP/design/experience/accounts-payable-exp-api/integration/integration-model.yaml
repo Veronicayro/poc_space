@@ -1,0 +1,45 @@
+# Component Integration Model - accounts-payable-exp-api
+schema_version: "1.0"
+component_id: accounts-payable-exp-api
+generated_at: "2026-06-17"
+
+integrations:
+  - id: INT-EXP-001
+    target: invoice-management-api
+    type: REST HTTP
+    direction: outbound
+    protocol: HTTPS
+    auth: "service-to-service JWT (propagate caller token)"
+    headers_propagated: [X-Correlation-ID, Authorization]
+    operations:
+      - GET /api/v1/invoices
+      - POST /api/v1/invoices
+      - GET /api/v1/invoices/{id}
+      - PUT /api/v1/invoices/{id}
+      - POST /api/v1/invoices/{id}/approve
+      - POST /api/v1/invoices/{id}/reject
+      - POST /api/v1/invoices/{id}/cancel
+    timeout_ms: 5000
+    retry: false
+
+  - id: INT-EXP-002
+    target: payment-management-api
+    type: REST HTTP
+    direction: outbound
+    protocol: HTTPS
+    auth: "service-to-service JWT (propagate caller token)"
+    headers_propagated: [X-Correlation-ID, Authorization, X-Idempotency-Key]
+    operations:
+      - POST /api/v1/payments
+      - GET /api/v1/payments
+      - GET /api/v1/payments/{id}
+    timeout_ms: 5000
+    retry: false
+
+  - id: INT-EXP-003
+    target: "OAuth2/OIDC Provider (Keycloak)"
+    type: "OAuth2 token validation"
+    direction: inbound
+    protocol: HTTPS
+    mechanism: "JWT Bearer token validation (JWKS endpoint)"
+    notes: "Token validated on every request via middleware"

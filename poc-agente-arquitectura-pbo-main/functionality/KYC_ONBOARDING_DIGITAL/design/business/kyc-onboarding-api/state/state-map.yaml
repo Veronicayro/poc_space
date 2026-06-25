@@ -1,0 +1,127 @@
+component: kyc-onboarding-api
+generated_at: "2026-06-22"
+bian_ref: "PartyLifecycleManagement Status lifecycle (adapted)"
+
+state_machine_name: OnboardingCaseStateMachine
+state_owner: OnboardingCase (aggregate root)
+persistence_of_state: "onboarding_cases.status column (relational DB)"
+
+states:
+  - name: INITIATED
+    description: "Customer has submitted personal data; profile creation in progress"
+    terminal: false
+    bian_analog: "Initiate — party lifecycle initiated"
+  - name: DOCS_SUBMITTED
+    description: "Identity documents uploaded and referenced; ready for validation"
+    terminal: false
+    bian_analog: "Documentation sub-behavior executed"
+  - name: UNDER_VALIDATION
+    description: "Automatic KYC validation in progress (AML + identity proofing)"
+    terminal: false
+    bian_analog: "Qualification sub-behavior executing"
+  - name: REVIEW_REQUIRED
+    description: "Automatic validation failed; case in analyst review queue"
+    terminal: false
+    bian_analog: "Control — manual override required"
+  - name: APPROVED
+    description: "KYC approved — customer may access bank products (BR-005)"
+    terminal: true
+    bian_analog: "Lifecycle complete — positive outcome"
+  - name: REJECTED
+    description: "KYC rejected — customer blocked from product access"
+    terminal: true
+    bian_analog: "Lifecycle complete — negative outcome"
+
+transitions:
+  - from: INITIATED
+    to: DOCS_SUBMITTED
+    trigger: "SubmitDocument command — valid document submitted (BR-002 pass)"
+    guard: "document.expiresAt > today AND onboarding_case.customer_id IS NOT NULL"
+    action: "Persist DocumentReference; insert audit entry; publish OnboardingStatusChanged"
+    bian_operation: "Documentation/Execute"
+
+  - from: DOCS_SUBMITTED
+    to: UNDER_VALIDATION
+    trigger: "TriggerKYCValidation command (system-initiated after document submission)"
+    guard: "documents submitted >= 1"
+    action: >
+      Call CustomerIdentityAPI verify + KYCScreeningAPI + AML_SERVICE + ID_VERIFICATION_PROVIDER;
+      insert audit entry; publish OnboardingStatusChanged
+    bian_operation: "Execute"
+
+  - from: UNDER_VALIDATION
+    to: APPROVED
+    trigger: "All validation checks passed (identity_verification=PASSED, aml_screening=CLEAR)"
+    guard: "KYCResult.overall_status = APPROVED"
+    action: >
+      Set approved_at; patch CustomerProfileAPI estadoKYC=APPROVED;
+      insert audit entry; publish OnboardingApproved + OnboardingStatusChanged
+    bian_operation: "Qualification/Retrieve → positive outcome"
+
+  - from: UNDER_VALIDATION
+    to: REVIEW_REQUIRED
+    trigger: "Any validation check failed or provider unavailable (BR-004)"
+    guard: >
+      identity_verification_status = FAILED OR aml_screening_status = MATCH
+      OR ID_VERIFICATION_PROVIDER circuit open (fallback per integration-model)
+    action: >
+      Insert KYCResult with overall_status=REVIEW_REQUIRED;
+      insert audit entry; publish OnboardingStatusChanged (to_status=REVIEW_REQUIRED)
+    bian_operation: "Control — escalate to manual review"
+
+  - from: REVIEW_REQUIRED
+    to: APPROVED
+    trigger: "KYC analyst submits ReviewDecision with decision=APPROVED (UC-004)"
+    guard: "ReviewDecision.decision = APPROVED AND actor has kyc.onboarding.review.write scope"
+    action: >
+      Set approved_at; patch CustomerProfileAPI estadoKYC=APPROVED;
+      insert ReviewDecision; insert audit entry;
+      publish OnboardingApproved + OnboardingStatusChanged
+    bian_operation: "Control — analyst approves"
+
+  - from: REVIEW_REQUIRED
+    to: REJECTED
+    trigger: "KYC analyst submits ReviewDecision with decision=REJECTED (UC-004)"
+    guard: "ReviewDecision.decision = REJECTED AND actor has kyc.onboarding.review.write scope"
+    action: >
+      Insert ReviewDecision; insert audit entry;
+      publish OnboardingRejected + OnboardingStatusChanged
+    bian_operation: "Control — analyst rejects"
+
+triggers:
+  - name: "SubmitDocument command (HTTP POST /onboarding-cases/{id}/documents)"
+  - name: "TriggerKYCValidation command (internal — triggered by SubmitDocument completion)"
+  - name: "SubmitReviewDecision command (HTTP PATCH /onboarding-cases/{id}/review-decision)"
+  - name: "Downstream validation result callback / polling completion"
+
+guards:
+  - name: "BR-001: mandatory fields present before INITIATED → DOCS_SUBMITTED"
+  - name: "BR-002: document expiry > today before DOCS_SUBMITTED transition"
+  - name: "BR-003: AML validation mandatory — blocks if KYCScreeningAPI unavailable"
+  - name: "BR-005: APPROVED state required for product access (exposed via GET)"
+
+timeouts:
+  - state: UNDER_VALIDATION
+    timeout_duration: 30s
+    action: >
+      If validation calls have not completed in 30s: mark result as PENDING;
+      auto-transition to REVIEW_REQUIRED with reason=TIMEOUT; emit OnboardingStatusChanged
+
+retries:
+  - target: AML_SERVICE
+    max_attempts: 2
+    backoff: fixed_500ms
+    on_exhaustion: "Transition to REVIEW_REQUIRED (BR-004)"
+  - target: ID_VERIFICATION_PROVIDER
+    max_attempts: 2
+    backoff: fixed_500ms
+    on_exhaustion: "Transition to REVIEW_REQUIRED (BR-004)"
+
+failure_states: [REJECTED]
+compensation_states: []
+
+emitted_events:
+  - "OnboardingCaseInitiated (on entry to INITIATED)"
+  - "OnboardingStatusChanged (on every transition)"
+  - "OnboardingApproved (on entry to APPROVED)"
+  - "OnboardingRejected (on entry to REJECTED)"

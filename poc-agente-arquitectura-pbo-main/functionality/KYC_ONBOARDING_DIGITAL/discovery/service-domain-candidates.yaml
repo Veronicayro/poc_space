@@ -1,0 +1,30 @@
+bian_release: "14.0.0"
+candidates:
+  - service_domain: PartyLifecycleManagement
+    rationale: >
+      Tracks the state of a party relationship from initial establishment checks
+      (KYC/AML) through lifecycle maintenance. Sub-behaviors (Documentation,
+      Qualification, IdentityProofing, Control) directly map to UC-001 through UC-004.
+    fit: HIGH
+    oas3_file: architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml
+
+  - service_domain: CustomerOffer
+    rationale: >
+      Orchestrates product offer processing including document checks, regulatory checks,
+      eligibility. Partially relevant as framing for the onboarding trigger for account opening.
+    fit: MEDIUM
+    oas3_file: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml
+
+  - service_domain: PartyReferenceDataDirectory
+    rationale: >
+      Maintains party reference information (demographics, contacts). Relevant for
+      storing the customer master data created in UC-001.
+    fit: MEDIUM
+    oas3_file: architecture/cache/bian/release14.0.0/oas3/yamls/PartyReferenceDataDirectory.yaml
+
+  - service_domain: CustomerAgreement
+    rationale: >
+      Maintains master customer agreement/legal contract. Relevant post-KYC approval
+      for establishing the banking relationship.
+    fit: LOW
+    oas3_file: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerAgreement.yaml

@@ -1,0 +1,19 @@
+globalConventions:
+  naming:
+    apiProductNamePattern: "<Capability> <API Product> API"
+    basePathPattern: "/api/<api-product-slug>/v{major}"
+    versioning: "URI versioning v{major} + semver para cambios menores en contract (x-contract-version)."
+  idempotency:
+    header: "Idempotency-Key"
+    appliesTo: ["POST", "PUT", "PATCH"]
+  pagination:
+    style: "cursor"
+    parameters: ["cursor", "limit"]
+    defaultLimit: 50
+    maxLimit: 200
+  correlation:
+    requestIdHeader: "X-Request-Id"
+    traceIdHeader: "traceparent"
+  errorModel:
+    mediaType: "application/problem+json"
+    fields: ["type", "title", "status", "detail", "instance", "correlationId", "errors"]

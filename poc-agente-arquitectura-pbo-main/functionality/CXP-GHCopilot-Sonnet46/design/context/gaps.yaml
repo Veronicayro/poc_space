@@ -1,0 +1,25 @@
+schema_version: "1.0"
+functionality_id: CXP-GHCopilot-Sonnet46
+generated_at: "2026-06-17"
+
+blocking_gaps: []
+
+non_blocking_gaps:
+  - id: GAP-001
+    area: external_integration
+    description: Contratos exactos de la API REST del ERP no están documentados. Se asume interfaz estándar REST con operaciones CRUD sobre proveedor y libro contable.
+    resolution: Confirmar con equipo ERP durante fase de integración.
+
+  - id: GAP-002
+    area: external_integration
+    description: Esquema de webhook del sistema bancario no documentado. Se diseña adaptador con estructura genérica que puede ajustarse.
+    resolution: Confirmar con proveedor bancario durante implementación.
+
+  - id: GAP-003
+    area: security
+    description: Servidor OAuth2/OIDC corporativo asumido existente; no hay URL ni client_id provistos.
+    resolution: Coordinar con equipo de identidad para configuración.
+
+workspace_readiness_status: ready
+notes:
+  - Todos los gaps son no bloqueantes; el diseño puede proceder con los supuestos declarados.

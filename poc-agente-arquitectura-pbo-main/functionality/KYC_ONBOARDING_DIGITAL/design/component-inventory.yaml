@@ -1,0 +1,222 @@
+functionality_id: KYC_ONBOARDING_DIGITAL
+generated_at: "2026-06-22"
+maturity: draft
+validation: pending
+
+components:
+
+  # ─── NEW components (to be designed) ────────────────────────────────────────
+
+  - component_name: kyc-onboarding-api
+    component_type: api
+    layer: business
+    decision: create
+    maturity: draft
+    validation: pending
+    purpose: >
+      Business API orchestrator for the digital KYC onboarding lifecycle.
+      Owns the OnboardingCase state machine, coordinates downstream catalog APIs and
+      external providers, enforces KYC/AML business rules, and publishes domain events.
+    owner_scope: "Customer Platform / KYC Squad"
+    technology: Java
+    bian:
+      aligned: true
+      release: "14.0.0"
+      selected_service_domain: PartyLifecycleManagement
+      alignment_type: adapted
+      adoption_file: "functionality/KYC_ONBOARDING_DIGITAL/design/business/kyc-onboarding-api/contract/bian-adoption.yaml"
+    responsibilities:
+      - "Initiate and manage OnboardingCase lifecycle (INITIATED → ... → APPROVED/REJECTED)"
+      - "Orchestrate customer registration via CustomerProfileAPI (UC-001)"
+      - "Orchestrate document upload via CustomerIdentityAPI (UC-002)"
+      - "Orchestrate KYC validation: CustomerIdentityAPI + KYCScreeningAPI + AML_SERVICE + ID_VERIFICATION_PROVIDER (UC-003)"
+      - "Manage analyst manual review queue and decision recording (UC-004)"
+      - "Publish OnboardingStatusChanged events to NOTIFICATION_SERVICE (UC-005)"
+      - "Enforce business rules BR-001 through BR-007"
+      - "Maintain audit log of each validation step (BR-006)"
+    non_responsibilities:
+      - "Customer profile master data management (CustomerProfileAPI owns this)"
+      - "Identity document binary storage (CustomerIdentityAPI owns this)"
+      - "AML screening logic execution (KYCScreeningAPI + AML_SERVICE own this)"
+      - "Credit scoring or product eligibility (out of scope)"
+      - "Sending notifications directly (NOTIFICATION_SERVICE owns delivery)"
+    dependencies:
+      synchronous:
+        - name: CustomerProfileAPI
+          version: "1.2.0"
+          type: internal_catalog_api
+          calls: ["POST /customers", "PATCH /customers/{customerId}"]
+        - name: CustomerIdentityAPI
+          version: "1.1.0"
+          type: internal_catalog_api
+          calls:
+            - "POST /customers/{customerId}/identities"
+            - "POST /customers/{customerId}/identities/{identityId}/verify"
+        - name: KYCScreeningAPI
+          version: "3.0.0"
+          type: internal_catalog_api
+          calls: ["POST /screenings", "GET /screenings/{screeningId}"]
+        - name: AML_SERVICE
+          type: external
+          adapter: "integration/aml-service-adapter"
+          criticality: HIGH
+        - name: ID_VERIFICATION_PROVIDER
+          type: external
+          adapter: "integration/id-verification-adapter"
+          criticality: HIGH
+      asynchronous:
+        publishes:
+          - event: OnboardingStatusChanged
+            target: NOTIFICATION_SERVICE
+            criticality: MEDIUM
+          - event: OnboardingApproved
+            target: NOTIFICATION_SERVICE
+          - event: OnboardingRejected
+            target: NOTIFICATION_SERVICE
+        consumes: []
+    consumers:
+      - id: CUSTOMER
+        channel: [Web, Mobile]
+        auth_scope: "kyc.onboarding.initiate kyc.onboarding.documents.write kyc.onboarding.read"
+      - id: KYC_ANALYST
+        channel: [Backoffice]
+        auth_scope: "kyc.onboarding.read kyc.onboarding.review.write"
+    state_owner_if_any: OnboardingCase
+    data_ownership:
+      owns_persistent_data: true
+      persistence_model: "Relational (PostgreSQL-compatible). Tables: onboarding_cases, kyc_results, audit_entries."
+    cache_usage:
+      uses_cache: false
+      cache_model: null
+    events:
+      publishes:
+        - OnboardingCaseInitiated
+        - OnboardingStatusChanged
+        - OnboardingApproved
+        - OnboardingRejected
+      consumes: []
+    nfrs:
+      security:
+        authn: OAuth2/OIDC
+        authz: RBAC
+        pii_encryption: at-rest
+        transport: TLS 1.2+
+      performance:
+        p95_latency_ms: 2000
+        throughput_rps: 500
+      observability:
+        logging: structured JSON
+        tracing: distributed (W3C Trace Context)
+        metrics: [request_count, latency_p95, error_rate_5xx, onboarding_case_count, approval_rate]
+      compliance: [ISO27001, GDPR]
+    status: draft
+
+  # ─── REUSED components (existing — downstream dependencies) ────────────────
+
+  - component_name: CustomerProfileAPI
+    component_type: api
+    layer: domain
+    decision: reuse
+    maturity: complete
+    validation: n/a
+    purpose: "Customer master data management (profile, demographics, address)"
+    owner_scope: "Customer Platform Squad"
+    catalog_ref: "catalog/domains/customers.yaml"
+    version: "1.2.0"
+    status: Published
+    relationship: downstream_dependency
+    consumed_by: [kyc-onboarding-api]
+    responsibilities:
+      - "Create and manage customer profile records"
+    data_ownership:
+      owns_persistent_data: true
+      persistence_model: "Managed by Customer Platform Squad"
+    bian:
+      aligned: true
+      release: "14.0.0"
+      selected_service_domain: PartyReferenceDataDirectory
+      alignment_type: partial
+    status: draft
+
+  - component_name: CustomerIdentityAPI
+    component_type: api
+    layer: domain
+    decision: reuse
+    maturity: complete
+    validation: n/a
+    purpose: "Identity document management and identity verification initiation"
+    owner_scope: "Identity & Access Squad"
+    catalog_ref: "catalog/domains/customers.yaml"
+    version: "1.1.0"
+    status: Published
+    relationship: downstream_dependency
+    consumed_by: [kyc-onboarding-api]
+    responsibilities:
+      - "Register identity documents for a customer"
+      - "Initiate identity verification (delegates to external provider)"
+    data_ownership:
+      owns_persistent_data: true
+      persistence_model: "Managed by Identity & Access Squad"
+    bian:
+      aligned: true
+      release: "14.0.0"
+      selected_service_domain: PartyLifecycleManagement
+      alignment_type: partial
+    status: draft
+
+  - component_name: KYCScreeningAPI
+    component_type: api
+    layer: domain
+    decision: reuse
+    maturity: complete
+    validation: n/a
+    purpose: "AML/PEP/Sanctions screening for customers"
+    owner_scope: "Financial Crime (FCC) Squad"
+    catalog_ref: "catalog/domains/compliance.yaml"
+    version: "3.0.0"
+    status: Published
+    relationship: downstream_dependency
+    consumed_by: [kyc-onboarding-api]
+    responsibilities:
+      - "Execute AML/PEP screening and return screening result"
+    data_ownership:
+      owns_persistent_data: true
+      persistence_model: "Managed by FCC Squad"
+    status: draft
+
+  - component_name: AML_SERVICE
+    component_type: external-system
+    layer: external
+    decision: reuse
+    purpose: "External AML regulatory screening service"
+    relationship: external_integration
+    integration: REST sync
+    criticality: HIGH
+    adapter_required: true
+    consumed_by: [kyc-onboarding-api]
+    status: draft
+
+  - component_name: ID_VERIFICATION_PROVIDER
+    component_type: external-system
+    layer: external
+    decision: reuse
+    purpose: "External identity document verification provider"
+    relationship: external_integration
+    integration: REST sync
+    criticality: HIGH
+    adapter_required: true
+    consumed_by: [kyc-onboarding-api]
+    status: draft
+
+  - component_name: NOTIFICATION_SERVICE
+    component_type: external-system
+    layer: external
+    decision: reuse
+    purpose: "Customer notification delivery service"
+    relationship: event_consumer
+    integration: async events
+    criticality: MEDIUM
+    consumed_by: []
+    event_consumer_of: [OnboardingStatusChanged, OnboardingApproved, OnboardingRejected]
+    event_contract_required: true
+    status: draft

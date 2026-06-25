@@ -1,0 +1,159 @@
+# bian-service-domain-evaluation.yaml — LON (Sistema de Originación de Créditos)
+# Phase 1 output: bian-service-domain-evaluator skill
+functionality_id: LON
+bian_release: "14.0.0"
+evaluation_date: "2026-06-17"
+overall_gate: PASS
+
+evaluations:
+  - service_domain: CustomerOffer
+    oas3_baseline: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml
+    primary_control_record: CustomerOfferProcedure
+    baseline_verified: true
+    mapped_capabilities: [CAP-LON-001, CAP-LON-005]
+    mapped_apis: [credit-request-api, credit-workflow-api]
+    alignment_type: adapted
+    fit_score: 0.92
+    selected_operations:
+      - operationId: initiateCustomerOfferProcedure
+        bian_verb: Initiate
+        lob_mapping: "POST /v1/credit-requests → iniciar solicitud de crédito"
+        adaptation: "Adaptado para flujo interno back-office; campos extendidos con credit_type, purpose, term_months"
+      - operationId: updateCustomerOfferProcedure
+        bian_verb: Update
+        lob_mapping: "PUT /v1/credit-requests/{id} → actualizar datos de solicitud"
+        adaptation: "Incluye actualización de estado y datos adicionales del expediente"
+      - operationId: retrieveCustomerOfferProcedure
+        bian_verb: Retrieve
+        lob_mapping: "GET /v1/credit-requests/{id} → consultar solicitud"
+        adaptation: "Incluye historial de estados del workflow"
+      - operationId: exchangeCustomerOfferProcedure
+        bian_verb: Exchange
+        lob_mapping: "POST /v1/credit-requests/{id}/submit → enviar a evaluación"
+        adaptation: "Dispara la consulta al bureau y la transición a SUBMITTED"
+    omitted_operations:
+      - operationId: executeCustomerOfferProcedure
+        reason: "Execution en contexto LON es manejada por el workflow state machine, no como operación aislada del CR"
+    key_schema_elements:
+      - CustomerOfferProcedure (Control Record base)
+      - CustomerOfferDocumentDirectory (gestión documental)
+      - CustomerOfferDecision (decisión crediticia)
+    gaps:
+      - "CustomerOffer CR no define explícitamente el escalado a PENDING_COMMITTEE"
+      - "State machine de 12 estados es extensión LON del ciclo de vida del CR"
+    adaptation_rationale: >
+      CustomerOffer fue diseñado para orquestar ofertas de producto hacia clientes,
+      incluyendo canales de auto-servicio. En LON se adapta para el flujo interno
+      back-office con actores diferenciados (Oficial, Analista, Gerente, Comité).
+      Se extiende el CR con campos específicos de crédito (credit_type, DTI, etc.)
+      y se añade la lógica de escalado multinivel que no existe en el SD estándar.
+
+  - service_domain: Underwriting
+    oas3_baseline: architecture/cache/bian/release14.0.0/oas3/yamls/Underwriting.yaml
+    primary_control_record: UnderwritingAssessment
+    baseline_verified: true
+    mapped_capabilities: [CAP-LON-003]
+    mapped_apis: [risk-assessment-api]
+    alignment_type: adapted
+    fit_score: 0.90
+    selected_operations:
+      - operationId: initiateUnderwritingAssessment
+        bian_verb: Initiate
+        lob_mapping: "POST /v1/credit-requests/{id}/risk-assessments → iniciar evaluación de riesgo"
+        adaptation: "Incluye campos DTI ratio y umbrales de score como extensiones"
+      - operationId: updateUnderwritingAssessment
+        bian_verb: Update
+        lob_mapping: "PUT /v1/risk-assessments/{id} → registrar score y nivel de riesgo"
+        adaptation: "Incluye recommendation (APPROVE/REJECT/ESCALATE) y bureau_report_ref"
+      - operationId: retrieveUnderwritingAssessment
+        bian_verb: Retrieve
+        lob_mapping: "GET /v1/risk-assessments/{id} → consultar evaluación"
+        adaptation: "Ninguna"
+    omitted_operations: []
+    key_schema_elements:
+      - UnderwritingAssessment (Control Record base)
+      - CreditRiskClassification (risk_level enum)
+    gaps:
+      - "BIAN Underwriting no define explícitamente el cálculo de DTI ratio"
+      - "La lógica de selección entre gerente y comité es extensión LON"
+    adaptation_rationale: >
+      Underwriting cubre la decisión de riesgo para préstamos. Se adapta añadiendo
+      el cálculo automático de DTI ratio, los umbrales de score configurables y
+      la determinación del nivel de aprobación requerido (gerente vs comité).
+
+  - service_domain: CustomerCreditRating
+    oas3_baseline: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerCreditRating.yaml
+    primary_control_record: CustomerCreditRatingState
+    baseline_verified: true
+    mapped_capabilities: [CAP-LON-004]
+    mapped_apis: [risk-assessment-api]
+    alignment_type: adapted
+    fit_score: 0.88
+    selected_operations:
+      - operationId: retrieveCustomerCreditRatingState
+        bian_verb: Retrieve
+        lob_mapping: "GET /v1/customers/{id}/credit-rating → consultar rating con caché"
+        adaptation: "Integra política de caché Redis TTL 24h antes de consultar al bureau externo"
+      - operationId: exchangeCustomerCreditRatingState
+        bian_verb: Exchange
+        lob_mapping: "POST /v1/customers/{id}/credit-rating/refresh → forzar consulta al bureau"
+        adaptation: "Permite invalidación manual del caché e incluye registro de consentimiento"
+    omitted_operations:
+      - operationId: initiateCustomerCreditRatingState
+        reason: "El rating se inicia automáticamente al enviar la solicitud; no es una operación explícita separada en LON"
+    key_schema_elements:
+      - CustomerCreditRatingState (Control Record)
+      - CreditAssessmentRecord (reporte bureau)
+    gaps:
+      - "BIAN CustomerCreditRating no define política de caché Redis con TTL"
+      - "Registro de consentimiento bureau es extensión de compliance LON"
+    adaptation_rationale: >
+      CustomerCreditRating administra la evaluación crediticia con referencia a
+      agencias externas. En LON se añade la capa de caché Redis (TTL 24h) para
+      optimizar costos de consulta al bureau, y el registro de consentimiento
+      del cliente requerido por regulación local/GDPR.
+
+  - service_domain: Disbursement
+    oas3_baseline: architecture/cache/bian/release14.0.0/oas3/yamls/Disbursement.yaml
+    primary_control_record: DisbursementTransaction
+    baseline_verified: true
+    mapped_capabilities: [CAP-LON-007]
+    mapped_apis: [disbursement-api]
+    alignment_type: direct
+    fit_score: 0.95
+    selected_operations:
+      - operationId: initiateDisbursementTransaction
+        bian_verb: Initiate
+        lob_mapping: "POST /v1/credit-requests/{id}/disbursements → iniciar desembolso"
+        adaptation: "Incluye idempotency_key para prevenir doble desembolso (NFR-Reliability)"
+      - operationId: executeDisbursementTransaction
+        bian_verb: Execute
+        lob_mapping: "POST /v1/disbursements/{id}/execute → ejecutar en core bancario"
+        adaptation: "Integra instrucción al core bancario y espera confirmación de core_reference"
+      - operationId: retrieveDisbursementTransaction
+        bian_verb: Retrieve
+        lob_mapping: "GET /v1/disbursements/{id} → consultar estado del desembolso"
+        adaptation: "Ninguna"
+    omitted_operations:
+      - operationId: updateDisbursementTransaction
+        reason: "Una vez iniciado el desembolso, las actualizaciones son confirmaciones del core; no hay update directo del actor LON"
+    key_schema_elements:
+      - DisbursementTransaction (Control Record)
+      - DisbursementTransactionStatus (PENDING, EXECUTED, FAILED)
+    gaps: []
+    adaptation_rationale: >
+      Disbursement BIAN cubre directamente el desembolso de fondos a facilidades
+      de crédito. La alineación es directa. La única adaptación es la adición de
+      idempotency_key requerida por los NFR de confiabilidad de LON.
+
+summary:
+  total_service_domains_evaluated: 7
+  selected: 4
+  rejected: 3
+  pass_gate: true
+  blocking_issues: []
+  note: >
+    Todos los baselines BIAN seleccionados están verificados en caché local.
+    No se detectaron problemas de acceso a los archivos baseline.
+    Las adaptaciones identificadas son extensiones de dominio documentadas
+    y no constituyen desviaciones del marco BIAN Release 14.

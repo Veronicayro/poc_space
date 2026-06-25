@@ -1,0 +1,24 @@
+schema_id: semantic-dictionary
+artifact_path: design/semantic-dictionary.yaml
+required_fields:
+  - entities
+  - fields
+  - identifiers
+  - statuses
+  - lifecycle_states
+  - event_names
+  - command_names
+  - query_names
+  - response_objects
+concept_fields:
+  canonical_name: string
+  definition: string
+  aliases: array
+  originating_source: array
+  bian_alignment:
+    service_domain: string_or_null
+    schema_reference: string_or_null
+    alignment_type:
+      enum: [direct, adapted, partial, unresolved, n/a]
+  usage_scope: array
+  language: English

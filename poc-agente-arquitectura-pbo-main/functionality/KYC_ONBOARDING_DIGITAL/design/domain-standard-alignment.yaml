@@ -1,0 +1,113 @@
+functionality_id: KYC_ONBOARDING_DIGITAL
+provider: BIAN
+provider_version: "14.0.0"
+source_index_path: "functionality/KYC_ONBOARDING_DIGITAL/design/bian/bian-release14-source-index.yaml"
+domain_standard:
+  selected: true
+  name: BIAN
+  release: "14.0.0"
+
+alignments:
+  - capability_id: CAP-004
+    capability_name: "Onboarding Lifecycle Management"
+    selected_domain_or_service_domain: PartyLifecycleManagement
+    source_file_or_reference: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+    selected_operations_or_capabilities:
+      - bian_operation: Initiate
+        maps_to: "UC-001 — Initiate onboarding case for a new party"
+        path: "/PartyLifecycleManagement/Initiate"
+      - bian_operation: Control
+        maps_to: "UC-004 — Manual review decision by KYC analyst (control/override)"
+        path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Control"
+      - bian_operation: Exchange
+        maps_to: "UC-005 — Status exchange / notification trigger (adapted to async event)"
+        path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Exchange"
+      - bian_operation: Retrieve
+        maps_to: "GET onboarding case status"
+        path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Retrieve"
+      - bian_sub_behavior: Documentation/Execute
+        maps_to: "UC-002 — Execute document upload and storage"
+        path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Execute"
+      - bian_sub_behavior: Documentation/Retrieve
+        maps_to: "Retrieve document status"
+        path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Retrieve"
+      - bian_sub_behavior: Qualification/Retrieve
+        maps_to: "UC-003 — Retrieve KYC qualification check result"
+        path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/Qualification/{qualificationid}/Retrieve"
+      - bian_sub_behavior: IdentityProofing/Retrieve
+        maps_to: "UC-003 — Retrieve identity proofing result"
+        path: "/PartyLifecycleManagement/{partylifecyclemanagementid}/IdentityProofing/{identityproofingid}/Retrieve"
+    alignment_type: adapted
+    confidence: 0.92
+    rationale: >
+      PartyLifecycleManagement is the primary BIAN SD. Its Initiate, Control, Exchange,
+      Documentation and Qualification/IdentityProofing behaviors map directly to all
+      5 use cases. Adaptation: AP-specific onboarding state enum, condensed path structure
+      (single /onboarding-cases resource instead of full BIAN path verbosity), and
+      async event adapter for UC-005 notification.
+    rejected_candidates:
+      - candidate: CustomerOffer
+        reason: "Product-lifecycle scope; lacks AML, identity proofing, manual review semantics"
+      - candidate: PartyReferenceDataDirectory
+        reason: "Reference data store, not an orchestration SD"
+    gaps:
+      - id: GAP-BIAN-001
+        description: >
+          Async notification trigger (UC-005) not natively modeled in BIAN baseline.
+          Exchange behavior is synchronous. AP-specific AsyncAPI event adapter required.
+        blocking: false
+
+  - capability_id: CAP-001
+    capability_name: "Party Digital Registration"
+    selected_domain_or_service_domain: PartyLifecycleManagement
+    source_file_or_reference: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+    selected_operations_or_capabilities:
+      - bian_operation: Initiate
+        maps_to: "UC-001 — Initiate party lifecycle (customer registration data)"
+      - bian_sub_behavior: Documentation/Execute
+        maps_to: "UC-002 — Document upload sub-behavior"
+    alignment_type: adapted
+    confidence: 0.88
+    rationale: >
+      Party registration and document upload are sub-behaviors of the PartyLifecycleManagement
+      Initiate and Documentation behaviors. Adaptation: field-level mapping to Customer and
+      Document AP entities; PII encryption is an implementation concern, not a BIAN behavior.
+    rejected_candidates: []
+    gaps: []
+
+  - capability_id: CAP-002
+    capability_name: "KYC Validation & AML Compliance"
+    selected_domain_or_service_domain: PartyLifecycleManagement
+    source_file_or_reference: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+    selected_operations_or_capabilities:
+      - bian_sub_behavior: Qualification/Retrieve
+        maps_to: "UC-003 — KYC qualification result"
+      - bian_sub_behavior: IdentityProofing/Retrieve
+        maps_to: "UC-003 — Identity proofing result"
+      - bian_operation: Execute
+        maps_to: "Trigger validation execution (AML_SERVICE + ID_VERIFICATION_PROVIDER calls)"
+    alignment_type: adapted
+    confidence: 0.85
+    rationale: >
+      Qualification and IdentityProofing sub-behaviors directly correspond to KYC auto-validation.
+      AML_SERVICE and ID_VERIFICATION_PROVIDER are implementation-level integrations; BIAN does
+      not prescribe specific external providers.
+    rejected_candidates: []
+    gaps: []
+
+  - capability_id: CAP-003
+    capability_name: "Case Review & Decision"
+    selected_domain_or_service_domain: PartyLifecycleManagement
+    source_file_or_reference: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+    selected_operations_or_capabilities:
+      - bian_operation: Control
+        maps_to: "UC-004 — Manual review: analyst submits APPROVED/REJECTED decision"
+    alignment_type: adapted
+    confidence: 0.80
+    rationale: >
+      BIAN Control behavior supports override/management actions on the party lifecycle.
+      Adapted to represent analyst review decisions with custom decision payload.
+    rejected_candidates: []
+    gaps: []
+
+blocking_issues: []

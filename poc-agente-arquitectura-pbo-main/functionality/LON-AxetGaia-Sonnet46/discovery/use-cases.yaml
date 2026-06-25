@@ -1,0 +1,191 @@
+# use-cases.yaml — Derived from input.yaml (LON)
+# Source: functionality/LON-AxetGaia-Sonnet46/input.yaml – User Stories section
+functionality_id: LON
+
+use_cases:
+  - id: UC-LON-001
+    title: Registrar solicitud de crédito
+    story_ref: HU-LON-001
+    actor: CREDIT_OFFICER
+    description: >
+      Registrar una nueva solicitud de crédito de un cliente en el sistema,
+      capturando tipo, monto, plazo y propósito, validando KYC y previniendo
+      duplicados activos.
+    preconditions:
+      - Cliente debe existir en el core bancario (KYC validado)
+      - No debe existir solicitud activa del mismo cliente y tipo de crédito
+    steps:
+      - Oficial captura datos del cliente y del crédito solicitado
+      - Sistema valida existencia del cliente en Core Bancario (KYC)
+      - Sistema verifica ausencia de solicitudes duplicadas activas
+      - Sistema crea solicitud con estado DRAFT
+      - Oficial adjunta documentos requeridos según tipo de crédito
+    outcomes:
+      - Solicitud creada con estado DRAFT
+      - Documentos adjuntados al expediente
+    business_rules:
+      - BR-LON-001
+      - BR-LON-002
+      - BR-LON-003
+
+  - id: UC-LON-002
+    title: Enviar solicitud para evaluación
+    story_ref: HU-LON-002
+    actor: CREDIT_OFFICER
+    description: >
+      Enviar la solicitud completa al flujo de evaluación crediticia,
+      disparando la consulta automática al bureau y notificando al analista.
+    preconditions:
+      - Solicitud debe estar en estado DRAFT
+      - Todos los documentos obligatorios deben haber sido adjuntados
+    steps:
+      - Oficial solicita envío de la solicitud
+      - Sistema valida completitud documental
+      - Sistema cambia estado a SUBMITTED
+      - Sistema dispara consulta automática al bureau de crédito
+      - Sistema notifica al Analista de Riesgo asignado
+    outcomes:
+      - Solicitud en estado SUBMITTED
+      - Consulta al bureau disparada
+      - Analista notificado
+    business_rules:
+      - BR-LON-004
+      - BR-LON-005
+
+  - id: UC-LON-003
+    title: Evaluar riesgo crediticio
+    story_ref: HU-LON-003
+    actor: RISK_ANALYST
+    description: >
+      Realizar la evaluación de riesgo del solicitante basada en el reporte
+      del bureau y políticas internas. Registrar score, nivel de riesgo y
+      recomendación.
+    preconditions:
+      - Solicitud debe estar en estado SUBMITTED o UNDER_REVIEW
+      - Reporte del bureau debe estar disponible (caché o consulta directa)
+    steps:
+      - Analista visualiza solicitud y reporte del bureau
+      - Analista registra score obtenido, nivel de riesgo y recomendación
+      - Sistema calcula DTI ratio
+      - Sistema evalúa si score es inferior al mínimo configurable
+      - Sistema cambia estado a RISK_ASSESSED
+      - Si score inferior al mínimo, sistema sugiere rechazo automático
+    outcomes:
+      - Evaluación de riesgo registrada
+      - Solicitud en estado RISK_ASSESSED
+      - Nivel de aprobación requerido determinado (gerente vs comité)
+    business_rules:
+      - BR-LON-006
+      - BR-LON-007
+      - BR-LON-008
+
+  - id: UC-LON-004
+    title: Aprobar solicitud de crédito
+    story_ref: HU-LON-004
+    actor: CREDIT_MANAGER
+    description: >
+      Aprobar una solicitud dentro del nivel de atribución del gerente.
+      Si el monto supera el límite, escalar automáticamente al comité.
+    preconditions:
+      - Solicitud en estado RISK_ASSESSED o PENDING_APPROVAL
+      - Monto no debe superar límite de atribución del gerente
+    steps:
+      - Gerente revisa solicitud y evaluación de riesgo
+      - Sistema verifica monto vs límite de atribución
+      - Gerente aprueba con condiciones opcionales
+      - Sistema registra usuario, timestamp y condiciones
+      - Sistema cambia estado a APPROVED
+    outcomes:
+      - Solicitud en estado APPROVED
+      - Decisión registrada con trazabilidad completa
+    business_rules:
+      - BR-LON-009
+      - BR-LON-010
+
+  - id: UC-LON-005
+    title: Rechazar solicitud de crédito
+    story_ref: HU-LON-005
+    actor: CREDIT_MANAGER
+    secondary_actor: CREDIT_COMMITTEE
+    description: >
+      Rechazar una solicitud que no cumple los criterios crediticios,
+      registrando motivo obligatorio y notificando al Oficial.
+    preconditions:
+      - Solicitud en estado PENDING_APPROVAL o PENDING_COMMITTEE
+    steps:
+      - Actor registra motivo de rechazo (obligatorio)
+      - Sistema registra usuario, timestamp y motivo
+      - Sistema cambia estado a REJECTED
+      - Sistema notifica al Oficial de Crédito
+    outcomes:
+      - Solicitud en estado REJECTED
+      - Motivo registrado; Oficial notificado
+    business_rules:
+      - BR-LON-011
+
+  - id: UC-LON-006
+    title: Escalar solicitud al Comité de Créditos
+    story_ref: HU-LON-006
+    actor: CREDIT_MANAGER
+    description: >
+      Escalar solicitudes de alto monto o riesgo elevado al comité
+      para decisión colegiada, registrando justificación de escalamiento.
+    preconditions:
+      - Solicitud en estado PENDING_APPROVAL
+      - Monto supera límite de atribución del gerente O riesgo es ALTO/CRÍTICO
+    steps:
+      - Gerente registra justificación de escalamiento
+      - Sistema cambia estado a PENDING_COMMITTEE
+      - Sistema notifica al Comité con expediente completo
+    outcomes:
+      - Solicitud en estado PENDING_COMMITTEE
+      - Comité notificado con expediente
+    business_rules:
+      - BR-LON-009
+      - BR-LON-012
+
+  - id: UC-LON-007
+    title: Ejecutar desembolso
+    story_ref: HU-LON-007
+    actor: DISBURSEMENT_OFFICER
+    description: >
+      Ejecutar el desembolso del crédito aprobado hacia la cuenta del cliente,
+      confirmando cuenta destino y generando tabla de amortización en el core.
+    preconditions:
+      - Solicitud debe estar en estado APPROVED
+    steps:
+      - Oficial de Desembolso confirma cuenta destino
+      - Sistema envía instrucción de desembolso al core bancario
+      - Core bancario ejecuta el desembolso
+      - Sistema recibe confirmación del core
+      - Sistema cambia estado a DISBURSED
+      - Sistema registra fecha y referencia del desembolso
+      - Core genera tabla de amortización
+    outcomes:
+      - Solicitud en estado DISBURSED
+      - Referencia de desembolso registrada
+      - Tabla de amortización generada en core
+    business_rules:
+      - BR-LON-013
+      - BR-LON-014
+
+  - id: UC-LON-008
+    title: Consultar estado de solicitud
+    story_ref: HU-LON-008
+    actor: CREDIT_OFFICER
+    secondary_actors: [CREDIT_MANAGER, RISK_ANALYST]
+    description: >
+      Consultar el estado actual e historial de una solicitud, con
+      filtros por estado, fecha, tipo de crédito y cliente.
+    preconditions:
+      - Usuario autenticado con rol válido
+    steps:
+      - Usuario aplica filtros (estado, fecha, tipo, cliente)
+      - Sistema retorna solicitudes según permisos del rol
+      - Usuario selecciona solicitud para ver detalle
+      - Sistema muestra estado actual, historial de transiciones, actor y timestamp
+    outcomes:
+      - Vista de solicitudes filtradas por rol
+      - Historial de transiciones visible con trazabilidad completa
+    business_rules:
+      - BR-LON-015

@@ -1,0 +1,135 @@
+functionality_id: KYC_ONBOARDING_DIGITAL
+generated_at: "2026-06-22"
+scope: "kyc-onboarding-api (Business layer) — cross-cutting NFRs"
+
+security:
+  identity_model:
+    authn: "OAuth2/OIDC"
+    authn_notes: >
+      CUSTOMER actors: authorization_code flow (interactive, Web/Mobile).
+      SYSTEM/M2M and KYC_ANALYST Backoffice: client_credentials flow.
+      Token issuer: enterprise IAM (configured via OIDC discovery endpoint).
+    authz: "RBAC enforced at API gateway and re-validated inside service"
+    scopes:
+      - "kyc.onboarding.initiate — granted to CUSTOMER; required for POST /onboarding-cases"
+      - "kyc.onboarding.documents.write — granted to CUSTOMER; required for POST .../documents"
+      - "kyc.onboarding.read — granted to CUSTOMER (own case) and KYC_ANALYST (all cases)"
+      - "kyc.onboarding.review.write — granted to KYC_ANALYST; required for PATCH .../review-decision"
+      - "kyc.onboarding.validate — granted to SYSTEM; internal validation trigger"
+    trust_boundaries:
+      - "Internet → API Gateway (terminates TLS, validates JWT, enforces scopes)"
+      - "API Gateway → kyc-onboarding-api (internal mTLS or signed JWT forwarding)"
+      - "kyc-onboarding-api → downstream catalog APIs (OAuth2 client_credentials, internal network)"
+      - "kyc-onboarding-api → AML_SERVICE / ID_VERIFICATION_PROVIDER (API Key / OAuth2, external TLS)"
+  secret_handling:
+    mechanism: "Secrets manager (e.g., HashiCorp Vault or cloud KMS)"
+    rules:
+      - "No secrets in source code or configuration files"
+      - "Secrets injected at runtime via environment variables from secrets manager"
+      - "Rotation: downstream API keys rotated every 90 days; OAuth client secrets every 180 days"
+  sensitive_data:
+    pii_fields: [customer_name_enc, document_number_enc]
+    encryption_at_rest: "AES-256 per-column encryption; encryption key managed in KMS"
+    encryption_in_transit: "TLS 1.2+ mandatory on all channels"
+    pii_redaction_in_logs: "customer_name, document_number fields MUST NOT appear in logs"
+    gdpr_erasure: "Pseudonymization: PII columns set to NULL/hash on erasure; audit entries retained"
+  api_security:
+    idempotency: "Idempotency-Key header required on all POST/PATCH operations"
+    input_validation: "Strict JSON schema validation; reject payloads with unknown fields (400)"
+    rate_limiting: "Per-token rate limiting at API gateway; suggest 60 req/min per CUSTOMER token"
+    cors: "Allowed origins defined at API gateway; not in service code"
+  storage_security:
+    db_access: "Service account with least-privilege DDL-restricted role"
+    encryption_at_rest: "DB volume encrypted at infrastructure level + column-level PII encryption"
+    audit_table_immutable: "Application layer prevents UPDATE/DELETE on audit_entries; DB role has INSERT-only"
+  private_networking:
+    rule: "kyc-onboarding-api MUST NOT be exposed directly to internet; API gateway is the single entry point"
+
+availability:
+  sla_target: "99.9% (Tier 1)"
+  rpo: "15 minutes"
+  rto: "30 minutes"
+  notes: "Relies on PostgreSQL-compatible DB HA (multi-AZ replica); event broker HA required"
+
+scalability:
+  horizontal: true
+  stateless_instances: true
+  state_externalized: "All state in PostgreSQL; instances are stateless"
+  scale_trigger: "CPU > 70% or latency p95 > 1500ms sustained 2 minutes"
+
+latency:
+  p95_target_ms: 2000
+  p99_target_ms: 3000
+  notes: >
+    Synchronous validation path (UC-003) is the critical path: calls CustomerIdentityAPI +
+    KYCScreeningAPI + AML_SERVICE + ID_VERIFICATION_PROVIDER in parallel where possible.
+    Sequential fallback if parallel calls not supported by all providers.
+
+throughput:
+  peak_rps: 500
+  burst_handling: "API gateway rate limiting + horizontal scaling"
+
+auditability:
+  requirement: "Every state transition and validation step logged in audit_entries (BR-006)"
+  format: "Structured JSON with correlation_id and actor_id"
+  retention: "7 years for audit_entries; 5 years for onboarding_cases"
+  immutability: "audit_entries table: INSERT-only"
+
+resiliency:
+  circuit_breaker:
+    enabled_for: [AML_SERVICE, ID_VERIFICATION_PROVIDER]
+    threshold: "5 failures in 30s → OPEN; probe after 60s"
+  retry:
+    policy: "3 attempts with exponential backoff for catalog API calls; 2 attempts for external providers"
+  timeout:
+    downstream_call_ms: 1500
+  fallback:
+    AML_SERVICE: "Circuit open → hold in UNDER_VALIDATION; alert on-call"
+    ID_VERIFICATION_PROVIDER: "Unavailable → auto-escalate to REVIEW_REQUIRED (BR-004)"
+  bulkhead:
+    recommendation: "Separate thread pools for external provider calls to prevent cascade failures"
+
+compliance:
+  gdpr:
+    legal_basis: "Contract performance (Art. 6(1)(b)) + legal obligation (Art. 6(1)(c))"
+    data_minimization: "Collect only BR-001 mandatory fields"
+    right_to_erasure: "Pseudonymize PII on erasure request; audit trail preserved"
+    data_retention: "5 years (OnboardingCase); 7 years (audit_entries)"
+    cross_border: "Data residency: confirm with infrastructure team before deployment"
+  iso27001:
+    access_control: "Least-privilege RBAC; no shared credentials"
+    vulnerability_management: "SAST/DAST in CI pipeline; dependency CVE scanning"
+    incident_response: "Alert on error_rate_5xx > 1% sustained 5 minutes → PagerDuty"
+    change_management: "API contract changes require API Review Board sign-off"
+
+observability:
+  logging:
+    format: "structured JSON (ECS-compatible)"
+    level_default: INFO
+    pii_redaction: true
+    required_fields: [timestamp, level, correlationId, caseId, customerId, actorId, eventType, durationMs, statusCode]
+    pii_fields_excluded: [customerName, documentNumber]
+  tracing:
+    enabled: true
+    propagation: "W3C Trace Context (traceparent, tracestate headers)"
+    sample_rate: "10% success; 100% errors; 100% validation failures (REVIEW_REQUIRED)"
+    span_annotations: [caseId, customerId, fromStatus, toStatus]
+  metrics:
+    business:
+      - "onboarding_cases_initiated_total (counter)"
+      - "onboarding_cases_approved_total (counter)"
+      - "onboarding_cases_rejected_total (counter)"
+      - "onboarding_cases_in_review_gauge (gauge)"
+      - "onboarding_approval_rate (derived: approved / (approved + rejected))"
+    technical:
+      - "http_request_duration_ms_p50/p95/p99 (histogram, by endpoint)"
+      - "http_requests_total (counter, by status_code, endpoint)"
+      - "downstream_call_duration_ms_p95 (histogram, by integration)"
+      - "circuit_breaker_state (gauge: 0=CLOSED, 1=OPEN, 2=HALF_OPEN, by integration)"
+      - "outbox_pending_events_count (gauge)"
+  alerting:
+    - "error_rate_5xx > 1% sustained 5 minutes → critical"
+    - "circuit_breaker AML_SERVICE OPEN > 5 minutes → critical"
+    - "circuit_breaker ID_VERIFICATION_PROVIDER OPEN > 5 minutes → critical"
+    - "outbox_pending_events_count > 100 sustained 10 minutes → warning"
+    - "onboarding_cases_in_review > 500 → warning (analyst queue overflow)"

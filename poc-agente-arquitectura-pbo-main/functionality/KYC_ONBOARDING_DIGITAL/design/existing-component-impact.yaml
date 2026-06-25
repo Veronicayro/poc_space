@@ -1,0 +1,181 @@
+functionality_id: KYC_ONBOARDING_DIGITAL
+generated_at: "2026-06-22"
+source_references:
+  - "functionality/KYC_ONBOARDING_DIGITAL/design/context/context-pack.yaml"
+  - "catalog/domains/customers.yaml"
+  - "catalog/domains/compliance.yaml"
+
+# ─── Assessment summary ───────────────────────────────────────────────────────
+# All existing catalog APIs are assessed as REUSE (downstream dependencies).
+# kyc-onboarding-api is a NEW component that CALLS these APIs — it does not replace them.
+# No existing component requires modification, deprecation, or replacement.
+
+existing_component_assessments:
+
+  - component_name: CustomerProfileAPI
+    component_type: api
+    current_owner: "Customer Platform Squad"
+    catalog_path: "catalog/domains/customers.yaml"
+    version: "1.2.0"
+    status: Published
+    relationship_to_new_functionality: downstream_dependency
+    semantic_fit: high
+    contract_fit: high
+    ownership_fit: high
+    data_fit: medium
+    state_fit: high
+    operational_fit: high
+    decision: reuse
+    rationale: >
+      CustomerProfileAPI covers UC-001 customer registration (~70% fit) via
+      POST /customers. kyc-onboarding-api calls this API to create the customer
+      profile record when initiating an onboarding case. No modifications required;
+      kyc-onboarding-api is a new consumer of this API.
+    required_changes: []
+    consumed_operations:
+      - POST /customers
+      - PATCH /customers/{customerId}
+
+  - component_name: CustomerIdentityAPI
+    component_type: api
+    current_owner: "Identity & Access Squad"
+    catalog_path: "catalog/domains/customers.yaml"
+    version: "1.1.0"
+    status: Published
+    relationship_to_new_functionality: downstream_dependency
+    semantic_fit: high
+    contract_fit: high
+    ownership_fit: high
+    data_fit: high
+    state_fit: high
+    operational_fit: high
+    decision: reuse
+    rationale: >
+      CustomerIdentityAPI covers UC-002 (document upload) and partial UC-003 (identity
+      verification initiation) via POST /customers/{id}/identities and
+      POST /customers/{id}/identities/{identityId}/verify.
+      kyc-onboarding-api is a new consumer of this API. No modifications required.
+    required_changes: []
+    consumed_operations:
+      - POST /customers/{customerId}/identities
+      - POST /customers/{customerId}/identities/{identityId}/verify
+      - GET /customers/{customerId}/identities/{identityId}
+
+  - component_name: KYCScreeningAPI
+    component_type: api
+    current_owner: "Financial Crime (FCC) Squad"
+    catalog_path: "catalog/domains/compliance.yaml"
+    version: "3.0.0"
+    status: Published
+    relationship_to_new_functionality: downstream_dependency
+    semantic_fit: high
+    contract_fit: high
+    ownership_fit: high
+    data_fit: high
+    state_fit: high
+    operational_fit: high
+    decision: reuse
+    rationale: >
+      KYCScreeningAPI covers AML/PEP screening (UC-003 partial, BR-003) via
+      POST /screenings and GET /screenings/{screeningId}.
+      kyc-onboarding-api orchestrates this call as part of the automatic KYC
+      validation flow. No modifications required.
+    required_changes: []
+    consumed_operations:
+      - POST /screenings
+      - GET /screenings/{screeningId}
+
+  - component_name: AML_SERVICE
+    component_type: external
+    current_owner: "External vendor"
+    catalog_path: null
+    version: unknown
+    status: active
+    relationship_to_new_functionality: external_integration
+    semantic_fit: high
+    contract_fit: unknown
+    ownership_fit: high
+    data_fit: unknown
+    state_fit: high
+    operational_fit: high
+    decision: reuse
+    rationale: >
+      External AML service for regulatory screening (BR-003). REST sync, criticality HIGH.
+      No API spec available — integration adapter pattern required in kyc-onboarding-api.
+      No changes to AML_SERVICE itself.
+    required_changes:
+      - id: RC-001
+        type: integration_adapter
+        description: >
+          Design AML_SERVICE adapter (integration-model.yaml) within kyc-onboarding-api
+          component. Circuit breaker pattern recommended (RF-001: single point of failure).
+        target_phase: backend-component-design
+
+  - component_name: ID_VERIFICATION_PROVIDER
+    component_type: external
+    current_owner: "External vendor"
+    catalog_path: null
+    version: unknown
+    status: active
+    relationship_to_new_functionality: external_integration
+    semantic_fit: high
+    contract_fit: unknown
+    ownership_fit: high
+    data_fit: unknown
+    state_fit: high
+    operational_fit: high
+    decision: reuse
+    rationale: >
+      External identity verification provider (UC-003, criticality HIGH). REST sync.
+      No API spec available — integration adapter pattern required.
+      No changes to the external provider.
+    required_changes:
+      - id: RC-002
+        type: integration_adapter
+        description: >
+          Design ID_VERIFICATION_PROVIDER adapter within kyc-onboarding-api component.
+        target_phase: backend-component-design
+
+  - component_name: NOTIFICATION_SERVICE
+    component_type: external
+    current_owner: "Channels / Notifications Squad"
+    catalog_path: "catalog/domains/channels.yaml"
+    version: unknown
+    status: active
+    relationship_to_new_functionality: downstream_consumer
+    semantic_fit: high
+    contract_fit: medium
+    ownership_fit: high
+    data_fit: medium
+    state_fit: medium
+    operational_fit: high
+    decision: reuse
+    rationale: >
+      NOTIFICATION_SERVICE consumes async domain events (OnboardingStatusChanged).
+      kyc-onboarding-api publishes events; no modification to the notification service
+      is required. Event schema must be defined in the event adapter design.
+    required_changes:
+      - id: RC-003
+        type: event_contract
+        description: >
+          Define OnboardingStatusChanged event schema in Phase 7 (backend-contract-design).
+          Coordinate with Channels/Notifications Squad for subscription contract.
+        target_phase: backend-contract-design
+
+# ─── New components to create ─────────────────────────────────────────────────
+
+new_components_to_create:
+  - component_id: kyc-onboarding-api
+    layer: business
+    decision_rationale: >
+      No existing catalog API covers the onboarding orchestration lifecycle (state machine,
+      manual review workflow, cross-domain coordination). Phase 0 decision: CREATE_ANYWAY.
+    target_design_phase: backend-component-design
+
+  - component_id: kyc-onboarding-event-adapter
+    layer: support
+    decision_rationale: >
+      Async event publication to NOTIFICATION_SERVICE is a new capability with no existing
+      support component. May be implemented as an internal module of kyc-onboarding-api
+      (decision deferred to solution-landscape phase).
+    target_design_phase: backend-component-design

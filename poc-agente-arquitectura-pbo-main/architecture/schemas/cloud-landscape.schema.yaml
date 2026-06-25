@@ -1,0 +1,29 @@
+schema_id: cloud-landscape
+artifact_path: design/cloud-landscape.yaml
+required_fields:
+  - deployment_posture
+  - logical_cloud_topology
+  - frontend_runtime_components
+  - backend_runtime_components
+  - ingress_or_api_exposure_components
+  - event_messaging_backbone
+  - data_services
+  - cache_services
+  - identity_session_security_services
+  - networking_and_trust_boundaries
+  - observability_services
+fields:
+  deployment_posture:
+    enum: [provider-agnostic, azure-only, aws-only, gcp-only, provider-comparison, hybrid, multicloud]
+  logical_cloud_topology: object
+  frontend_runtime_components: array
+  backend_runtime_components: array
+  ingress_or_api_exposure_components: array
+  event_messaging_backbone: array
+  data_services: array
+  cache_services: array
+  identity_session_security_services: array
+  networking_and_trust_boundaries: array
+  observability_services: array
+  hybrid_connectivity_requirements: array
+  big_data_or_analytical_platform_requirements: array

@@ -1,0 +1,232 @@
+---
+contextPack:
+  metadata:
+    functionalityId: "LON-GHCopilot-Haiku45-Lending-v1"
+    functionalityName: "Digital Personal Loan Origination"
+    featurePrincipal: "Lending"
+    buildDate: "2026-06-24"
+    sourceOrigin: "GHCopilot-Haiku45"
+    packVersion: "1.0"
+
+  businessContext:
+    summary: |
+      Digital end-to-end origination process for personal loans.
+      Covers request intake, credit evaluation, offer generation, contract acceptance,
+      and disbursement. Ensures regulatory compliance at each lifecycle stage.
+    
+    inScope:
+      - "Loan request intake and document capture"
+      - "Automated credit evaluation (scoring + credit bureau consultation)"
+      - "Personalized offer generation and presentation"
+      - "Digital contract acceptance and signing"
+      - "Disbursement instruction to core banking"
+    
+    outOfScope:
+      - "Collections or delinquency management"
+      - "Mortgages or auto loans (real property/collateral)"
+      - "Refinancing or debt restructuring"
+    
+    primaryActors:
+      - id: "CUSTOMER"
+        description: "Initiates request, uploads documents, accepts offer"
+        channels: ["Web", "Mobile"]
+        externalInternal: "External/Primary"
+      
+      - id: "CREDIT_ANALYST"
+        description: "Reviews gray-zone scoring cases"
+        channels: ["Backoffice"]
+        externalInternal: "Internal/Support"
+      
+      - id: "SYSTEM"
+        description: "Executes automated evaluation, offer generation, disbursement coordination"
+        channels: ["Backoffice"]
+        externalInternal: "Internal/Orchestration"
+
+  useCases:
+    summary: "8 use cases mapped to loan origination workflow"
+    totalCount: 8
+    categories:
+      - name: "Request & Intake"
+        useCases: ["UC-001", "UC-002"]
+      - name: "Credit Evaluation & Decision"
+        useCases: ["UC-003", "UC-006"]
+      - name: "Offer & Acceptance"
+        useCases: ["UC-004", "UC-005"]
+      - name: "Disbursement & Notification"
+        useCases: ["UC-007", "UC-008"]
+    
+    list:
+      - id: "UC-001"
+        title: "Loan request initiation"
+        actor: "CUSTOMER"
+        outcome: "Request created with basic data and loan amount"
+      - id: "UC-002"
+        title: "Document upload"
+        actor: "CUSTOMER"
+        outcome: "Supporting documents stored and linked to request"
+      - id: "UC-003"
+        title: "Automated credit evaluation"
+        actor: "SYSTEM"
+        outcome: "Preliminary decision and credit score assigned"
+      - id: "UC-004"
+        title: "Personalized offer generation"
+        actor: "SYSTEM"
+        outcome: "Offer with rate, term, and payment amount presented"
+      - id: "UC-005"
+        title: "Digital contract acceptance"
+        actor: "CUSTOMER"
+        outcome: "Contract digitally signed; request moved to ACCEPTED state"
+      - id: "UC-006"
+        title: "Manual referral review"
+        actor: "CREDIT_ANALYST"
+        outcome: "Gray-zone case approved/rejected with justification"
+      - id: "UC-007"
+        title: "Disbursement instruction"
+        actor: "SYSTEM"
+        outcome: "Loan amount credited to customer account"
+      - id: "UC-008"
+        title: "Status notification"
+        actor: "SYSTEM"
+        outcome: "Customer notified of state changes via preferred channel"
+
+  businessRules:
+    summary: "12 critical business and compliance rules"
+    totalCount: 12
+    categories:
+      - name: "Approval & Decision Rules"
+        rules: ["BR-001", "BR-002", "BR-003", "BR-004", "BR-005", "BR-008"]
+      - name: "Pricing & Regulatory"
+        rules: ["BR-006", "BR-007"]
+      - name: "Signature & Compliance"
+        rules: ["BR-009", "BR-010", "BR-012"]
+      - name: "Disbursement & Fulfillment"
+        rules: ["BR-011"]
+    
+    highlights:
+      - "KYC approval required before request (BR-001)"
+      - "Automatic rejection for low credit score (BR-004)"
+      - "Gray-zone referral for manual review (BR-005)"
+      - "Credit bureau inquiry mandatory (BR-003)"
+      - "Regulatory maximum rates enforced (BR-006)"
+      - "Offer expires in 72 hours (BR-007)"
+      - "Advanced electronic signature required (BR-009)"
+      - "All decisions logged with audit trail (BR-010)"
+      - "Data encryption at rest for sensitive fields (BR-012)"
+
+  integrationNeeds:
+    externalSystems:
+      - id: "EXT-001"
+        name: "CREDIT_BUREAU"
+        pattern: "REST sync"
+        criticality: "HIGH"
+        purpose: "Credit history and scoring data"
+      
+      - id: "EXT-002"
+        name: "SCORING_ENGINE"
+        pattern: "REST sync"
+        criticality: "HIGH"
+        purpose: "Risk evaluation and automated decision"
+      
+      - id: "EXT-003"
+        name: "CORE_BANKING"
+        pattern: "REST sync"
+        criticality: "HIGH"
+        purpose: "Disbursement instruction and KYC lookup"
+      
+      - id: "EXT-004"
+        name: "DIGITAL_SIGNATURE_PROVIDER"
+        pattern: "REST sync"
+        criticality: "HIGH"
+        purpose: "Advanced electronic signature"
+      
+      - id: "EXT-005"
+        name: "NOTIFICATION_SERVICE"
+        pattern: "async events"
+        criticality: "MEDIUM"
+        purpose: "Multi-channel customer notifications"
+      
+      - id: "EXT-006"
+        name: "DOCUMENT_STORAGE"
+        pattern: "REST sync"
+        criticality: "MEDIUM"
+        purpose: "Secure document repository"
+
+  nfRRequirements:
+    implicit:
+      - "Credit decision response latency: < 3 seconds"
+      - "Offer expiration enforcement: precise timestamp tracking"
+      - "Audit trail: immutable, timestamped decision log"
+      - "Data encryption: sensitive fields at rest (BR-012)"
+      - "High availability: critical integrations (CREDIT_BUREAU, SCORING_ENGINE, CORE_BANKING)"
+
+  serviceDomainCandidates:
+    summary: "6 BIAN Release 14 Service Domain candidates evaluated"
+    standard: "BIAN Release 14"
+    candidates:
+      - id: "BIAN-SD-001"
+        name: "CustomerOffer"
+        relevance: "PRIMARY"
+        mappedUseCases: ["UC-004", "UC-005"]
+        estimatedCoverage: "HIGH"
+        rationale: "Covers offer generation and lifecycle"
+      
+      - id: "BIAN-SD-002"
+        name: "Underwriting"
+        relevance: "PRIMARY"
+        mappedUseCases: ["UC-003", "UC-006"]
+        estimatedCoverage: "HIGH"
+        rationale: "Covers credit evaluation and decision"
+      
+      - id: "BIAN-SD-003"
+        name: "ConsumerLoan"
+        relevance: "SECONDARY"
+        mappedUseCases: ["UC-007"]
+        estimatedCoverage: "MEDIUM"
+        rationale: "Covers post-origination loan servicing"
+      
+      - id: "BIAN-SD-004"
+        name: "Disbursement"
+        relevance: "SECONDARY"
+        mappedUseCases: ["UC-007"]
+        estimatedCoverage: "HIGH"
+        rationale: "Covers disbursement execution"
+      
+      - id: "BIAN-SD-005"
+        name: "PartyLifecycleManagement"
+        relevance: "SUPPORTING"
+        mappedUseCases: ["UC-001"]
+        estimatedCoverage: "MEDIUM"
+        rationale: "KYC requirement validation"
+      
+      - id: "BIAN-SD-006"
+        name: "ReferenceDataDirectory"
+        relevance: "SUPPORTING"
+        mappedUseCases: ["UC-004"]
+        estimatedCoverage: "MEDIUM"
+        rationale: "Pricing policy and configuration"
+
+  executionContext:
+    technology: "Java"
+    executionMode: "standard"
+    targetComponent: "loan-origination-api"
+    domainStandard: "BIAN Release 14"
+    
+  assumptions:
+    - "Regulatory jurisdiction: Latin America (e.g., Colombia-equivalent compliance)"
+    - "Customers digitally authenticated before UC-001 via existing identity system"
+    - "Execution mode: synchronous REST for decision-making; async for notifications"
+    - "Core banking integration uses async retry queue for deferred disbursement"
+    - "Manual review SLA: 4-8 business hours for REFERRED cases"
+    - "Offer expiration enforced via webhook + scheduled task"
+
+  gaps:
+    - "KYC integration interface not yet detailed (resolve in Phase 2)"
+    - "Credit scoring thresholds not yet specified (resolve in Phase 6)"
+    - "Regulatory framework details depend on jurisdiction (validate in Phase 5)"
+    - "Document validation rules pending (resolve in Phase 6)"
+    - "Pricing policy engine details pending (resolve in Phase 6)"
+    - "Core banking disbursement format details pending (resolve in Phase 2)"
+    - "Manual review SLA and workflow not formalized"
+    - "Audit log availability and performance SLA not specified"
+    - "Notification retry and delivery guarantees not specified"
+    - "Identity/KYC system integration patterns not detailed"

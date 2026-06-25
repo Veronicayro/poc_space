@@ -1,0 +1,84 @@
+# Phase 7 Output: State Map - invoice-lifecycle-api
+schema_version: "1.0"
+component_id: invoice-lifecycle-api
+phase: backend-diagram-design
+generated_at: "2026-06-17"
+
+entity: Invoice
+bian_equivalent: InvoiceLifecycleProcedure
+rule_ref: BR-CXP-004
+
+states:
+  - id: PENDING
+    description: "Factura registrada, pendiente de aprobación"
+    terminal: false
+    color: yellow
+    initial: true
+
+  - id: APPROVED
+    description: "Factura aprobada por Gerente Financiero"
+    terminal: false
+    color: blue
+
+  - id: REJECTED
+    description: "Factura rechazada; no procede para pago"
+    terminal: true
+    color: red
+
+  - id: SCHEDULED
+    description: "Pago programado con fecha definida"
+    terminal: false
+    color: purple
+
+  - id: PAID
+    description: "Pago ejecutado y confirmado por el banco"
+    terminal: true
+    color: green
+
+  - id: CANCELLED
+    description: "Factura cancelada antes del pago"
+    terminal: true
+    color: gray
+
+transitions:
+  - from: PENDING
+    to: APPROVED
+    trigger: "approveInvoice"
+    actor: MANAGER
+    rule: BR-CXP-004
+
+  - from: PENDING
+    to: REJECTED
+    trigger: "rejectInvoice"
+    actor: MANAGER
+    rule: BR-CXP-004
+
+  - from: PENDING
+    to: CANCELLED
+    trigger: "cancelInvoice"
+    actor: "ANALYST / MANAGER"
+    rule: BR-CXP-010
+
+  - from: APPROVED
+    to: SCHEDULED
+    trigger: "schedulePayment"
+    actor: TREASURER
+    rule: BR-CXP-007
+
+  - from: APPROVED
+    to: CANCELLED
+    trigger: "cancelInvoice"
+    actor: "ANALYST / MANAGER"
+    rule: BR-CXP-010
+
+  - from: SCHEDULED
+    to: PAID
+    trigger: "paymentConfirmed (webhook)"
+    actor: "System (Banking webhook)"
+    rule: BR-CXP-009
+
+  - from: SCHEDULED
+    to: CANCELLED
+    trigger: "cancelInvoice"
+    actor: TREASURER
+    rule: BR-CXP-010

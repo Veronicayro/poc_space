@@ -1,0 +1,82 @@
+---
+title: LON — Sistema de Originación de Créditos — Backend Architecture (TO-BE)
+---
+graph TB
+    subgraph FRONTEND["🖥️ Frontend — React SPA"]
+        UI[React SPA<br/>OAuth2/OIDC/JWT<br/>RBAC: 5 roles]
+    end
+
+    subgraph EXPERIENCE["🎯 Experience Layer"]
+        EXP[credit-origination-exp-api<br/>BFF — REST/v1<br/>Aggregation + Role views<br/>allowed_actions by role+state]
+    end
+
+    subgraph BUSINESS["📋 Business Layer"]
+        BUS1[credit-request-api<br/>BIAN: CustomerOffer<br/>State Machine 12 estados<br/>KYC + Docs + Decisions]
+        BUS2[risk-assessment-api<br/>BIAN: Underwriting<br/>Score + DTI + Risk Level<br/>Redis Cache TTL 24h]
+    end
+
+    subgraph DOMAIN["🏛️ Domain Layer"]
+        DOM1[disbursement-api<br/>BIAN: Disbursement<br/>DisbursementTransaction CR<br/>Direct adoption]
+    end
+
+    subgraph SUPPORT["🔌 Support Layer"]
+        SUP1[credit-bureau-adapter-api<br/>Bureau de Crédito<br/>Cache-Aside Redis 24h<br/>Circuit Breaker]
+        SUP2[core-banking-adapter-api<br/>Core Bancario<br/>KYC + Desembolso + Amort<br/>Circuit Breaker]
+        SUP3[dms-adapter-api<br/>DMS Externo<br/>Docs expediente<br/>Fallback local]
+    end
+
+    subgraph DATA["🗄️ Data Layer"]
+        PG[(PostgreSQL<br/>ACID — 4 tablas<br/>Partición anual<br/>Audit Log inmutable)]
+        REDIS[(Redis<br/>Bureau Cache<br/>TTL 24h)]
+    end
+
+    subgraph EXTERNAL["🌐 Sistemas Externos"]
+        BUREAU[Bureau de Crédito<br/>Equifax/TU/Experian<br/>REST Síncrono]
+        CORE[Core Bancario<br/>KYC + Desembolso<br/>REST + Batch]
+        DMS[Document Mgmt System<br/>Docs expediente<br/>REST API]
+    end
+
+    %% Frontend → Experience
+    UI -->|HTTPS JWT| EXP
+
+    %% Experience → Business/Domain
+    EXP -->|REST/v1| BUS1
+    EXP -->|REST/v1| BUS2
+    EXP -->|REST/v1| DOM1
+
+    %% Business → Domain
+    BUS1 -.->|State update| DOM1
+
+    %% Business → Support
+    BUS1 -->|KYC validate| SUP2
+    BUS1 -->|Document store/retrieve| SUP3
+    BUS2 -->|Bureau report| SUP1
+    DOM1 -->|Disbursement execute| SUP2
+
+    %% Support → External
+    SUP1 -->|API Key/TTL 24h| REDIS
+    SUP1 -->|Fallback direct| BUREAU
+    SUP2 -->|OAuth2 CC| CORE
+    SUP3 -->|API Key| DMS
+
+    %% Business/Domain → Data
+    BUS1 --- PG
+    BUS2 --- PG
+    DOM1 --- PG
+
+    %% Styles
+    classDef frontend fill:#4A90D9,stroke:#2C6FAC,color:#fff
+    classDef experience fill:#7B68EE,stroke:#5A4ACD,color:#fff
+    classDef business fill:#27AE60,stroke:#1A7A3E,color:#fff
+    classDef domain fill:#E67E22,stroke:#C05E16,color:#fff
+    classDef support fill:#8E44AD,stroke:#6C2F83,color:#fff
+    classDef data fill:#2C3E50,stroke:#1A252F,color:#fff
+    classDef external fill:#95A5A6,stroke:#7F8C8D,color:#fff
+
+    class UI frontend
+    class EXP experience
+    class BUS1,BUS2 business
+    class DOM1 domain
+    class SUP1,SUP2,SUP3 support
+    class PG,REDIS data
+    class BUREAU,CORE,DMS external

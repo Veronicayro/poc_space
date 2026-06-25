@@ -1,0 +1,243 @@
+---
+domainStandardAlignment:
+  metadata:
+    functionalityId: "LON-GHCopilot-Haiku45-Lending-v1"
+    functionalityName: "Digital Personal Loan Origination"
+    alignmentDate: "2026-06-24"
+    alignedBy: "enterprise-capability-mapper"
+    provider: "BIAN"
+    providerVersion: "Release 14.0.0"
+
+  alignmentDecision:
+    selected: true
+    provider: "BIAN"
+    version: "14.0.0"
+    providerId: "BIAN-R14"
+    rationale: |
+      BIAN Release 14 is the mandatory domain standard for this organization.
+      Digital Personal Loan Origination fits the BIAN framework with high confidence.
+      4 primary Service Domains cover core capabilities; external integrations are explicit.
+      Alignment type across capabilities: predominantly DIRECT with minor ADAPTED gaps.
+
+  selectedServiceDomains:
+    total: 4
+    orchestrating: 2
+    nonOrchestrating: 1
+    supporting: 1
+
+    domains:
+      - rank: 1
+        serviceDomain: "CustomerOffer"
+        orchestrationRole: "Orchestrating"
+        sourceFile: "architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml"
+        version: "14.0.0"
+        capability: "CAP-LOAN-001-REQUEST, CAP-LOAN-003-OFFER"
+        alignmentType: "direct"
+        confidence: 0.95
+        rationale: |
+          Covers offer lifecycle from initiation (Create) to acceptance (ExchangeFacilityApplication).
+          Primary responsibility for loan request intake and offer management.
+        coverage: "HIGH (95%)"
+        criticalOperations: ["Create", "Update", "ExchangeFacilityApplication"]
+        gaps: []
+
+      - rank: 2
+        serviceDomain: "Underwriting"
+        orchestrationRole: "Orchestrating"
+        sourceFile: "architecture/cache/bian/release14.0.0/oas3/yamls/Underwriting.yaml"
+        version: "14.0.0"
+        capability: "CAP-LOAN-002-UNDERWRITING"
+        alignmentType: "direct"
+        confidence: 0.95
+        rationale: |
+          Covers credit evaluation (automated and manual) with decision recording.
+          Handles scoring, bureau inquiry, referral logic, and audit trail.
+        coverage: "HIGH (95%)"
+        criticalOperations: ["ExecuteUnderwritingAssessment", "Update"]
+        gaps: []
+
+      - rank: 3
+        serviceDomain: "Disbursement"
+        orchestrationRole: "Non-Orchestrating"
+        sourceFile: "architecture/cache/bian/release14.0.0/oas3/yamls/Disbursement.yaml"
+        version: "14.0.0"
+        capability: "CAP-LOAN-004-DISBURSEMENT"
+        alignmentType: "direct"
+        confidence: 0.90
+        rationale: |
+          Covers fund transfer instruction and confirmation.
+          Requires integration with core banking system (EXT-003) for actual transfer.
+        coverage: "HIGH (90%)"
+        criticalOperations: ["ExecuteDisbursement"]
+        gaps:
+          - "Actual fund transfer delegated to CORE_BANKING integration"
+
+      - rank: 4
+        serviceDomain: "PartyLifecycleManagement"
+        orchestrationRole: "Supporting"
+        sourceFile: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+        version: "14.0.0"
+        capability: "CAP-LOAN-001-REQUEST"
+        alignmentType: "direct"
+        confidence: 0.85
+        rationale: |
+          Provides KYC status validation (prerequisite for loan request).
+          Minimal involvement beyond initial identity check.
+        coverage: "MEDIUM (85%)"
+        criticalOperations: ["Retrieve"]
+        gaps:
+          - "Requires external identity/KYC system integration"
+
+  rejectedServiceDomains:
+    - serviceDomain: "ConsumerLoan"
+      reason: "Out of scope for origination-only functionality. Relevant only for post-disbursal servicing."
+      recommendation: "Reserve for future servicing phases"
+
+    - serviceDomain: "ReferenceDataDirectory"
+      reason: "Supporting role only; treated as configuration source rather than primary orchestrator"
+      recommendation: "Used as dependency by Underwriting and CustomerOffer"
+
+  unMappedCapabilities:
+    - capabilityId: "CAP-LOAN-005-NOTIFICATION"
+      capabilityName: "Customer Communication"
+      reason: "Notification/messaging is cross-cutting; no BIAN SD covers this"
+      resolution: "Handled by external event infrastructure and NOTIFICATION_SERVICE (EXT-005)"
+      severity: "LOW"
+
+  businessRuleAlignmentSummary:
+    totalBusinessRules: 12
+    rulesMappedToServiceDomains: 11
+    rulesWithBIANAlignment: 11
+    alignmentByRule:
+      - ruleId: "BR-001"
+        alignedTo: "PartyLifecycleManagement"
+        alignmentType: "direct"
+      
+      - ruleId: "BR-002"
+        alignedTo: "Underwriting"
+        alignmentType: "direct"
+      
+      - ruleId: "BR-003"
+        alignedTo: "Underwriting"
+        alignmentType: "adapted"
+        note: "BIAN triggers inquiry; EXT-001 (CREDIT_BUREAU) is external"
+      
+      - ruleId: "BR-004"
+        alignedTo: "Underwriting"
+        alignmentType: "adapted"
+        note: "Score thresholds configurable"
+      
+      - ruleId: "BR-005"
+        alignedTo: "Underwriting"
+        alignmentType: "adapted"
+        note: "Gray-zone referral workflow configurable"
+      
+      - ruleId: "BR-006"
+        alignedTo: "ReferenceDataDirectory"
+        alignmentType: "adapted"
+        note: "Rate limits stored in reference data; enforcement is policy-specific"
+      
+      - ruleId: "BR-007"
+        alignedTo: "CustomerOffer"
+        alignmentType: "adapted"
+        note: "Offer expiration timing; enforcement via scheduler/webhook"
+      
+      - ruleId: "BR-008"
+        alignedTo: "CustomerOffer"
+        alignmentType: "adapted"
+        note: "One active request validation logic"
+      
+      - ruleId: "BR-009"
+        alignedTo: "CustomerOffer"
+        alignmentType: "adapted"
+        note: "Signature recording; EXT-004 (DIGITAL_SIGNATURE_PROVIDER) generates signature"
+      
+      - ruleId: "BR-010"
+        alignedTo: "Underwriting"
+        alignmentType: "adapted"
+        note: "Audit trail expected; external INT-002 handles persistence"
+      
+      - ruleId: "BR-011"
+        alignedTo: "Disbursement"
+        alignmentType: "adapted"
+        note: "Pre-execution validation required"
+      
+      - ruleId: "BR-012"
+        alignedTo: "n/a"
+        alignmentType: "n/a"
+        note: "Cross-cutting security; not BIAN-specific"
+
+  alignmentQualityIndicators:
+    highConfidenceMappings: 4
+    mediumConfidenceMappings: 0
+    lowConfidenceMappings: 0
+    directAlignments: 4
+    adaptedAlignments: 7
+    partialAlignments: 0
+    unresolvedAlignments: 1
+    overallAlignmentScore: 0.92
+    readinessForNextPhase: "READY"
+
+  complianceWithBIANGovernance:
+    mandatory_rules:
+      - rule: "Only use Service Domains from BIAN Release 14"
+        status: "COMPLIANT"
+        evidence: "All selected SDs from Release 14 baseline"
+      
+      - rule: "Source documents referenced in design/bian/bian-release14-source-index.yaml"
+        status: "COMPLIANT"
+        evidence: "bian-release14-source-index.yaml created with all 6 candidates indexed"
+      
+      - rule: "No inferred Service Domains from model memory"
+        status: "COMPLIANT"
+        evidence: "All SDs sourced from discovery/service-domain-candidates.yaml + BIAN index"
+      
+      - rule: "Business rules traced to Service Domains"
+        status: "COMPLIANT"
+        evidence: "11 of 12 business rules mapped; BR-012 is cross-cutting"
+
+  externalIntegrationFootprint:
+    criticalIntegrations:
+      - system: "CREDIT_BUREAU (EXT-001)"
+        alignedTo: "Underwriting"
+        role: "Bureau inquiry for credit history"
+        fallback: "REFERRED (manual review)"
+      
+      - system: "SCORING_ENGINE (EXT-002)"
+        alignedTo: "Underwriting"
+        role: "Risk evaluation and decision logic"
+        fallback: "Threshold fallback"
+      
+      - system: "CORE_BANKING (EXT-003)"
+        alignedTo: "Disbursement, PartyLifecycleManagement"
+        role: "KYC lookup, fund transfer instruction"
+        fallback: "Deferred execution queue"
+      
+      - system: "DIGITAL_SIGNATURE_PROVIDER (EXT-004)"
+        alignedTo: "CustomerOffer"
+        role: "Advanced e-signature generation"
+        fallback: "None — critical"
+    
+    supportingIntegrations:
+      - system: "NOTIFICATION_SERVICE (EXT-005)"
+        alignedTo: "Event Infrastructure"
+        role: "Multi-channel customer notifications"
+        fallback: "Retry queue"
+      
+      - system: "DOCUMENT_STORAGE (EXT-006)"
+        alignedTo: "CustomerOffer"
+        role: "Document repository"
+        fallback: "None — required"
+
+  nextPhasePrerequisites:
+    - "Context pack: CREATED ✓"
+    - "BIAN source index: CREATED ✓"
+    - "BIAN service domain evaluation: CREATED ✓"
+    - "Enterprise capability map: CREATED ✓"
+    - "Semantic dictionary: PENDING (Phase 1 final step)"
+    - "Gaps and access issues: PENDING (if applicable)"
+
+  phaseCompletionStatus:
+    alignmentPhase: "Phase 1 (enterprise-capability-alignment)"
+    completionCheckpoint: "Ready for Phase 2 (scope-and-execution-planning) upon semantic dictionary creation"
+    gateStatus: "GREEN (pending semantic dictionary)"

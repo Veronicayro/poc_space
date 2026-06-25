@@ -1,0 +1,396 @@
+---
+semanticDictionary:
+  metadata:
+    functionalityId: "LON-GHCopilot-Haiku45-Lending-v1"
+    functionalityName: "Digital Personal Loan Origination"
+    dictionaryVersion: "1.0"
+    createdDate: "2026-06-24"
+    language: "English"
+    canonicalNamingConvention: "PascalCase (contracts), snake_case (internal)"
+    purpose: "Canonical semantic reference for APIs, events, persistence, cache, and state maps"
+    sourceDiscovery:
+      - "discovery/use-cases.yaml"
+      - "discovery/business-rules.yaml"
+      - "design/bian/bian-service-domain-evaluation.yaml"
+
+  entities:
+    - canonicalName: "LoanRequest"
+      aliases: ["LoanApplication", "LoanProposal"]
+      definition: "A customer's formal request to borrow funds with specified amount, term, and purpose"
+      dataClassification: "Sensitive (contains customer intent and personal data)"
+      originating_source:
+        - "UC-001 (Loan request initiation)"
+        - "bian:CustomerOffer"
+      bian_alignment:
+        service_domain: "CustomerOffer"
+        schema_reference: "CustomerOfferProcedure"
+        alignment_type: "direct"
+      usage_scope: ["REST API request", "internal events", "persistence"]
+      lifecycle: ["DRAFT", "DOCUMENTS_SUBMITTED", "REFERRED", "OFFERED", "ACCEPTED", "REJECTED", "CANCELLED"]
+      required_fields: ["customerId", "requestAmount", "loanTerm", "purpose"]
+
+    - canonicalName: "CreditDecision"
+      aliases: ["UnderwritingDecision", "CreditAssessment"]
+      definition: "Formal credit evaluation outcome (APPROVED, REFERRED, REJECTED) with risk score and justification"
+      dataClassification: "Sensitive (contains credit risk assessment)"
+      originating_source:
+        - "UC-003 (Automated credit evaluation)"
+        - "UC-006 (Manual referral review)"
+        - "bian:Underwriting"
+      bian_alignment:
+        service_domain: "Underwriting"
+        schema_reference: "UnderwritingAssessmentProcedure"
+        alignment_type: "direct"
+      usage_scope: ["REST API response", "internal events", "persistence"]
+      lifecycle: ["PENDING", "DECIDED", "DOCUMENTED"]
+      required_fields: ["requestId", "decision", "creditScore", "rationale"]
+
+    - canonicalName: "LoanOffer"
+      aliases: ["CustomerOffer", "ProductOffer"]
+      definition: "Personalized offer with approved loan amount, interest rate, term, monthly payment, and validity period"
+      dataClassification: "Sensitive (contains rate and terms)"
+      originating_source:
+        - "UC-004 (Offer generation)"
+        - "UC-005 (Offer acceptance)"
+        - "bian:CustomerOffer.FacilityApplication"
+      bian_alignment:
+        service_domain: "CustomerOffer"
+        schema_reference: "FacilityApplication"
+        alignment_type: "direct"
+      usage_scope: ["REST API request/response", "internal events", "persistence"]
+      lifecycle: ["GENERATED", "PRESENTED", "ACCEPTED", "REJECTED", "EXPIRED"]
+      required_fields: ["requestId", "amount", "rate", "term", "monthlyPayment"]
+      temporal_attributes:
+        - "expirationDate (72 hours from generation)"
+
+    - canonicalName: "SignedContract"
+      aliases: ["LoanAgreement", "PromissoryNote"]
+      definition: "Legally binding loan agreement signed by customer with all terms and conditions"
+      dataClassification: "Sensitive (legal document with PII)"
+      originating_source:
+        - "UC-005 (Digital contract acceptance)"
+        - "bian:CustomerOffer"
+      bian_alignment:
+        service_domain: "CustomerOffer"
+        schema_reference: "CustomerOfferProcedure"
+        alignment_type: "adapted"
+        adaptation_reason: "BIAN records acceptance; actual signature generation is external (EXT-004)"
+      usage_scope: ["persistence", "audit trail", "document store"]
+      required_fields: ["requestId", "offerId", "signatureTimestamp", "signatureProof"]
+
+    - canonicalName: "DisbursementInstruction"
+      aliases: ["FundsTransfer", "DisbursementRequest"]
+      definition: "Instruction to transfer loan funds to customer's designated bank account"
+      dataClassification: "Sensitive (contains account details)"
+      originating_source:
+        - "UC-007 (Disbursement instruction)"
+        - "bian:Disbursement"
+      bian_alignment:
+        service_domain: "Disbursement"
+        schema_reference: "DisbursementExecution"
+        alignment_type: "direct"
+      usage_scope: ["REST API request", "internal events", "persistence"]
+      lifecycle: ["INITIATED", "VALIDATED", "EXECUTED", "CONFIRMED", "FAILED"]
+      required_fields: ["requestId", "amount", "destinationAccount"]
+
+    - canonicalName: "Customer"
+      aliases: ["Borrower", "Party"]
+      definition: "Natural person applying for and receiving loan"
+      dataClassification: "Sensitive (PII)"
+      originating_source:
+        - "UC-001 (Request initiation)"
+        - "bian:PartyLifecycleManagement"
+      bian_alignment:
+        service_domain: "PartyLifecycleManagement"
+        schema_reference: "Party"
+        alignment_type: "direct"
+      usage_scope: ["REST API request/response", "persistence"]
+      required_fields: ["customerId", "name", "documentId", "documentType"]
+      compliance_attributes: ["kycStatus", "kycApprovalDate"]
+
+    - canonicalName: "Document"
+      aliases: ["SupportingDocument", "Evidence"]
+      definition: "Customer-provided document (income proof, identity) in support of loan request"
+      dataClassification: "Sensitive (PII, financial data)"
+      originating_source:
+        - "UC-002 (Document upload)"
+      bian_alignment:
+        service_domain: "CustomerOffer"
+        schema_reference: "DocumentCheck"
+        alignment_type: "adapted"
+        adaptation_reason: "BIAN expects documents; upload mechanics are external (EXT-006)"
+      usage_scope: ["REST API request", "persistence"]
+      required_fields: ["documentId", "documentType", "uploadDate", "storageUri"]
+
+  identifiers:
+    - identifier_name: "requestId"
+      canonical_type: "UUID"
+      description: "Unique identifier for loan request; generated at UC-001"
+      usage_scope: ["all entities"]
+      generation_source: "Loan Request Intake component"
+      format: "UUID v4"
+
+    - identifier_name: "offerId"
+      canonical_type: "UUID"
+      description: "Unique identifier for loan offer; generated at UC-004"
+      usage_scope: ["LoanOffer", "SignedContract", "DisbursementInstruction"]
+      generation_source: "Offer Generation component"
+      format: "UUID v4"
+
+    - identifier_name: "customerId"
+      canonical_type: "String"
+      description: "Banking customer identifier; from CORE_BANKING integration (EXT-003)"
+      usage_scope: ["all entities"]
+      external_source: "CORE_BANKING (EXT-003)"
+      format: "Bank-defined format (e.g., 10-digit account number)"
+
+    - identifier_name: "documentId"
+      canonical_type: "UUID"
+      description: "Unique identifier for uploaded document; generated by DOCUMENT_STORAGE (EXT-006)"
+      usage_scope: ["Document"]
+      external_source: "DOCUMENT_STORAGE (EXT-006)"
+      format: "UUID v4"
+
+  statuses:
+    - status_name: "RequestStatus"
+      description: "State of a loan request throughout origination"
+      canonical_values:
+        - value: "DRAFT"
+          description: "Request created, basic data entered"
+          appliedTo: ["LoanRequest"]
+        - value: "DOCUMENTS_SUBMITTED"
+          description: "Customer uploaded supporting documents"
+          appliedTo: ["LoanRequest"]
+        - value: "OFFERED"
+          description: "Credit decision made, offer presented"
+          appliedTo: ["LoanRequest"]
+        - value: "ACCEPTED"
+          description: "Customer accepted offer and signed contract"
+          appliedTo: ["LoanRequest"]
+        - value: "DISBURSED"
+          description: "Funds transferred to customer account"
+          appliedTo: ["LoanRequest"]
+        - value: "REJECTED"
+          description: "Credit decision rejected or customer declined"
+          appliedTo: ["LoanRequest"]
+        - value: "CANCELLED"
+          description: "Request cancelled by customer or timeout"
+          appliedTo: ["LoanRequest"]
+
+    - status_name: "DecisionStatus"
+      description: "Outcome of credit evaluation"
+      canonical_values:
+        - value: "APPROVED"
+          description: "Automatic approval from scoring engine"
+          appliedTo: ["CreditDecision"]
+        - value: "REFERRED"
+          description: "Score in gray zone; requires manual review"
+          appliedTo: ["CreditDecision"]
+        - value: "REJECTED"
+          description: "Automatic or manual rejection"
+          appliedTo: ["CreditDecision"]
+
+    - status_name: "DisbursementStatus"
+      description: "State of funds transfer"
+      canonical_values:
+        - value: "INITIATED"
+          description: "Disbursement request created"
+          appliedTo: ["DisbursementInstruction"]
+        - value: "VALIDATED"
+          description: "Pre-execution validation passed"
+          appliedTo: ["DisbursementInstruction"]
+        - value: "EXECUTED"
+          description: "Funds transfer instructed to CORE_BANKING"
+          appliedTo: ["DisbursementInstruction"]
+        - value: "CONFIRMED"
+          description: "Bank confirmed successful transfer"
+          appliedTo: ["DisbursementInstruction"]
+        - value: "FAILED"
+          description: "Transfer failed; queued for retry"
+          appliedTo: ["DisbursementInstruction"]
+
+  fields:
+    - field_name: "loanAmount"
+      canonical_type: "Decimal(12,2)"
+      description: "Requested loan amount in currency (e.g., USD, COP)"
+      constraints: ["mandatory", "positive", "maxExceeds(endebtedmentLimit)"]
+      origin: "UC-001 request"
+      bian_alignment: "bian:CustomerOffer.requestAmount"
+
+    - field_name: "interestRate"
+      canonical_type: "Decimal(5,2)"
+      description: "Annual percentage rate (APR) for loan"
+      constraints: ["mandatory", "maxExceeds(regulatoryMaxRate)"]
+      origin: "UC-004 offer generation"
+      bian_alignment: "bian:CustomerOffer.FacilityApplication.rate"
+
+    - field_name: "loanTerm"
+      canonical_type: "Integer"
+      description: "Loan duration in months"
+      constraints: ["mandatory", "positive", "range(6,180)"]
+      origin: "UC-001 request / UC-004 offer"
+      bian_alignment: "bian:CustomerOffer.FacilityApplication.term"
+
+    - field_name: "creditScore"
+      canonical_type: "Integer"
+      description: "Numeric credit risk score from SCORING_ENGINE (EXT-002)"
+      constraints: ["mandatory", "range(0,999)"]
+      origin: "UC-003 evaluation"
+      external_source: "SCORING_ENGINE (EXT-002)"
+
+    - field_name: "expirationDate"
+      canonical_type: "Timestamp"
+      description: "Deadline for customer offer acceptance (72 hours from generation)"
+      constraints: ["mandatory", "future_date"]
+      origin: "UC-004 offer generation"
+      business_rule: "BR-007"
+
+    - field_name: "kycStatus"
+      canonical_type: "Enum(PENDING, APPROVED, REJECTED)"
+      description: "Know-Your-Customer compliance status of customer"
+      constraints: ["mandatory"]
+      origin: "UC-001 validation"
+      external_source: "PartyLifecycleManagement (EXT-003/CORE_BANKING)"
+      business_rule: "BR-001"
+
+    - field_name: "signatureProof"
+      canonical_type: "Base64String"
+      description: "Digital signature proof from advanced e-signature provider"
+      constraints: ["mandatory", "encrypted_at_rest"]
+      origin: "UC-005 acceptance"
+      external_source: "DIGITAL_SIGNATURE_PROVIDER (EXT-004)"
+      business_rule: "BR-009"
+
+  eventNames:
+    - event_name: "LoanRequestCreated"
+      entity: "LoanRequest"
+      trigger: "UC-001 completion"
+      payload: ["requestId", "customerId", "loanAmount", "loanTerm"]
+      published_to: ["internal messaging"]
+      subscribers: ["credit evaluation flow"]
+
+    - event_name: "DocumentsSubmitted"
+      entity: "LoanRequest"
+      trigger: "UC-002 completion"
+      payload: ["requestId", "documentIds"]
+      published_to: ["internal messaging"]
+
+    - event_name: "CreditDecisionMade"
+      entity: "CreditDecision"
+      trigger: "UC-003 completion"
+      payload: ["requestId", "decision", "creditScore", "rationale"]
+      published_to: ["internal messaging", "external notification (UC-008)"]
+
+    - event_name: "OfferGenerated"
+      entity: "LoanOffer"
+      trigger: "UC-004 completion"
+      payload: ["requestId", "offerId", "amount", "rate", "term", "expirationDate"]
+      published_to: ["internal messaging", "external notification (UC-008)"]
+
+    - event_name: "OfferAccepted"
+      entity: "SignedContract"
+      trigger: "UC-005 completion"
+      payload: ["requestId", "offerId", "signatureTimestamp"]
+      published_to: ["internal messaging"]
+      subscribers: ["disbursement flow"]
+
+    - event_name: "DisbursementExecuted"
+      entity: "DisbursementInstruction"
+      trigger: "UC-007 completion"
+      payload: ["requestId", "disbursementId", "amount", "destinationAccount"]
+      published_to: ["external notification (UC-008)"]
+
+    - event_name: "CustomerNotified"
+      entity: "LoanRequest"
+      trigger: "State transition (UC-008)"
+      payload: ["requestId", "status", "channel", "notificationId"]
+      published_to: ["notification service (EXT-005)"]
+
+  queryNames:
+    - query_name: "GetLoanRequestStatus"
+      entities: ["LoanRequest"]
+      filters: ["requestId", "customerId"]
+      returns: ["requestId", "status", "createdDate", "lastUpdated"]
+      usage: "Customer portal, internal dashboards"
+
+    - query_name: "GetLoanOffer"
+      entities: ["LoanOffer"]
+      filters: ["offerId", "requestId"]
+      returns: ["offerId", "amount", "rate", "term", "monthlyPayment", "expirationDate"]
+      usage: "Customer acceptance confirmation"
+
+    - query_name: "GetCreditDecision"
+      entities: ["CreditDecision"]
+      filters: ["requestId"]
+      returns: ["decision", "creditScore", "rationale", "decidedDate"]
+      usage: "Internal analytics, audit trail"
+
+  commandNames:
+    - command_name: "InitiateLoanRequest"
+      input_entity: "LoanRequest"
+      output_entity: "LoanRequest"
+      trigger: "UC-001"
+      validation: ["KYC check (BR-001)", "Endebtedness limit (BR-002)"]
+
+    - command_name: "EvaluateCredit"
+      input_entity: "LoanRequest"
+      output_entity: "CreditDecision"
+      trigger: "UC-003"
+      external_calls: ["CREDIT_BUREAU (EXT-001)", "SCORING_ENGINE (EXT-002)"]
+
+    - command_name: "GenerateOffer"
+      input_entity: "CreditDecision"
+      output_entity: "LoanOffer"
+      trigger: "UC-004"
+      validation: ["Regulatory max rate (BR-006)"]
+      external_calls: ["ReferenceDataDirectory (pricing config)"]
+
+    - command_name: "AcceptOffer"
+      input_entity: "LoanOffer"
+      output_entity: "SignedContract"
+      trigger: "UC-005"
+      validation: ["Offer not expired (BR-007)", "Signature valid (BR-009)"]
+      external_calls: ["DIGITAL_SIGNATURE_PROVIDER (EXT-004)"]
+
+    - command_name: "InstructDisbursement"
+      input_entity: "SignedContract"
+      output_entity: "DisbursementInstruction"
+      trigger: "UC-007"
+      validation: ["Contract signed (BR-009)", "Account validated (BR-011)"]
+      external_calls: ["CORE_BANKING (EXT-003)"]
+
+    - command_name: "ReviewReferral"
+      input_entity: "CreditDecision"
+      output_entity: "CreditDecision"
+      trigger: "UC-006"
+      actor: "CREDIT_ANALYST"
+
+  responseObjects:
+    - response_name: "LoanRequestResponse"
+      fields: ["requestId", "status", "createdDate", "customerId"]
+      usage: "UC-001 response"
+
+    - response_name: "CreditDecisionResponse"
+      fields: ["decision", "creditScore", "rationale"]
+      usage: "UC-003 response"
+
+    - response_name: "LoanOfferResponse"
+      fields: ["offerId", "amount", "rate", "term", "monthlyPayment", "expirationDate"]
+      usage: "UC-004 response"
+
+    - response_name: "DisbursementConfirmation"
+      fields: ["disbursementId", "status", "transferDate", "amount"]
+      usage: "UC-007 response"
+
+  glossaryNotes: |
+    This semantic dictionary is the canonical reference for all APIs, events, and data models
+    in the Digital Personal Loan Origination functionality. All contracts (REST OpenAPI, AsyncAPI)
+    must use the canonical names and field definitions defined herein. Aliases are for documentation
+    and historical reference only. No API should expose multiple names for the same entity or field.
+
+  complianceReferences:
+    - business_rule: "BR-010"
+      semantic_requirement: "All CreditDecision and RequestStatus transitions must be logged with timestamps"
+    
+    - business_rule: "BR-012"
+      semantic_requirement: "signatureProof, creditScore, customerPII must be encrypted_at_rest"

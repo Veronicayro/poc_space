@@ -1,0 +1,92 @@
+# component.yaml — credit-request-api
+# Layer: Business | BIAN: CustomerOffer (semantic_alignment)
+component_id: COMP-LON-BUS-001
+name: credit-request-api
+functionality_id: LON
+layer: business
+type: Business API
+version: "1.0.0"
+status: design_complete
+generated_at: "2026-06-17"
+
+bian:
+  service_domain: CustomerOffer
+  release: "14.0.0"
+  adoption_level: semantic_alignment
+  control_record: CustomerOffer
+  source_oas3: architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml
+
+description: >
+  API de gestión del ciclo de vida de solicitudes de crédito. Implementa la
+  state machine de 12 estados con transiciones controladas por rol y nivel
+  de atribución. Gestiona registro de solicitudes, validación KYC, documentos,
+  decisiones crediticias y trazabilidad completa del proceso crediticio.
+
+responsibilities:
+  - Crear solicitudes de crédito (estado inicial DRAFT)
+  - Implementar state machine de 12 estados (CreditWorkflowService)
+  - Validar existencia del cliente en Core Bancario vía KYC
+  - Prevenir solicitudes duplicadas activas por cliente y tipo de crédito
+  - Gestionar adjuntos documentales (referencias DMS)
+  - Registrar decisiones aprobación/rechazo con trazabilidad
+  - Escalar automáticamente según umbrales de monto y riesgo
+  - Mantener AuditLog inmutable de todas las transiciones
+
+technology:
+  runtime: "Node.js (Express) / Java (Spring Boot)"
+  database: PostgreSQL
+  patterns:
+    - Layered Architecture
+    - Strategy Pattern
+    - DTO/Mapper
+    - Repository Pattern
+    - State Machine
+
+api:
+  style: REST
+  versioning: URI (/v1)
+  base_path: /v1
+  bian_path_prefix: /CustomerOffer
+
+endpoints:
+  - POST /v1/CustomerOffer/Initiate
+  - GET /v1/CustomerOffer/{customerofferid}/Retrieve
+  - PUT /v1/CustomerOffer/{customerofferid}/Update
+  - PUT /v1/CustomerOffer/{customerofferid}/Exchange
+  - GET /v1/CustomerOffer
+
+security:
+  authentication: "OAuth2 / OpenID Connect / JWT"
+  authorization: RBAC
+  roles: [CREDIT_OFFICER, RISK_ANALYST, CREDIT_MANAGER, CREDIT_COMMITTEE, DISBURSEMENT_OFFICER]
+
+state_machine:
+  states: [DRAFT, SUBMITTED, UNDER_REVIEW, RISK_ASSESSED, PENDING_APPROVAL, PENDING_COMMITTEE, APPROVED, REJECTED, PENDING_DISBURSEMENT, DISBURSED, CANCELLED, EXPIRED]
+  implementation: CreditWorkflowService
+
+persistence:
+  technology: PostgreSQL
+  tables: [credit_requests, credit_decisions, credit_documents, audit_logs]
+  acid: true
+  partitioning: "Por año en credit_requests"
+  indexes:
+    - "(status, created_at)"
+    - "(customer_id, status)"
+    - "(assigned_officer_id, status)"
+
+dependencies:
+  - name: core-banking-adapter-api
+    purpose: KYC validation
+    type: synchronous
+  - name: dms-adapter-api
+    purpose: Document management
+    type: synchronous
+
+consumers:
+  - credit-origination-exp-api
+
+nfr:
+  sla_ms: 500
+  idempotency: true
+  audit: complete
+  data_retention: "7 años"

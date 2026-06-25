@@ -1,0 +1,120 @@
+# bian-adoption.yaml — disbursement-api
+# Evidence file for BIAN Release 14 contract adoption
+# Conforms to: architecture/schemas/bian-contract-adoption.schema.yaml
+component: disbursement-api
+functionality_id: LON
+generated_at: "2026-06-17"
+validation_status: validated
+
+selected_service_domain: Disbursement
+
+source_oas3_files:
+  - architecture/cache/bian/release14.0.0/oas3/yamls/Disbursement.yaml
+
+selected_paths:
+  - path: /Disbursement/Initiate
+    method: POST
+    bian_summary: "InCR Initiate a disbursement"
+    maps_to_lon_operation: initiateDisbursementTransaction
+    adaptation: "Direct adoption — monto, cuenta destino y referencia de préstamo mapeados a LON DTOs"
+
+  - path: "/Disbursement/{disbursementid}/Execute"
+    method: PUT
+    bian_summary: "ExCR Execute an automated task against an active disbursement"
+    maps_to_lon_operation: executeDisbursementTransaction
+    adaptation: "Direct adoption — usado para enviar la instrucción al core bancario"
+
+  - path: "/Disbursement/{disbursementid}/Exchange"
+    method: PUT
+    bian_summary: "EcCR Verify, confirm etc. a disbursement"
+    maps_to_lon_operation: exchangeDisbursementTransaction
+    adaptation: "Used for core banking confirmation callback — registra core_reference y fecha"
+
+  - path: "/Disbursement/{disbursementid}/Retrieve"
+    method: GET
+    bian_summary: "ReCR Retrieve details about a disbursement"
+    maps_to_lon_operation: retrieveDisbursementTransaction
+    adaptation: "Direct adoption — sin modificaciones"
+
+omitted_paths:
+  - path: "/Disbursement/{disbursementid}/Update"
+    method: PUT
+    reason: "LON no requiere actualización directa del CR; las confirmaciones se manejan via Exchange"
+
+  - path: "/Disbursement/{disbursementid}/Control"
+    method: PUT
+    reason: "Control de procesamiento no aplica al flujo LON; el core bancario gestiona internamente"
+
+  - path: "/Disbursement/{disbursementid}/Request"
+    method: PUT
+    reason: "Intervención manual no expuesta a través de esta API; se maneja operativamente"
+
+selected_schemas:
+  - DisbursementTransaction (Control Record)
+  - InitiateDisbursementTransactionRequest (LON adaptation)
+  - ExecuteDisbursementTransactionRequest (LON extension)
+  - DisbursementTransactionExchangeNotification (LON extension)
+  - DisbursementTransactionResponse (LON adaptation)
+  - DisbursementTransactionStatusEnum (BIAN status lifecycle)
+
+omitted_schemas:
+  reason_Involvedparty: "Mapeado a campos simples (executed_by, beneficiary_name) en el contrato LON"
+  reason_PaymentArrangement: "Detalles de pago simplificados; solo amount y currency retenidos"
+  reason_LoanAgreement: "Mapeado a credit_request_id (UUID interno) en el contrato LON"
+  reason_Interestarrangement: "Intereses gestionados por el core bancario; fuera del scope de LON originación"
+  reason_Limitarrangement: "Límites no aplican al flujo de desembolso LON"
+  reason_TaxTypes: "Impuestos gestionados por el core; omitidos en LON"
+
+field_mappings:
+  - bian_field: DisbursementTransaction.DisbursementProcessReference
+    lon_field: id
+    type_adaptation: "BIAN Identifier → UUID string (ISO 4122)"
+
+  - bian_field: DisbursementTransaction.ProductInstanceReference (LoanAgreement)
+    lon_field: credit_request_id
+    type_adaptation: "BIAN LoanAgreement → UUID string (referencia interna LON)"
+    note: "AP adaptation: replaces LoanAgreement object with LON CreditRequest UUID"
+
+  - bian_field: DisbursementTransaction.BeneficiaryAccountReference
+    lon_field: destination_account
+    type_adaptation: "BIAN Account object → string account number"
+
+  - bian_field: DisbursementTransaction.PaymentAmount
+    lon_field: amount
+    type_adaptation: "BIAN Amount object → decimal number"
+
+  - bian_field: DisbursementTransaction.PaymentCurrency
+    lon_field: currency
+    type_adaptation: "BIAN Currencycode → ISO 4217 string (3 chars)"
+
+  - bian_field: DisbursementTransaction.DisbursementExecutionDate
+    lon_field: disbursed_at
+    type_adaptation: "BIAN Datetime → ISO 8601 date-time string"
+
+  - bian_field: DisbursementTransaction.AuthorisingEmployeeReference
+    lon_field: executed_by
+    type_adaptation: "BIAN Involvedparty → string (employee ID)"
+
+  - bian_field: DisbursementTransaction.BeneficiaryName
+    lon_field: beneficiary_name
+    type_adaptation: "BIAN Name → string"
+
+  - bian_field: DisbursementTransaction.DisbursementStatus
+    lon_field: status
+    type_adaptation: "BIAN Status → enum [PENDING, EXECUTED, FAILED]"
+
+adaptation_rationale: >
+  El SD BIAN Disbursement cubre exactamente el caso de uso UC-LON-007 (Ejecutar desembolso).
+  Se adopta directamente el Control Record DisbursementTransaction con las siguientes adaptaciones:
+  
+  1. ProductInstanceReference se simplifica a credit_request_id (UUID del sistema LON) en lugar
+     del objeto LoanAgreement completo de BIAN — el sistema LON no gestiona el LoanAgreement
+     directamente (eso es responsabilidad del Core Bancario).
+  
+  2. Los tipos de objetos complejos de BIAN (Amount, Account, Name, Datetime) se simplifican
+     a tipos primitivos (decimal, string, date-time) para optimizar el contrato REST.
+  
+  3. Se añaden campos LON-específicos: credit_request_id y idempotency_key (no en BIAN baseline).
+  
+  4. Los paths omitidos (Update, Control, Request) no son necesarios para el flujo de originación;
+     la confirmación del core se gestiona via Exchange, y la intervención manual es operativa.

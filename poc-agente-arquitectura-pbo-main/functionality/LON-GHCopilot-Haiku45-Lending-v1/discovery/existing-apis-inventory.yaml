@@ -1,0 +1,164 @@
+---
+existingApisInventory:
+  metadata:
+    functionalityId: "LON-GHCopilot-Haiku45-Lending-v1"
+    inventoryDate: "2026-06-24"
+    source: "catalog/domains/loans.yaml + catalog/bian-capability-index.yaml"
+    purpose: "Identify reuse/extend/create opportunities for loan origination"
+    domainScope: "Lending domain APIs published in catalog"
+
+  existingApis:
+    # —— PRIMARY COLLISION (flagged in Phase 1) ——
+    - apiId: "API-CAP-LOAN-001"
+      name: "CreditApplicationAPI"
+      catalogDomain: "Loans/LoanOrigination"
+      version: "1.3.0"
+      status: "Published"
+      owner: "Lending Origination Squad"
+      sla: "99.9%"
+      criticalityTier: "Tier 1"
+      dataClassification: ["PII", "Confidential"]
+      
+      description: |
+        Captura y gestión de solicitudes de crédito (personal/auto), estado, condiciones 
+        y verificación documental.
+      
+      operationalScope:
+        - "POST /credit-applications → Create new application"
+        - "GET /credit-applications → Search/list applications"
+        - "POST /credit-applications/{id}/submit → Submit for evaluation"
+      
+      bianAlignment:
+        serviceDomain: "CustomerOffer"
+        secondaryServiceDomain: "Underwriting"
+        alignmentType: "partial"  # covers 70-80% of CAP-LOAN-001 intent
+        gaps:
+          - "Automated scoring integration (EXT-002) not in OpenAPI contract"
+          - "Credit bureau inquiry (EXT-001) not in OpenAPI contract"
+          - "Document upload protocol defined inline, not standard BIAN"
+      
+      dependencies:
+        - api: "Customers/CustomerOnboarding/CustomerProfileAPI"
+          reason: "Datos del solicitante"
+        - api: "Risk/CreditRisk/CreditDecisioningAPI"
+          reason: "Decisión crediticia"
+        - api: "Compliance/Records/DocumentArchiveAPI"
+          reason: "Documentación soporte"
+      
+      reuseAssessment:
+        reuseScore: 0.75  # covers 75% of requirements
+        recommendation: "EXTEND"  # not REUSE entirely; requires enhancement
+        rationale: |
+          CreditApplicationAPI v1.3 covers the core request intake workflow (UC-001, UC-002).
+          However, it lacks explicit integration patterns for:
+          - Automated credit evaluation (UC-003 → Underwriting assessment)
+          - Personalized offer generation (UC-004 → rate/term logic)
+          - Signature recording (UC-005 → e-signature callback)
+          
+          Recommendation: Analyze in Phase 4 (api-landscape-design) via 
+          api-landscape-governance/SKILL.md to decide EXTEND vs. CREATE.
+        
+        preconditions:
+          - "Must validate existing CreditApplicationAPI v1.3 contract against Phase 1 semantic dictionary"
+          - "Must confirm dependencies (CreditDecisioningAPI, DocumentArchiveAPI) are production-ready"
+        
+        risks:
+          - "Extending CreditApplicationAPI may require contract versioning strategy (v1.4 vs. v2.0)"
+          - "Existing consumers (Web Banking, Mobile App) must be tested for backward compatibility"
+
+    # —— SECONDARY APIS (out of core scope but relevant) ——
+    - apiId: "API-CAP-LOAN-002"
+      name: "LoanServicingAPI"
+      catalogDomain: "Loans/LoanOrigination"  # same domain
+      version: "2.2.0"
+      status: "Published"
+      owner: "Lending Servicing Squad"
+      sla: "99.95%"
+      criticalityTier: "Tier 0"
+      
+      description: |
+        Consulta y servicing de préstamos: calendario, cuotas, pagos, saldo y reestructuraciones.
+      
+      operationalScope:
+        - "GET /loans → List customer's loans"
+        - "POST /loans/{id}/repayments → Initiate repayment"
+        - "GET /loans/{id}/schedule → Get amortization schedule"
+      
+      bianAlignment:
+        serviceDomain: "ConsumerLoan"
+        alignmentType: "direct"
+      
+      reuseAssessment:
+        reuseScore: 0.0  # OUT OF SCOPE for LON-GHCopilot-Haiku45-Lending-v1
+        recommendation: "NOT_APPLICABLE"
+        rationale: |
+          LoanServicingAPI is out of scope for this functionality.
+          Scope explicitly excludes: Collections, delinquency management, refinancing.
+          Future functionality (e.g., Loan Servicing & Repayment) may reuse this API.
+
+    - apiId: "API-CAP-LOAN-003"
+      name: "DisbursementAPI"
+      catalogDomain: "Loans/LoanOrigination"
+      version: "1.1.0"
+      status: "Published"
+      owner: "Lending Disbursement Squad"
+      sla: "99.9%"
+      criticalityTier: "Tier 1"
+      
+      description: |
+        Orquestación del desembolso, instrucción al core y confirmación de abono.
+      
+      operationalScope:
+        - "POST /disbursement → Create disbursement instruction"
+        - "GET /disbursement/{id} → Query status"
+      
+      bianAlignment:
+        serviceDomain: "Disbursement"
+        alignmentType: "direct"
+      
+      dependencies:
+        - api: "Loans/LoanOrigination/CreditApplicationAPI"
+          reason: "Validate approval and conditions"
+        - api: "Accounts/AccountServicing/AccountManagementAPI"
+          reason: "Target account for disbursement"
+        - api: "Compliance/Records/AuditTrailAPI"
+          reason: "Traceability of disbursement"
+      
+      reuseAssessment:
+        reuseScore: 0.85  # covers 85% of disbursement requirement
+        recommendation: "REUSE"
+        rationale: |
+          DisbursementAPI v1.1 directly covers UC-007 (Disbursement instruction).
+          Well-aligned with BIAN Disbursement SD.
+          Dependencies on CreditApplicationAPI and audit trail are met in this function.
+        
+        preconditions:
+          - "Confirm DisbursementAPI v1.1 is production-ready and SLA maintained"
+          - "Validate that callback/confirmation pattern aligns with event-driven disbursement (UC-007)"
+
+  capabilityCoverage:
+    capabilityId: "CAP-LOAN-001"
+    capabilityName: "Loan Origination & Underwriting"
+    existingApisCount: 1  # CreditApplicationAPI v1.3
+    coverage: |
+      CreditApplicationAPI v1.3 covers ~75% of capability:
+      ✓ Loan request capture (UC-001, UC-002)
+      ✓ Application lifecycle (states: DRAFT, SUBMITTED, etc.)
+      ✗ Automated credit evaluation (UC-003) — requires enhancement via Underwriting SD
+      ✗ Offer generation with pricing (UC-004) — partial in CreditApplicationAPI, needs explicit rate/term logic
+      ✗ Digital signature recording (UC-005) — external integration required
+      ✗ Manual review workflow (UC-006) — may require new API or CreditApplicationAPI enhancement
+
+  assessmentSummary:
+    totalExistingApis: 3
+    inScopApis: 1  # only CreditApplicationAPI
+    outOfScopeApis: 2
+    reuseApis: 1  # DisbursementAPI (80%+)
+    extendApis: 1  # CreditApplicationAPI (60-80%)
+    createNewApis: 0  # TBD in Phase 4 via api-landscape-governance
+    
+  nextPhaseRecommendations:
+    - "Phase 4 (api-landscape-design) must run api-landscape-governance/SKILL.md"
+    - "Decision: CreditApplicationAPI EXTEND vs. CREATE new -> handled autonomously by skill"
+    - "If EXTEND: contract validation and version strategy (v1.4 vs. v2.0) required"
+    - "If CREATE: CreditApplicationAPI v1.3 becomes a DEPRECATED or TRANSITIONAL component"

@@ -1,0 +1,127 @@
+# context-pack.yaml — LON (Sistema de Originación de Créditos)
+# Phase 1 output: context-pack-builder skill
+functionality_id: LON
+functionality_name: "Sistema de Originación de Créditos"
+domain: "Lending / Credit Origination"
+industry_vertical: "Banking"
+
+summary: >
+  El sistema LON gestiona el ciclo de vida completo de solicitudes de crédito
+  desde la postulación hasta el desembolso. Cubre registro, evaluación de riesgo
+  (con integración al bureau de crédito), aprobación multinivel (gerente/comité),
+  desembolso coordinado con el core bancario y trazabilidad completa de cada
+  transición de estado mediante una state machine explícita.
+
+business_context:
+  problem_statement: >
+    El banco requiere un sistema que centralice y controle el proceso de
+    originación de créditos, garantizando cumplimiento de políticas crediticias,
+    trazabilidad regulatoria completa y eficiencia operativa en las etapas de
+    evaluación, aprobación y desembolso.
+  strategic_value:
+    - Reducción de tiempo de ciclo de evaluación y aprobación de créditos
+    - Consistencia en la aplicación de políticas crediticias por segmento
+    - Trazabilidad completa para auditoría regulatoria (Basel III / ISO 27001)
+    - Reducción de costos de consulta al bureau mediante caché TTL
+    - Escalabilidad del proceso mediante aprobación multinivel parametrizable
+
+actors:
+  - id: CREDIT_OFFICER
+    name: "Oficial de Crédito"
+    key_responsibilities: [registro de solicitud, carga de documentos, envío a evaluación]
+  - id: RISK_ANALYST
+    name: "Analista de Riesgo"
+    key_responsibilities: [evaluación de riesgo, consulta bureau, registro de score]
+  - id: CREDIT_MANAGER
+    name: "Gerente de Créditos"
+    key_responsibilities: [aprobación/rechazo dentro de atribución, escalado a comité]
+  - id: CREDIT_COMMITTEE
+    name: "Comité de Créditos"
+    key_responsibilities: [aprobación/rechazo de alto monto o riesgo elevado]
+  - id: DISBURSEMENT_OFFICER
+    name: "Oficial de Desembolso"
+    key_responsibilities: [confirmación de cuenta destino, ejecución de desembolso]
+
+key_use_cases:
+  - UC-LON-001  # Registrar solicitud de crédito
+  - UC-LON-002  # Enviar solicitud para evaluación
+  - UC-LON-003  # Evaluar riesgo crediticio
+  - UC-LON-004  # Aprobar solicitud de crédito
+  - UC-LON-005  # Rechazar solicitud de crédito
+  - UC-LON-006  # Escalar solicitud al Comité
+  - UC-LON-007  # Ejecutar desembolso
+  - UC-LON-008  # Consultar estado de solicitud
+
+credit_lifecycle_states:
+  - DRAFT
+  - SUBMITTED
+  - UNDER_REVIEW
+  - RISK_ASSESSED
+  - PENDING_APPROVAL
+  - PENDING_COMMITTEE
+  - APPROVED
+  - REJECTED
+  - PENDING_DISBURSEMENT
+  - DISBURSED
+  - CANCELLED
+  - EXPIRED
+
+external_dependencies:
+  - id: CREDIT_BUREAU
+    system: "Bureau de Crédito (Equifax / TransUnion / Experian)"
+    integration: "REST API síncrona"
+    criticality: HIGH
+    gap: GAP-LON-001
+  - id: CORE_BANKING
+    system: "Core Bancario"
+    integration: "REST API / Batch Sync"
+    criticality: HIGH
+    gap: GAP-LON-002
+  - id: DMS
+    system: "Document Management System"
+    integration: "REST API"
+    criticality: MEDIUM
+    gap: null
+
+key_design_decisions:
+  - ref: DDA-001
+    summary: "State machine explícita para ciclo de vida de solicitudes"
+  - ref: DDA-002
+    summary: "API REST versionada con Layered Architecture"
+  - ref: DDA-003
+    summary: "Caché síncrona del bureau de crédito con Redis (TTL 24h)"
+  - ref: DDA-004
+    summary: "Aprobación multinivel parametrizable por umbral de monto y riesgo"
+  - ref: DDA-005
+    summary: "Integración con DMS especializado para gestión documental"
+
+nfr_summary:
+  performance: "< 500ms consultas; < 1000ms evaluación de riesgo; 200 usuarios concurrentes"
+  security: "OAuth2/OIDC + JWT; RBAC; TLS 1.2+; AES-256 en reposo"
+  observability: "Structured JSON logging; OpenTelemetry; Prometheus; alertas SUBMITTED >48h"
+  reliability: "Retry backoff exponencial; circuit breakers (5 fallos/30s); idempotencia en desembolso"
+  compliance: "ISO 27001; Basel III readiness; GDPR; retención 7 años; consentimiento bureau"
+
+domain_standard:
+  provider: BIAN
+  release: "14.0.0"
+  selected_service_domains:
+    - CustomerOffer     # Orquestación de originación
+    - Underwriting      # Evaluación de riesgo y decisión
+    - CustomerCreditRating  # Score crediticio y bureau
+    - Disbursement      # Desembolso de fondos
+
+data_entities:
+  - CreditRequest
+  - RiskAssessment
+  - CreditDecision
+  - Disbursement
+  - CreditDocument
+  - AuditLog
+
+technology_stack:
+  frontend: "React (SPA)"
+  backend: "Node.js (Express) o Java (Spring Boot)"
+  database: "PostgreSQL (ACID, particionamiento por año)"
+  cache: "Redis (TTL configurable)"
+  integration: "REST / Webhooks / Message Broker (opcional)"

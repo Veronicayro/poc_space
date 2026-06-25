@@ -1,0 +1,29 @@
+schema_id: bian-contract-adoption
+artifact_path_pattern: design/<business-or-domain>/<api>/contract/bian-adoption.yaml
+required_fields:
+  - target_api_name
+  - target_layer
+  - bian_adoption
+fields:
+  target_api_name: string
+  target_layer:
+    enum: [business, domain]
+  bian_adoption:
+    bian_release: string
+    selected_service_domain: string
+    source_oas3_files: array
+    source_asyncapi_files: array
+    selected_paths: array
+    selected_operations: array
+    selected_channels: array
+    selected_messages: array
+    selected_schemas: array
+    omitted_paths: array
+    omitted_operations: array
+    omitted_channels: array
+    omitted_schemas: array
+    field_mappings: array
+    adaptation_rationale: string
+    field_language: English
+    validation_status:
+      enum: [pending_review, validated, rejected, blocked]

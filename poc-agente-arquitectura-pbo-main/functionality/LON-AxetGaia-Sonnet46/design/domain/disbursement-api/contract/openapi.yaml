@@ -1,0 +1,341 @@
+openapi: 3.0.1
+info:
+  title: Disbursement API — LON
+  description: >
+    API de ejecución de desembolso de créditos aprobados.
+    Derivada del BIAN Release 14 Service Domain: Disbursement.
+    Control Record: DisbursementTransaction (adopción directa).
+  version: 1.0.0
+  x-bian-sd: Disbursement
+  x-bian-release: "14.0.0"
+  x-bian-control-record: DisbursementTransaction
+  x-bian-adoption-level: direct
+  x-bian-adoption-file: design/domain/disbursement-api/contract/bian-adoption.yaml
+  contact:
+    name: LON Architecture Team
+servers:
+  - url: https://api.bank.internal/LON-AxetGaia-Sonnet46/v1
+    description: Producción
+
+tags:
+  - name: DisbursementTransaction
+    description: "BIAN CR: DisbursementTransaction — Gestión del desembolso de fondos a créditos aprobados"
+
+paths:
+  /Disbursement/Initiate:
+    post:
+      tags:
+        - DisbursementTransaction
+      summary: InCR Initiate a disbursement transaction
+      description: >
+        Inicia una instrucción de desembolso para un crédito aprobado.
+        Requiere que la solicitud esté en estado APPROVED.
+      operationId: initiateDisbursementTransaction
+      x-bian-operation: Initiate
+      x-bian-cr: DisbursementTransaction
+      security:
+        - BearerAuth: [disbursement:execute]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiateDisbursementTransactionRequest'
+      responses:
+        '200':
+          description: Disbursement initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisbursementTransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /Disbursement/{disbursementid}/Execute:
+    put:
+      tags:
+        - DisbursementTransaction
+      summary: ExCR Execute the disbursement to the borrower account
+      description: >
+        Ejecuta la transferencia de fondos al core bancario y registra
+        la referencia de confirmación del core.
+      operationId: executeDisbursementTransaction
+      x-bian-operation: Execute
+      x-bian-cr: DisbursementTransaction
+      security:
+        - BearerAuth: [disbursement:execute]
+      parameters:
+        - $ref: '#/components/parameters/disbursementid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteDisbursementTransactionRequest'
+      responses:
+        '200':
+          description: Disbursement executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisbursementTransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /Disbursement/{disbursementid}/Exchange:
+    put:
+      tags:
+        - DisbursementTransaction
+      summary: EcCR Verify and confirm a disbursement execution
+      description: >
+        Confirma el desembolso ejecutado, registra la referencia del core
+        bancario y actualiza el estado de la solicitud a DISBURSED.
+      operationId: exchangeDisbursementTransaction
+      x-bian-operation: Exchange
+      x-bian-cr: DisbursementTransaction
+      security:
+        - BearerAuth: [disbursement:execute]
+      parameters:
+        - $ref: '#/components/parameters/disbursementid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisbursementTransactionExchangeNotification'
+      responses:
+        '200':
+          description: Disbursement confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisbursementTransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /Disbursement/{disbursementid}/Retrieve:
+    get:
+      tags:
+        - DisbursementTransaction
+      summary: ReCR Retrieve details about a disbursement
+      description: Retorna el estado y detalles completos del desembolso.
+      operationId: retrieveDisbursementTransaction
+      x-bian-operation: Retrieve
+      x-bian-cr: DisbursementTransaction
+      security:
+        - BearerAuth: [disbursement:read]
+      parameters:
+        - $ref: '#/components/parameters/disbursementid'
+      responses:
+        '200':
+          description: Disbursement details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisbursementTransactionResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    disbursementid:
+      name: disbursementid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: "BIAN: DisbursementTransaction.DisbursementProcessReference — UUID del desembolso"
+
+  schemas:
+    InitiateDisbursementTransactionRequest:
+      type: object
+      required:
+        - credit_request_id
+        - destination_account
+        - amount
+        - currency
+      properties:
+        credit_request_id:
+          type: string
+          format: uuid
+          description: "BIAN: DisbursementTransaction.ProductInstanceReference (LoanAgreement). AP: referencia a la solicitud de crédito aprobada."
+        destination_account:
+          type: string
+          description: "BIAN: DisbursementTransaction.BeneficiaryAccountReference. Número de cuenta destino del desembolso."
+        beneficiary_name:
+          type: string
+          description: "BIAN: DisbursementTransaction.BeneficiaryName. Nombre del beneficiario del desembolso."
+        amount:
+          type: number
+          format: double
+          description: "BIAN: DisbursementTransaction.PaymentAmount. Monto a desembolsar."
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: "BIAN: DisbursementTransaction.PaymentCurrency. Código ISO 4217 (ej. USD)."
+        executed_by:
+          type: string
+          description: "BIAN: DisbursementTransaction.AuthorisingEmployeeReference. ID del oficial de desembolso."
+
+    ExecuteDisbursementTransactionRequest:
+      type: object
+      required:
+        - destination_account_confirmed
+      properties:
+        destination_account_confirmed:
+          type: string
+          description: "Confirmación de la cuenta destino antes de ejecutar el desembolso."
+        idempotency_key:
+          type: string
+          format: uuid
+          description: "Clave de idempotencia para evitar desembolsos duplicados."
+
+    DisbursementTransactionExchangeNotification:
+      type: object
+      required:
+        - core_reference
+        - disbursed_at
+      properties:
+        core_reference:
+          type: string
+          description: "Referencia del core bancario confirmando el desembolso ejecutado."
+        disbursed_at:
+          type: string
+          format: date-time
+          description: "BIAN: DisbursementTransaction.DisbursementExecutionDate. Fecha/hora de ejecución en el core."
+        core_status:
+          type: string
+          enum: [EXECUTED, FAILED]
+          description: "Estado del desembolso confirmado por el core bancario."
+
+    DisbursementTransactionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "BIAN: DisbursementTransaction.DisbursementProcessReference. UUID del desembolso."
+        credit_request_id:
+          type: string
+          format: uuid
+          description: "BIAN: DisbursementTransaction.ProductInstanceReference (LoanAgreement)."
+        destination_account:
+          type: string
+          description: "BIAN: DisbursementTransaction.BeneficiaryAccountReference."
+        amount:
+          type: number
+          format: double
+          description: "BIAN: DisbursementTransaction.PaymentAmount."
+        currency:
+          type: string
+          description: "BIAN: DisbursementTransaction.PaymentCurrency."
+        status:
+          $ref: '#/components/schemas/DisbursementTransactionStatusEnum'
+        core_reference:
+          type: string
+          description: "Referencia del core bancario para reconciliación."
+        disbursed_at:
+          type: string
+          format: date-time
+          description: "BIAN: DisbursementTransaction.DisbursementExecutionDate."
+        executed_by:
+          type: string
+          description: "BIAN: DisbursementTransaction.AuthorisingEmployeeReference."
+        created_at:
+          type: string
+          format: date-time
+
+    DisbursementTransactionStatusEnum:
+      type: string
+      enum:
+        - PENDING
+        - EXECUTED
+        - FAILED
+      description: >
+        BIAN: DisbursementTransaction.DisbursementStatus lifecycle.
+        PENDING = instrucción iniciada; EXECUTED = confirmado por core; FAILED = error en core.
+
+    HTTPError:
+      type: object
+      properties:
+        type:
+          type: string
+          description: "URI que identifica el tipo de problema (RFC 7807)"
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        correlation_id:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad Request — datos de entrada inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    Unauthorized:
+      description: Unauthorized — token JWT faltante o inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    Forbidden:
+      description: Forbidden — rol sin permiso para esta operación
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    NotFound:
+      description: Not Found — disbursementid no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    UnprocessableEntity:
+      description: Unprocessable Entity — regla de negocio violada
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPError'

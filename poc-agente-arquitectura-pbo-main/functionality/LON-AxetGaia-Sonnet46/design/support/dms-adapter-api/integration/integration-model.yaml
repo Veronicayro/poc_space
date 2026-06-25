@@ -1,0 +1,47 @@
+# integration-model.yaml — dms-adapter-api
+component_id: COMP-LON-SUP-003
+name: dms-adapter-api
+generated_at: "2026-06-17"
+
+integrations:
+  - id: INT-LON-SUP003-STORE
+    name: document-store
+    direction: outbound
+    type: synchronous_external
+    protocol: "REST API / HTTPS (multipart/form-data)"
+    description: "Almacena documentos del expediente crediticio en el DMS externo"
+    external_endpoint: "POST /dms/v1/documents"
+    payload: "multipart/form-data: { file, document_type, credit_request_id, metadata }"
+    response: "{ dms_reference, document_id, stored_at, checksum }"
+    timeout_ms: 5000
+    retry:
+      max_attempts: 2
+      backoff: exponential
+    fallback:
+      strategy: "Almacenamiento temporal en filesystem local"
+      sync_flag: "pending_dms_sync: true"
+      recovery: "Proceso batch de sincronización al restaurar DMS"
+
+  - id: INT-LON-SUP003-RETRIEVE
+    name: document-retrieve
+    direction: outbound
+    type: synchronous_external
+    protocol: "REST API / HTTPS"
+    description: "Recupera documentos por referencia DMS"
+    external_endpoint: "GET /dms/v1/documents/{dmsReference}"
+    response: "{ dms_reference, file_content_url, document_type, metadata }"
+    timeout_ms: 2000
+
+  - id: INT-LON-SUP003-LIST
+    name: document-list
+    direction: outbound
+    type: synchronous_external
+    protocol: "REST API / HTTPS"
+    description: "Lista documentos de un expediente por credit_request_id"
+    external_endpoint: "GET /dms/v1/documents?externalRef={creditRequestId}"
+    response: "[{ dms_reference, document_type, uploaded_at, is_mandatory }]"
+    timeout_ms: 2000
+
+authentication:
+  type: "API Key en header X-DMS-Api-Key"
+  internal_auth: "JWT Bearer (inter-service)"

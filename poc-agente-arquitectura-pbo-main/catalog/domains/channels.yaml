@@ -1,0 +1,223 @@
+domain:
+  name: "Channels"
+  description: "APIs de canal (experiencia), notificaciones y preferencia de comunicación."
+
+  capabilities:
+
+    Notifications:
+      apiProducts:
+
+        NotificationDispatchAPI:
+          metadata:
+            name: "Notification Dispatch API"
+            description: "Envío de notificaciones multicanal (push, email, SMS) con plantillas y tracking."
+            owner: "Digital Channels Squad"
+            sla: "99.9%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 1"
+            region: "global"
+            tags: ["channels", "notifications", "dispatch"]
+          apiType: "Internal"
+          versions:
+            - version: "1.7.0"
+              status: "Published"
+              x-contract-version: "2026-06-06"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/notification-dispatch/v1"
+                qa: "https://api.qa.globalbank.example.com/notification-dispatch/v1"
+                uat: "https://api.uat.globalbank.example.com/notification-dispatch/v1"
+                prod: "https://api.globalbank.example.com/notification-dispatch/v1"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Compliance/Records/AuditTrailAPI"
+                  reason: "Auditoría de notificaciones críticas."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials"]
+                scopes:
+                  - "notifications.send"
+                  - "notifications.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "delivery_success_rate"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "notificationId", "channel", "templateId", "status"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Template governance + deliverability checks."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Notification Dispatch API"
+              version: "v1"
+            paths:
+              /notifications:
+                post:
+                  summary: "Enviar notificación"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "202":
+                      description: "Envío en proceso"
+                      schemaRef: "#/components/schemas/NotificationJob"
+                get:
+                  summary: "Buscar notificaciones"
+                  queryParams: ["status", "channel", "cursor", "limit"]
+                  responses:
+                    "200":
+                      description: "Notificaciones"
+                      schemaRef: "#/components/schemas/NotificationList"
+              /notifications/{notificationId}:
+                get:
+                  summary: "Consultar notificación"
+                  responses:
+                    "200":
+                      description: "Notificación"
+                      schemaRef: "#/components/schemas/Notification"
+
+        CustomerNotificationPreferencesAPI:
+          metadata:
+            name: "Customer Notification Preferences API"
+            description: "Gestión de preferencias de notificación y consentimiento por canal (push/email/sms) y categoría."
+            owner: "Customer Engagement Squad"
+            sla: "99.9%"
+            dataClassification: ["PII", "Confidential"]
+            criticalityTier: "Tier 1"
+            region: "global"
+            tags: ["channels", "preferences", "notifications"]
+          apiType: "Internal"
+          versions:
+            - version: "1.1.0"
+              status: "Published"
+              x-contract-version: "2026-05-12"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/customer-notification-preferences/v1"
+                qa: "https://api.qa.globalbank.example.com/customer-notification-preferences/v1"
+                uat: "https://api.uat.globalbank.example.com/customer-notification-preferences/v1"
+                prod: "https://api.globalbank.example.com/customer-notification-preferences/v1"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Customers/CustomerOnboarding/CustomerConsentAPI"
+                  reason: "Alinear preferencias con consentimientos."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code"]
+                scopes:
+                  - "customers.preferences.read"
+                  - "customers.preferences.write"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "customerId", "category", "channel", "enabled"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Privacy review required."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Customer Notification Preferences API"
+              version: "v1"
+            paths:
+              /customers/{customerId}/notification-preferences:
+                get:
+                  summary: "Obtener preferencias"
+                  responses:
+                    "200":
+                      description: "Preferencias"
+                      schemaRef: "#/components/schemas/NotificationPreferenceSet"
+                put:
+                  summary: "Actualizar preferencias"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "200":
+                      description: "Actualizadas"
+                      schemaRef: "#/components/schemas/NotificationPreferenceSet"
+
+        ChannelSessionAPI:
+          metadata:
+            name: "Channel Session API"
+            description: "Gestión de sesiones de canal (web/mobile): emisión/refresh de tokens de sesión, device binding y logout."
+            owner: "Digital Security Squad"
+            sla: "99.99%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 0"
+            region: "global"
+            tags: ["channels", "session", "authentication"]
+          apiType: "Internal"
+          versions:
+            - version: "2.1.0"
+              status: "Published"
+              x-contract-version: "2026-06-04"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/channel-session/v2"
+                qa: "https://api.qa.globalbank.example.com/channel-session/v2"
+                uat: "https://api.uat.globalbank.example.com/channel-session/v2"
+                prod: "https://api.globalbank.example.com/channel-session/v2"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Customers/CustomerOnboarding/CustomerIdentityAPI"
+                  reason: "Verificación de identidad/SCA."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code"]
+                scopes:
+                  - "channels.session.create"
+                  - "channels.session.refresh"
+                  - "channels.session.revoke"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "login_success_rate"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "sessionId", "customerId", "deviceId", "action", "status"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Security review required."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Channel Session API"
+              version: "v2"
+            paths:
+              /sessions:
+                post:
+                  summary: "Crear sesión"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Sesión creada"
+                      schemaRef: "#/components/schemas/Session"
+              /sessions/{sessionId}/refresh:
+                post:
+                  summary: "Refrescar sesión"
+                  responses:
+                    "200":
+                      description: "Refrescada"
+                      schemaRef: "#/components/schemas/Session"
+              /sessions/{sessionId}:
+                delete:
+                  summary: "Cerrar sesión"
+                  responses:
+                    "204":
+                      description: "Cerrada"
+                      schemaRef: "#/components/schemas/Empty"

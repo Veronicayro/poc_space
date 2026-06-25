@@ -1,0 +1,122 @@
+functionality_id: KYC_ONBOARDING_DIGITAL
+version: "1.0.0"
+generated_at: "2026-06-22"
+
+business_cases:
+  - business_case_id: BC-001
+    name: "Digital Customer Onboarding"
+    description: >
+      Proceso end-to-end de incorporación digital de un nuevo cliente al banco:
+      registro, carga de documentos, validación KYC/AML y notificación del resultado.
+    actors: [CUSTOMER, KYC_ANALYST, SYSTEM]
+    desired_outcomes:
+      - "Cliente identificado y validado digitalmente en < 5 minutos (happy path)"
+      - "Cumplimiento normativo AML/KYC garantizado en cada apertura"
+      - "Reducción de fricción en el alta de clientes"
+      - "Trazabilidad completa y auditable de cada caso de onboarding"
+
+enterprise_capabilities:
+  - capability_id: CAP-001
+    capability_name: "Party Digital Registration"
+    capability_type: business
+    description: >
+      Captura, validación y almacenamiento de datos personales y documentos de identidad
+      del cliente durante el proceso de onboarding digital.
+    mapped_business_cases: [BC-001]
+    parent_capability: CAP-004
+    capability_owner_scope: "Customer Platform / KYC Squad"
+    source_references:
+      - "functionality/KYC_ONBOARDING_DIGITAL/discovery/use-cases.yaml#UC-001"
+      - "functionality/KYC_ONBOARDING_DIGITAL/discovery/use-cases.yaml#UC-002"
+
+  - capability_id: CAP-002
+    capability_name: "KYC Validation & AML Compliance"
+    capability_type: business
+    description: >
+      Ejecución automática de validaciones KYC: verificación de identidad contra
+      proveedor externo, screening AML/PEP y emisión del resultado de validación.
+    mapped_business_cases: [BC-001]
+    parent_capability: CAP-004
+    capability_owner_scope: "Financial Crime (FCC) Squad"
+    source_references:
+      - "functionality/KYC_ONBOARDING_DIGITAL/discovery/use-cases.yaml#UC-003"
+      - "functionality/KYC_ONBOARDING_DIGITAL/discovery/business-rules.yaml#BR-003"
+
+  - capability_id: CAP-003
+    capability_name: "Case Review & Decision"
+    capability_type: business
+    description: >
+      Gestión de la cola de revisión manual para casos cuya validación automática
+      falló o es inconclusa. Incluye la interfaz del analista KYC para revisar
+      evidencia y emitir una decisión final (APPROVED / REJECTED).
+    mapped_business_cases: [BC-001]
+    parent_capability: CAP-004
+    capability_owner_scope: "Financial Crime (FCC) Squad"
+    source_references:
+      - "functionality/KYC_ONBOARDING_DIGITAL/discovery/use-cases.yaml#UC-004"
+      - "functionality/KYC_ONBOARDING_DIGITAL/discovery/business-rules.yaml#BR-004"
+
+  - capability_id: CAP-004
+    capability_name: "Onboarding Lifecycle Management"
+    capability_type: business
+    description: >
+      Orquestación del ciclo de vida completo del caso de onboarding digital:
+      gestión de estado (INITIATED → DOCS_SUBMITTED → UNDER_REVIEW → APPROVED/REJECTED),
+      coordinación de capacidades subordinadas (CAP-001, CAP-002, CAP-003, CAP-005)
+      y aplicación de reglas de negocio cross-cutting (BR-005, BR-006, BR-007).
+    mapped_business_cases: [BC-001]
+    parent_capability: null
+    capability_owner_scope: "Customer Platform / KYC Squad"
+    source_references:
+      - "functionality/KYC_ONBOARDING_DIGITAL/discovery/use-cases.yaml"
+      - "functionality/KYC_ONBOARDING_DIGITAL/discovery/business-rules.yaml"
+
+  - capability_id: CAP-005
+    capability_name: "Customer Status Notification"
+    capability_type: integration
+    description: >
+      Emisión de notificaciones al cliente ante cambios de estado en el proceso
+      de onboarding (vía NOTIFICATION_SERVICE por evento asíncrono).
+    mapped_business_cases: [BC-001]
+    parent_capability: CAP-004
+    capability_owner_scope: "Channels / Notifications Squad"
+    source_references:
+      - "functionality/KYC_ONBOARDING_DIGITAL/discovery/use-cases.yaml#UC-005"
+
+domain_standard_candidates:
+  - capability_id: CAP-004
+    provider: BIAN
+    candidate_domain: PartyLifecycleManagement
+    source_file_or_reference: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+    fit_score: 0.92
+    rationale: >
+      PartyLifecycleManagement tracks party relationship state from initial checks
+      (Initiate, Qualification, IdentityProofing, Documentation) through lifecycle maintenance
+      (Control for manual override). Maps directly to onboarding lifecycle and KYC validation.
+    status: selected
+
+  - capability_id: CAP-001
+    provider: BIAN
+    candidate_domain: PartyReferenceDataDirectory
+    source_file_or_reference: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyReferenceDataDirectory.yaml"
+    fit_score: 0.60
+    rationale: >
+      Manages party reference information (demographics, contacts). Relevant for customer
+      master data captured in UC-001, but is a supporting reference directory, not the
+      onboarding orchestrator.
+    status: rejected
+    rejection_reason: "Downstream dependency via CustomerProfileAPI (catalog); not the primary SD for onboarding"
+
+  - capability_id: CAP-004
+    provider: BIAN
+    candidate_domain: CustomerOffer
+    source_file_or_reference: "architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml"
+    fit_score: 0.45
+    rationale: >
+      CustomerOffer orchestrates product offer processing including document and eligibility checks.
+      Partially relevant as framing for the onboarding trigger, but its primary concern is
+      product/offer lifecycle — not identity verification and KYC compliance.
+    status: rejected
+    rejection_reason: "Scope mismatch: CustomerOffer is product-centric; KYC onboarding is identity/compliance-centric"
+
+unresolved_capabilities: []

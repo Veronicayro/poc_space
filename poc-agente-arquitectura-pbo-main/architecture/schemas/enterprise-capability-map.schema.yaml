@@ -1,0 +1,29 @@
+# enterprise-capability-map.schema.yaml
+functionality_id: string
+business_cases:
+  - business_case_id: string
+    name: string
+    description: string
+    actors: []
+    desired_outcomes: []
+enterprise_capabilities:
+  - capability_id: string
+    capability_name: string
+    capability_type: business | application | data | technology | integration
+    description: string
+    mapped_business_cases: []
+    parent_capability: string
+    capability_owner_scope: string
+    source_references: []
+domain_standard_candidates:
+  - capability_id: string
+    provider: BIAN | ACORD | TMForum | EnterpriseCapabilityMap | Other
+    candidate_domain: string
+    source_file_or_reference: string
+    fit_score: number
+    rationale: string
+    status: selected | rejected | unresolved
+unresolved_capabilities:
+  - capability_id: string
+    reason: string
+    required_action: string

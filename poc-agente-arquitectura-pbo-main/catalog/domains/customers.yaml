@@ -1,0 +1,285 @@
+domain:
+  name: "Customers"
+  description: "Gestión de clientes, identidad, KYC y perfiles."
+
+  capabilities:
+
+    CustomerOnboarding:
+      apiProducts:
+
+        CustomerProfileAPI:
+          metadata:
+            name: "Customer Profile API"
+            description: "Gestión de perfiles de clientes (natural y legal), datos demográficos, contacto y preferencias."
+            owner: "Customer Platform Squad"
+            sla: "99.9%"
+            dataClassification: ["PII", "Confidential"]
+            criticalityTier: "Tier 1"
+            region: "global"
+            tags: ["customers", "profile", "master-data"]
+          apiType: "Internal"
+          versions:
+            - version: "1.2.0"
+              status: "Published"
+              x-contract-version: "2026-06-01"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/customer-profile/v1"
+                qa: "https://api.qa.globalbank.example.com/customer-profile/v1"
+                uat: "https://api.uat.globalbank.example.com/customer-profile/v1"
+                prod: "https://api.globalbank.example.com/customer-profile/v1"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+                - "Partner Fintech"
+              dependencies:
+                - api: "Compliance/KYC/KYCScreeningAPI"
+                  reason: "Validación KYC/AML al crear/actualizar cliente."
+                - api: "Risk/CustomerRisk/CustomerRiskScoringAPI"
+                  reason: "Obtención de riesgo del cliente para segmentación y controles."
+                - api: "Channels/Notifications/CustomerNotificationPreferencesAPI"
+                  reason: "Preferencias de contacto."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials", "authorization_code"]
+                scopes:
+                  - "customers.profile.read"
+                  - "customers.profile.write"
+                  - "customers.contact.write"
+                  - "customers.preferences.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "auth_failures"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "level", "message", "customerId", "correlationId", "actor", "channel"]
+                tracing:
+                  enabled: true
+                  propagation: "W3C Trace Context"
+              lifecycle:
+                deprecationPolicy: "12 months notice for breaking changes."
+                changeManagement: "API Review Board + semantic versioning."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Customer Profile API"
+              version: "v1"
+            servers:
+              - url: "https://api.globalbank.example.com/customer-profile/v1"
+                description: "prod"
+            security:
+              - oauth2: ["customers.profile.read"]
+            paths:
+              /customers:
+                post:
+                  summary: "Crear cliente"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  requestBody:
+                    contentType: "application/json"
+                    schemaRef: "#/components/schemas/CustomerCreateRequest"
+                  responses:
+                    "201":
+                      description: "Cliente creado"
+                      schemaRef: "#/components/schemas/Customer"
+                    "409":
+                      description: "Conflicto (duplicado)"
+                get:
+                  summary: "Buscar clientes"
+                  queryParams: ["q", "cursor", "limit"]
+                  responses:
+                    "200":
+                      description: "Lista de clientes"
+                      schemaRef: "#/components/schemas/CustomerSearchResponse"
+              /customers/{customerId}:
+                get:
+                  summary: "Obtener cliente por id"
+                  pathParams: ["customerId"]
+                  responses:
+                    "200":
+                      description: "Cliente"
+                      schemaRef: "#/components/schemas/Customer"
+                    "404":
+                      description: "No encontrado"
+                patch:
+                  summary: "Actualizar parcialmente cliente"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  requestBody:
+                    contentType: "application/json"
+                    schemaRef: "#/components/schemas/CustomerPatchRequest"
+                  responses:
+                    "200":
+                      description: "Actualizado"
+                      schemaRef: "#/components/schemas/Customer"
+              /customers/{customerId}/addresses:
+                get:
+                  summary: "Listar direcciones"
+                  responses:
+                    "200":
+                      description: "Direcciones"
+                      schemaRef: "#/components/schemas/AddressList"
+                post:
+                  summary: "Agregar dirección"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  requestBody:
+                    contentType: "application/json"
+                    schemaRef: "#/components/schemas/AddressCreateRequest"
+                  responses:
+                    "201":
+                      description: "Dirección creada"
+                      schemaRef: "#/components/schemas/Address"
+
+        CustomerIdentityAPI:
+          metadata:
+            name: "Customer Identity API"
+            description: "Gestión de identidad: documentos, verificación de identidad y estado de autenticación fuerte (SCA) del cliente."
+            owner: "Identity & Access Squad"
+            sla: "99.95%"
+            dataClassification: ["PII", "Confidential"]
+            criticalityTier: "Tier 0"
+            region: "global"
+            tags: ["customers", "identity", "kyc"]
+          apiType: "Internal"
+          versions:
+            - version: "1.1.0"
+              status: "Published"
+              x-contract-version: "2026-05-15"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/customer-identity/v1"
+                qa: "https://api.qa.globalbank.example.com/customer-identity/v1"
+                uat: "https://api.uat.globalbank.example.com/customer-identity/v1"
+                prod: "https://api.globalbank.example.com/customer-identity/v1"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Compliance/KYC/KYCScreeningAPI"
+                  reason: "Screening AML/PEP y listas de sanciones."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code"]
+                scopes:
+                  - "customers.identity.read"
+                  - "customers.identity.write"
+                  - "customers.documents.read"
+                  - "customers.documents.write"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_4xx", "error_rate_5xx"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "customerId", "documentType", "result"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice for breaking changes."
+                changeManagement: "Security review required for changes."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Customer Identity API"
+              version: "v1"
+            paths:
+              /customers/{customerId}/identities:
+                get:
+                  summary: "Listar identidades verificadas"
+                  responses:
+                    "200":
+                      description: "Identidades"
+                      schemaRef: "#/components/schemas/IdentityList"
+                post:
+                  summary: "Registrar identidad/documento"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Registrado"
+                      schemaRef: "#/components/schemas/Identity"
+              /customers/{customerId}/identities/{identityId}/verify:
+                post:
+                  summary: "Iniciar verificación de identidad"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "202":
+                      description: "Verificación iniciada"
+                      schemaRef: "#/components/schemas/VerificationJob"
+
+        CustomerConsentAPI:
+          metadata:
+            name: "Customer Consent API"
+            description: "Gestión de consentimientos del cliente (open banking, marketing, data sharing) y auditoría."
+            owner: "Privacy & Data Governance Squad"
+            sla: "99.9%"
+            dataClassification: ["PII", "Confidential"]
+            criticalityTier: "Tier 1"
+            region: "global"
+            tags: ["consent", "privacy", "open-banking"]
+          apiType: "Partner"
+          versions:
+            - version: "2.0.0"
+              status: "Published"
+              x-contract-version: "2026-04-30"
+              environments:
+                dev: "https://partner-api.dev.globalbank.example.com/customer-consent/v2"
+                qa: "https://partner-api.qa.globalbank.example.com/customer-consent/v2"
+                uat: "https://partner-api.uat.globalbank.example.com/customer-consent/v2"
+                prod: "https://partner-api.globalbank.example.com/customer-consent/v2"
+              consumers:
+                - "Partner Fintech"
+                - "Mobile Banking App"
+              dependencies:
+                - api: "Compliance/Records/AuditTrailAPI"
+                  reason: "Registro inmutable de consentimientos."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code", "client_credentials"]
+                scopes:
+                  - "consents.read"
+                  - "consents.write"
+                  - "consents.revoke"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "consent_grants"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "customerId", "consentId", "action", "status"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "18 months notice for Partner APIs."
+                changeManagement: "Partner impact assessment required."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Customer Consent API"
+              version: "v2"
+            paths:
+              /customers/{customerId}/consents:
+                get:
+                  summary: "Listar consentimientos"
+                  responses:
+                    "200":
+                      description: "Consentimientos"
+                      schemaRef: "#/components/schemas/ConsentList"
+                post:
+                  summary: "Crear consentimiento"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Consentimiento creado"
+                      schemaRef: "#/components/schemas/Consent"
+              /customers/{customerId}/consents/{consentId}:
+                delete:
+                  summary: "Revocar consentimiento"
+                  responses:
+                    "204":
+                      description: "Revocado"

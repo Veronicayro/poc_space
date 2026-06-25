@@ -1,0 +1,66 @@
+schema_version: "1.0"
+functionality_id: CXP-GHCopilot-Sonnet46
+
+business_rules:
+  - id: BR-001
+    title: Validación de proveedor existente
+    context: Registro de factura
+    rule: El proveedor referenciado en la factura debe existir y estar activo en el sistema ERP antes de permitir el registro.
+
+  - id: BR-002
+    title: Prevención de duplicados
+    context: Registro de factura
+    rule: No se puede registrar más de una factura con el mismo número de factura para el mismo proveedor.
+
+  - id: BR-003
+    title: Estado inicial PENDING
+    context: Registro de factura
+    rule: Toda factura recién registrada adopta automáticamente el estado PENDING.
+
+  - id: BR-004
+    title: Aprobación solo desde PENDING
+    context: Flujo de aprobación
+    rule: Solo facturas en estado PENDING pueden ser aprobadas. El sistema rechaza intentos de aprobar facturas en otro estado.
+
+  - id: BR-005
+    title: Trazabilidad de aprobación
+    context: Flujo de aprobación
+    rule: El sistema registra el usuario aprobador y el timestamp exacto en cada transición de estado.
+
+  - id: BR-006
+    title: Programación solo desde APPROVED
+    context: Programación de pago
+    rule: Solo facturas en estado APPROVED pueden programarse para pago.
+
+  - id: BR-007
+    title: Fecha de pago obligatoria
+    context: Programación de pago
+    rule: La programación de un pago requiere una fecha de pago válida (≥ fecha actual).
+
+  - id: BR-008
+    title: Máquina de estados finita
+    context: Ciclo de vida
+    rule: Las transiciones válidas son PENDING→APPROVED, PENDING→REJECTED, APPROVED→SCHEDULED, SCHEDULED→PAID, cualquier estado→CANCELLED (excepto PAID).
+    states: [PENDING, APPROVED, REJECTED, SCHEDULED, PAID, CANCELLED]
+
+design_decisions:
+  - id: DDA-001
+    title: Lifecycle basado en máquina de estados
+    rationale: Facilita control de flujo y evita transiciones inválidas
+    implications:
+      - Mayor trazabilidad
+      - Complejidad adicional en reglas de transición
+
+  - id: DDA-002
+    title: API REST
+    rationale: Estándar ampliamente adoptado, interoperabilidad
+    implications:
+      - Stateless
+      - Versionamiento requerido
+
+  - id: DDA-003
+    title: Integración por webhooks con sistema bancario
+    rationale: Comunicación asincrónica eficiente con sistemas externos
+    implications:
+      - Necesidad de idempotencia
+      - Manejo de eventos duplicados

@@ -1,0 +1,73 @@
+functionality_id: KYC_ONBOARDING_DIGITAL
+generated_at: "2026-06-22"
+phase: enterprise-capability-alignment
+
+open_gaps:
+  - id: G-001
+    category: integration
+    description: >
+      Document storage mechanism not specified. Assumed to be external object storage
+      (e.g., S3-compatible) with signed URL references stored in OnboardingCase.
+      Needs confirmation before Phase 6 (backend-component-design).
+    severity: medium
+    blocking: false
+    required_action: "Confirm document storage provider before Phase 6"
+
+  - id: G-002
+    category: integration
+    description: >
+      AML_SERVICE contract/API spec not provided. Integration model will use
+      adapter pattern; actual request/response schema TBD.
+    severity: medium
+    blocking: false
+    required_action: "Provide AML_SERVICE OpenAPI spec or schema before backend-contract-design (Phase 7)"
+
+  - id: G-003
+    category: business_rule
+    description: >
+      Idempotency semantics for UC-001 (re-submission by same customer) not specified.
+      Can a customer restart an onboarding if they abandoned mid-flow?
+    severity: low
+    blocking: false
+    required_action: "Clarify with product owner before Phase 3"
+
+  - id: G-004
+    category: sla
+    description: >
+      SLA for manual review turnaround (UC-004) not specified.
+      Assumed async with no hard SLA for Phase 1.
+    severity: low
+    blocking: false
+    required_action: "Optional: define SLA if SLA monitoring is required in observability design"
+
+  - id: G-005
+    category: bian
+    description: >
+      BIAN PartyLifecycleManagement does not model async notification trigger.
+      UC-005 (OnboardingStatusChanged event) requires AP-specific AsyncAPI event adapter.
+    severity: low
+    blocking: false
+    required_action: "Design async event channel in Phase 7 (backend-contract-design)"
+
+assumptions_made:
+  - id: A-001
+    assumption: "AML_SERVICE available synchronously within 2s SLA"
+    confidence: medium
+  - id: A-002
+    assumption: "ID_VERIFICATION_PROVIDER REST sync, real-time"
+    confidence: medium
+  - id: A-003
+    assumption: "NOTIFICATION_SERVICE is event-driven; onboarding publishes domain events"
+    confidence: high
+  - id: A-004
+    assumption: "One active onboarding case per customer at a time"
+    confidence: high
+  - id: A-005
+    assumption: "PII encryption at-rest is a persistence-layer concern"
+    confidence: high
+  - id: A-006
+    assumption: "KYC analyst backoffice via RBAC role kyc.analyst"
+    confidence: high
+  - id: A-007
+    assumption: "Audit trail managed internally in onboarding service (Phase 1)"
+    confidence: medium

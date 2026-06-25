@@ -1,0 +1,419 @@
+# =============================================================================
+# BIAN Capability Index — GlobalBank API Catalog (Compact Router)
+# =============================================================================
+#
+# TOKEN BUDGET: ~90 lines. Read THIS file for collision checks and capability
+# lookup. Open catalog/bian-capability-alignment.yaml ONLY when you need the
+# full governance_note, bian_sd_description or secondary_bian_sd detail.
+#
+# Agent usage pattern:
+#   1. Read this file (1 tool call) to answer: "does this capability exist?"
+#   2. If bian_coverage=aligned → contract must derive from bian_sd
+#   3. If overlap_risk=HIGH/MEDIUM → check collisions_requiring_review section
+#   4. If no-match → proprietary capability, no BIAN derivation needed
+#   5. For full detail: read catalog/bian-capability-alignment.yaml#<capability_id>
+# =============================================================================
+
+meta:
+  source: "catalog/bian-capability-alignment.yaml"
+  bian_release: "14.0.0"
+  framework: "TOGAF 10 + BIAN R14"
+  total_capabilities: 20
+  coverage_stats: {aligned: 8, partial: 10, no_match: 2}
+
+# ---------------------------------------------------------------------------
+# CAPABILITY LOOKUP TABLE
+# Fields: id | area | name | bian_sd | cov | risk | catalog_apis (short ref)
+# cov: A=aligned P=partial N=no-match
+# ---------------------------------------------------------------------------
+capabilities:
+
+  # — Party & Customer Management (domain: Customers) —
+  - id: CAP-PARTY-001
+    name: "Customer Profile & Master Data"
+    bian_sd: PartyReferenceDataDirectory
+    cov: P  # mezcla PartyReferenceData + PartyLifecycle en un contrato
+    risk: MEDIUM
+    apis: [CustomerProfileAPI v1.2]
+
+  - id: CAP-PARTY-002
+    name: "Customer Identity & KYC Lifecycle"
+    bian_sd: PartyLifecycleManagement
+    cov: A
+    risk: MEDIUM  # solapamiento funcional con KYCScreeningAPI (ver OVL-002)
+    apis: [CustomerIdentityAPI v1.1 Tier0]
+
+  - id: CAP-PARTY-003
+    name: "Customer Consent & Privacy"
+    bian_sd: CustomerAgreement
+    cov: P  # consentimientos digitales granulares fuera del scope BIAN
+    risk: LOW
+    apis: [CustomerConsentAPI v2.0]
+
+  # — Deposit & Account Management (domain: Accounts) —
+  - id: CAP-ACC-001
+    name: "Account Servicing & Lifecycle"
+    bian_sd: CurrentAccount  # secondary: SavingsAccount
+    cov: P  # un API cubre dos SDs BIAN distintos
+    risk: LOW
+    apis: [AccountManagementAPI v1.3 Tier0]
+
+  - id: CAP-ACC-002
+    name: "Transaction Ledger & History"
+    bian_sd: PositionKeeping
+    cov: A
+    risk: LOW
+    apis: [AccountTransactionsAPI v2.1]
+
+  - id: CAP-ACC-003
+    name: "Statement Generation & Delivery"
+    bian_sd: Correspondence  # secondary: DocumentServices
+    cov: P  # on-demand digital + URLs firmadas es extensión propietaria
+    risk: LOW
+    apis: [StatementDeliveryAPI v1.0]
+
+  # — Payments & Transfers (domain: Payments) —
+  - id: CAP-PAY-001
+    name: "Payment Initiation & Processing"
+    bian_sd: PaymentOrderInitiation  # secondary: PaymentRail
+    cov: P
+    risk: HIGH  # ⚠ OVL-001: dos APIs apuntan al mismo SD
+    apis: [PaymentsProcessingAPI v2.4 Tier0, InstantTransfersAPI v1.6 Tier0]
+
+  - id: CAP-PAY-002
+    name: "Beneficiary & Payee Directory"
+    bian_sd: ~  # no BIAN SD — capacidad propietaria
+    cov: N
+    risk: NONE
+    apis: [BeneficiaryDirectoryAPI v1.2]
+
+  - id: CAP-PAY-003
+    name: "Payment Limits & Controls"
+    bian_sd: CustomerAccessEntitlement
+    cov: P  # límites monetarios dinámicos fuera del scope BIAN
+    risk: LOW
+    apis: [PaymentLimitsAPI v1.0]
+
+  - id: CAP-PAY-004
+    name: "FX Rate Quotation"
+    bian_sd: CurrencyExchange  # secondary: CorporateTreasury
+    cov: P
+    risk: LOW
+    apis: [FXRatesAPI v1.4]
+
+  # — Card Products (domain: Cards) —
+  - id: CAP-CARD-001
+    name: "Card Issuance & Lifecycle"
+    bian_sd: CreditCard  # secondary: IssuedDeviceAdministration
+    cov: A
+    risk: LOW
+    apis: [CardManagementAPI v1.5 Tier0]
+
+  - id: CAP-CARD-002
+    name: "Card Transaction Authorization"
+    bian_sd: CardAuthorization
+    cov: A
+    risk: LOW
+    apis: [CardAuthorizationAPI v2.0 Tier0]
+
+  - id: CAP-CARD-003
+    name: "Card Dispute & Chargeback"
+    bian_sd: CardCase
+    cov: A
+    risk: LOW
+    apis: [CardDisputesAPI v1.1]
+
+  # — Lending & Credit (domain: Loans) —
+  - id: CAP-LOAN-001
+    name: "Loan Origination & Underwriting"
+    bian_sd: CustomerOffer  # secondary: Underwriting
+    cov: P
+    risk: LOW
+    apis: [CreditApplicationAPI v1.3]
+
+  - id: CAP-LOAN-002
+    name: "Loan Servicing & Repayment"
+    bian_sd: ConsumerLoan
+    cov: A
+    risk: LOW
+    apis: [LoanServicingAPI v2.2 Tier0]
+
+  - id: CAP-LOAN-003
+    name: "Loan Disbursement"
+    bian_sd: Disbursement
+    cov: A
+    risk: LOW
+    apis: [DisbursementAPI v1.1]
+
+  # — Compliance & Financial Crime (domain: Compliance) —
+  - id: CAP-COMP-001
+    name: "KYC / AML Screening"
+    bian_sd: PartyLifecycleManagement  # secondary: GuidelineCompliance
+    cov: P  # screening puntual desacoplado del lifecycle; ver OVL-002
+    risk: MEDIUM
+    apis: [KYCScreeningAPI v3.0 Tier0]
+
+  - id: CAP-COMP-002
+    name: "Sanctions Screening"
+    bian_sd: RegulatoryCompliance  # secondary: GuidelineCompliance
+    cov: P
+    risk: LOW
+    apis: [SanctionsScreeningAPI v2.3 Tier0]
+
+  - id: CAP-COMP-003
+    name: "Immutable Audit Trail"
+    bian_sd: ComplianceReporting  # secondary: InternalAudit
+    cov: P  # patrón WORM + hash criptográfico es extensión propietaria
+    risk: LOW
+    apis: [AuditTrailAPI v1.2 Tier0]
+
+  - id: CAP-COMP-004
+    name: "Regulatory Document Retention"
+    bian_sd: ArchiveServices  # secondary: DocumentDirectory
+    cov: A
+    risk: LOW
+    apis: [DocumentArchiveAPI v1.0]
+
+  # — Risk Management (domain: Risk) —
+  - id: CAP-RISK-001
+    name: "Real-Time Fraud Decisioning"
+    bian_sd: FraudEvaluation
+    cov: A
+    risk: LOW
+    apis: [FraudDecisioningAPI v1.8 Tier0]
+
+  - id: CAP-RISK-002
+    name: "Transaction Monitoring & AML Cases"
+    bian_sd: FraudDiagnosis  # secondary: GuidelineCompliance
+    cov: P
+    risk: LOW
+    apis: [TransactionMonitoringAPI v1.2]
+
+  - id: CAP-RISK-003
+    name: "Credit Risk Decisioning"
+    bian_sd: CustomerCreditRating  # secondary: Underwriting
+    cov: A
+    risk: MEDIUM  # solapamiento con CAP-RISK-005; ver OVL-003
+    apis: [CreditDecisioningAPI v2.0 Tier0]
+
+  - id: CAP-RISK-004
+    name: "Market Risk Indicators"
+    bian_sd: MarketAnalysis  # secondary: AssetAndLiabilityManagement
+    cov: P
+    risk: LOW
+    apis: [MarketRiskIndicatorsAPI v1.1]
+
+  - id: CAP-RISK-005
+    name: "Customer Risk Scoring"
+    bian_sd: CustomerCreditRating  # secondary: CustomerBehaviorInsights
+    cov: P
+    risk: MEDIUM  # mismo SD que CAP-RISK-003; ver OVL-003
+    apis: [CustomerRiskScoringAPI v1.0]
+
+  # — Digital Channels (domain: Channels) —
+  - id: CAP-CHAN-001
+    name: "Digital Session & Authentication"
+    bian_sd: PartyAuthentication  # secondary: eBranchOperations
+    cov: P
+    risk: LOW
+    apis: [ChannelSessionAPI v2.1 Tier0]
+
+  - id: CAP-CHAN-002
+    name: "Multichannel Notification Dispatch"
+    bian_sd: ~  # push/SMS real-time no tiene SD en BIAN R14
+    cov: N
+    risk: NONE
+    apis: [NotificationDispatchAPI v1.7]
+
+  - id: CAP-CHAN-003
+    name: "Notification Preferences & Consent"
+    bian_sd: CustomerAccessEntitlement
+    cov: P
+    risk: LOW
+    apis: [CustomerNotificationPreferencesAPI v1.1]
+
+# ---------------------------------------------------------------------------
+# KEYWORD LOOKUP — semantic matching without opening domain files
+# Maps common business terms / user intents → capability_id
+# Agent: find the closest term, get the capability_id, check cov+risk above.
+# ---------------------------------------------------------------------------
+keyword_lookup:
+  # Payments & Transfers
+  pago:                    [CAP-PAY-001]
+  pagos:                   [CAP-PAY-001]
+  transferencia:           [CAP-PAY-001, CAP-PAY-002]
+  transferencias:          [CAP-PAY-001, CAP-PAY-002]
+  pago_instantaneo:        [CAP-PAY-001]
+  instant_payment:         [CAP-PAY-001]
+  pago_qr:                 [CAP-PAY-001]   # GAP: no hay API específica; usa CAP-PAY-001
+  pago_programado:         [GAP-001]       # GAP: StandingOrder no cubierto
+  pago_recurrente:         [GAP-001]       # GAP: StandingOrder no cubierto
+  standing_order:          [GAP-001]
+  beneficiario:            [CAP-PAY-002]
+  destinatario:            [CAP-PAY-002]
+  limite_pago:             [CAP-PAY-003]
+  tipo_de_cambio:          [CAP-PAY-004]
+  fx:                      [CAP-PAY-004]
+  divisa:                  [CAP-PAY-004]
+  # Accounts & Deposits
+  cuenta:                  [CAP-ACC-001]
+  cuenta_corriente:        [CAP-ACC-001]
+  cuenta_ahorros:          [CAP-ACC-001]
+  apertura_cuenta:         [CAP-ACC-001]
+  transaccion:             [CAP-ACC-002]
+  movimiento:              [CAP-ACC-002]
+  saldo:                   [CAP-ACC-002]
+  extracto:                [CAP-ACC-003]
+  estado_de_cuenta:        [CAP-ACC-003]
+  deposito_plazo:          [GAP-003]       # GAP: TermDeposit no cubierto
+  plazo_fijo:              [GAP-003]
+  cdt:                     [GAP-003]
+  # Cards
+  tarjeta:                 [CAP-CARD-001]
+  tarjeta_credito:         [CAP-CARD-001]
+  tarjeta_debito:          [CAP-CARD-001]
+  bloqueo_tarjeta:         [CAP-CARD-001]
+  emision_tarjeta:         [CAP-CARD-001]
+  autorizacion:            [CAP-CARD-002]
+  autorizacion_tarjeta:    [CAP-CARD-002]
+  disputa:                 [CAP-CARD-003]
+  chargeback:              [CAP-CARD-003]
+  reclamo_tarjeta:         [CAP-CARD-003]
+  # Loans & Credit
+  prestamo:                [CAP-LOAN-001, CAP-LOAN-002]
+  credito:                 [CAP-LOAN-001, CAP-RISK-003]
+  solicitud_credito:       [CAP-LOAN-001]
+  originacion:             [CAP-LOAN-001]
+  desembolso:              [CAP-LOAN-003]
+  cuota:                   [CAP-LOAN-002]
+  amortizacion:            [CAP-LOAN-002]
+  reestructuracion:        [CAP-LOAN-002]
+  # Customers & Identity
+  cliente:                 [CAP-PARTY-001]
+  perfil_cliente:          [CAP-PARTY-001]
+  onboarding:              [CAP-PARTY-001, CAP-PARTY-002]
+  identidad:               [CAP-PARTY-002]
+  kyc:                     [CAP-PARTY-002, CAP-COMP-001]
+  verificacion_identidad:  [CAP-PARTY-002]
+  consentimiento:          [CAP-PARTY-003]
+  privacidad:              [CAP-PARTY-003]
+  open_banking:            [GAP-002]       # GAP: ServicingMandate no cubierto
+  psd2:                    [GAP-002]
+  # Compliance & AML
+  aml:                     [CAP-COMP-001, CAP-RISK-002]
+  lavado_activos:          [CAP-COMP-001, CAP-RISK-002]
+  pep:                     [CAP-COMP-001]
+  sanciones:               [CAP-COMP-002]
+  ofac:                    [CAP-COMP-002]
+  auditoria:               [CAP-COMP-003]
+  trazabilidad:            [CAP-COMP-003]
+  documento:               [CAP-COMP-004]
+  retencion_documental:    [CAP-COMP-004]
+  # Risk
+  fraude:                  [CAP-RISK-001, CAP-RISK-002]
+  antifraude:              [CAP-RISK-001]
+  scoring:                 [CAP-RISK-003, CAP-RISK-005]
+  score_credito:           [CAP-RISK-003]
+  riesgo_cliente:          [CAP-RISK-005]
+  riesgo_mercado:          [CAP-RISK-004]
+  monitoreo:               [CAP-RISK-002]
+  alerta:                  [CAP-RISK-002]
+  # Channels & Digital
+  sesion:                  [CAP-CHAN-001]
+  autenticacion:           [CAP-CHAN-001]
+  login:                   [CAP-CHAN-001]
+  sca:                     [CAP-CHAN-001]
+  notificacion:            [CAP-CHAN-002]
+  push:                    [CAP-CHAN-002]
+  sms:                     [CAP-CHAN-002]
+  email:                   [CAP-CHAN-002]
+  preferencias:            [CAP-CHAN-003]
+  webhook:                 [GAP-004]       # GAP: ChannelActivityHistory no cubierto
+  evento_cuenta:           [GAP-004]
+
+# ---------------------------------------------------------------------------
+# BIAN SD → CAPABILITY REVERSE LOOKUP
+# Agent: if you know the BIAN SD name, find which catalog capability covers it.
+# Multiple entries mean multiple catalog APIs map to the same SD (possible collision).
+# ---------------------------------------------------------------------------
+bian_sd_to_capability:
+  PartyReferenceDataDirectory:  [CAP-PARTY-001]
+  PartyLifecycleManagement:     [CAP-PARTY-002, CAP-COMP-001]  # ⚠ two APIs — see OVL-002
+  CustomerAgreement:            [CAP-PARTY-003]
+  CurrentAccount:               [CAP-ACC-001]
+  SavingsAccount:               [CAP-ACC-001]                   # same API as CurrentAccount
+  PositionKeeping:              [CAP-ACC-002]
+  Correspondence:               [CAP-ACC-003, CAP-CHAN-002]
+  PaymentOrderInitiation:       [CAP-PAY-001]                   # ⚠ two APIs — see OVL-001
+  PaymentRail:                  [CAP-PAY-001]
+  CustomerAccessEntitlement:    [CAP-PAY-003, CAP-CHAN-003]
+  CurrencyExchange:             [CAP-PAY-004]
+  CorporateTreasury:            [CAP-PAY-004]
+  CreditCard:                   [CAP-CARD-001]
+  IssuedDeviceAdministration:   [CAP-CARD-001]
+  CardAuthorization:            [CAP-CARD-002]
+  CardCase:                     [CAP-CARD-003]
+  CustomerOffer:                [CAP-LOAN-001]
+  Underwriting:                 [CAP-LOAN-001, CAP-RISK-003]
+  ConsumerLoan:                 [CAP-LOAN-002]
+  Disbursement:                 [CAP-LOAN-003]
+  GuidelineCompliance:          [CAP-COMP-001, CAP-COMP-002, CAP-RISK-002]
+  RegulatoryCompliance:         [CAP-COMP-002]
+  ComplianceReporting:          [CAP-COMP-003]
+  InternalAudit:                [CAP-COMP-003]
+  ArchiveServices:              [CAP-COMP-004]
+  DocumentDirectory:            [CAP-COMP-004]
+  FraudEvaluation:              [CAP-RISK-001]
+  FraudDiagnosis:               [CAP-RISK-002]
+  CustomerCreditRating:         [CAP-RISK-003, CAP-RISK-005]    # ⚠ two APIs — see OVL-003
+  MarketAnalysis:               [CAP-RISK-004]
+  AssetAndLiabilityManagement:  [CAP-RISK-004]
+  CustomerBehaviorInsights:     [CAP-RISK-005]
+  PartyAuthentication:          [CAP-CHAN-001]
+  eBranchOperations:            [CAP-CHAN-001]
+  # --- GAPS (no catalog coverage) ---
+  StandingOrder:                [GAP-001]
+  ServicingMandate:             [GAP-002]
+  TermDeposit:                  [GAP-003]
+  ChannelActivityHistory:       [GAP-004]
+  TransactionAuthorization:     [GAP-005]
+
+# ---------------------------------------------------------------------------
+# COLLISIONS REQUIRING REVIEW (overlap_risk: HIGH or MEDIUM)
+# Run Phase 0 before adding any API that overlaps these SDs.
+# ---------------------------------------------------------------------------
+collisions_requiring_review:
+  - id: OVL-001
+    severity: HIGH
+    bian_sd: PaymentOrderInitiation
+    apis: [PaymentsProcessingAPI, InstantTransfersAPI]
+    action: "REVIEW_REQUIRED — ejecutar Phase 0 antes de agregar cualquier nueva API de pagos"
+
+  - id: OVL-002
+    severity: MEDIUM
+    bian_sd: PartyLifecycleManagement
+    apis: [CustomerIdentityAPI, KYCScreeningAPI]
+    action: "DOCUMENT_BOUNDARY — CustomerIdentityAPI=stateful owner; KYCScreeningAPI=stateless evaluator"
+
+  - id: OVL-003
+    severity: MEDIUM
+    bian_sd: CustomerCreditRating
+    apis: [CreditDecisioningAPI, CustomerRiskScoringAPI]
+    action: "ALIGN_DATA_MODEL — decision puntual vs. perfil continuo; evitar modelos duplicados"
+
+  - id: OVL-004
+    severity: MEDIUM
+    bian_sd: PartyReferenceDataDirectory
+    apis: [CustomerProfileAPI, CustomerIdentityAPI]
+    action: "DEFINE_OWNERSHIP_BOUNDARY — ProfileAPI=dueno de datos demograficos; IdentityAPI=documentos+SCA"
+
+# ---------------------------------------------------------------------------
+# CAPABILITY GAPS (BIAN SDs sin cobertura en el catalogo actual)
+# Use these to decide CREATE when a new request matches a gap.
+# ---------------------------------------------------------------------------
+gaps:
+  - {id: GAP-001, bian_sd: StandingOrder,          description: "Sin API de pagos recurrentes/programados"}
+  - {id: GAP-002, bian_sd: ServicingMandate,        description: "Sin API Open Banking / PSD2 para TPP"}
+  - {id: GAP-003, bian_sd: TermDeposit,             description: "Sin API de Deposito a Plazo Fijo"}
+  - {id: GAP-004, bian_sd: ChannelActivityHistory,  description: "Sin API de eventos de cuenta (webhooks)"}
+  - {id: GAP-005, bian_sd: TransactionAuthorization, description: "Sin API de autorizacion transaccional por canal"}

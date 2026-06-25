@@ -1,0 +1,60 @@
+# integration-model.yaml — core-banking-adapter-api
+component_id: COMP-LON-SUP-002
+name: core-banking-adapter-api
+generated_at: "2026-06-17"
+
+integrations:
+  - id: INT-LON-SUP002-KYC
+    name: kyc-validation
+    direction: outbound
+    type: synchronous_external
+    protocol: "REST API / HTTPS"
+    description: "Verifica que el cliente existe y está activo en el core bancario"
+    external_endpoint: "GET /core/v1/customers/{customerId}"
+    response: "{ kyc_status: VALIDATED|NOT_FOUND, customer_name, customer_type, account_status }"
+    timeout_ms: 1000
+    retry: "2 reintentos backoff 200ms"
+    circuit_breaker: true
+
+  - id: INT-LON-SUP002-LOAN-CREATE
+    name: loan-product-creation
+    direction: outbound
+    type: synchronous_external
+    protocol: "REST API / HTTPS"
+    description: "Crea el producto crédito en el core post-aprobación"
+    external_endpoint: "POST /core/v1/loan-products"
+    payload: "{ customer_id, credit_type, amount, term_months, interest_rate, currency }"
+    response: "{ loan_product_id, account_number, created_at }"
+    timeout_ms: 3000
+    retry: "2 reintentos"
+
+  - id: INT-LON-SUP002-DISBURSEMENT
+    name: disbursement-execution
+    direction: outbound
+    type: synchronous_external
+    protocol: "REST API / HTTPS"
+    description: >
+      Ejecuta la instrucción de desembolso en el core bancario.
+      Operación crítica con idempotencia obligatoria.
+    external_endpoint: "POST /core/v1/disbursements"
+    payload: "{ loan_product_id, destination_account, amount, currency, reference }"
+    response: "{ core_reference, disbursement_status, executed_at }"
+    timeout_ms: 5000
+    retry: "2 reintentos con backoff exponencial"
+    circuit_breaker: true
+    idempotency: "Header X-Idempotency-Key requerido"
+
+  - id: INT-LON-SUP002-AMORTIZATION
+    name: amortization-schedule
+    direction: outbound
+    type: synchronous_external
+    protocol: "REST API / HTTPS"
+    description: "Consulta la tabla de amortización generada por el core post-desembolso"
+    external_endpoint: "GET /core/v1/amortization-schedules/{loanId}"
+    response: "{ loan_id, installments: [{number, due_date, principal, interest, balance}] }"
+    timeout_ms: 2000
+
+authentication:
+  type: "OAuth2 client_credentials"
+  token_endpoint: "https://core.bank.internal/oauth/token"
+  scopes: ["core:read", "core:write", "core:disbursement"]

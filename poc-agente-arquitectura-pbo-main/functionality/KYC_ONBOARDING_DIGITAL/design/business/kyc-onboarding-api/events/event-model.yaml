@@ -1,0 +1,100 @@
+component: kyc-onboarding-api
+generated_at: "2026-06-22"
+
+events:
+
+  - event_name: OnboardingCaseInitiated
+    producer: kyc-onboarding-api
+    consumers: [NOTIFICATION_SERVICE]
+    schema_format: json
+    rationale_for_format: >
+      JSON chosen over Avro for MVP given single consumer and absence of a governed
+      schema registry. Avro to be evaluated when consumers > 2 or event volume > 1000/day.
+    keying_strategy: "onboarding_case_id (ensures ordered processing per case)"
+    ordering_needs: "Per-case ordering required; global ordering not required"
+    delivery_semantics: at-least-once
+    idempotency_expectations: >
+      Consumers must deduplicate by event_id (UUID). Outbox pattern on producer side
+      ensures at-least-once delivery from transactional DB.
+    replay_or_retention_notes: "Retain 7 days on broker; dead-letter queue required"
+    payload_model:
+      event_id: UUID
+      event_type: "OnboardingCaseInitiated"
+      schema_version: "1.0"
+      occurred_at: ISO-8601 timestamp
+      aggregate_id: UUID (onboarding_case_id)
+      data:
+        case_id: UUID
+        customer_id: UUID
+        channel: "WEB | MOBILE"
+        initiated_at: ISO-8601 timestamp
+
+  - event_name: OnboardingStatusChanged
+    producer: kyc-onboarding-api
+    consumers: [NOTIFICATION_SERVICE]
+    schema_format: json
+    rationale_for_format: "Same as OnboardingCaseInitiated — single consumer, MVP scope"
+    keying_strategy: "onboarding_case_id"
+    ordering_needs: "Per-case ordering required"
+    delivery_semantics: at-least-once
+    idempotency_expectations: "Consumers deduplicate by event_id"
+    replay_or_retention_notes: "Retain 7 days; DLQ required"
+    payload_model:
+      event_id: UUID
+      event_type: "OnboardingStatusChanged"
+      schema_version: "1.0"
+      occurred_at: ISO-8601 timestamp
+      aggregate_id: UUID (onboarding_case_id)
+      data:
+        case_id: UUID
+        customer_id: UUID
+        from_status: OnboardingStatus
+        to_status: OnboardingStatus
+        channel: "WEB | MOBILE | BACKOFFICE"
+
+  - event_name: OnboardingApproved
+    producer: kyc-onboarding-api
+    consumers: [NOTIFICATION_SERVICE, downstream-product-systems]
+    schema_format: json
+    rationale_for_format: "MVP — JSON. Downstream product systems TBD."
+    keying_strategy: "onboarding_case_id"
+    ordering_needs: "Per-case ordering"
+    delivery_semantics: at-least-once
+    idempotency_expectations: "Consumers deduplicate by event_id"
+    replay_or_retention_notes: "Retain 30 days (product provisioning may be slow)"
+    payload_model:
+      event_id: UUID
+      event_type: "OnboardingApproved"
+      schema_version: "1.0"
+      occurred_at: ISO-8601 timestamp
+      aggregate_id: UUID (onboarding_case_id)
+      data:
+        case_id: UUID
+        customer_id: UUID
+        approved_at: ISO-8601 timestamp
+        approved_by: "SYSTEM | analyst_id"
+        channel: "WEB | MOBILE | BACKOFFICE"
+
+  - event_name: OnboardingRejected
+    producer: kyc-onboarding-api
+    consumers: [NOTIFICATION_SERVICE]
+    schema_format: json
+    rationale_for_format: "MVP — JSON"
+    keying_strategy: "onboarding_case_id"
+    ordering_needs: "Per-case ordering"
+    delivery_semantics: at-least-once
+    idempotency_expectations: "Consumers deduplicate by event_id"
+    replay_or_retention_notes: "Retain 7 days"
+    payload_model:
+      event_id: UUID
+      event_type: "OnboardingRejected"
+      schema_version: "1.0"
+      occurred_at: ISO-8601 timestamp
+      aggregate_id: UUID (onboarding_case_id)
+      data:
+        case_id: UUID
+        customer_id: UUID
+        rejected_at: ISO-8601 timestamp
+        rejected_by: "SYSTEM | analyst_id"
+        reason: String (nullable)
+        channel: "WEB | MOBILE | BACKOFFICE"

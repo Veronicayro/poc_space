@@ -1,0 +1,115 @@
+useCases:
+  metadata:
+    functionality: "Digital Personal Loan Origination"
+    feature_principal: "Lending"
+    created: "2026-06-24"
+    source: "GHCopilot-Haiku45"
+
+  summary: |
+    Proceso digital end-to-end para la solicitud, evaluación y desembolso de préstamos personales.
+    Permite al cliente iniciar una solicitud en canales digitales, obtener una oferta personalizada
+    basada en scoring crediticio y completar la contratación sin intervención presencial.
+    Asegura cumplimiento regulatorio en cada etapa del ciclo de vida del crédito.
+
+  inScope:
+    - "Solicitud y captura de datos de la petición de préstamo"
+    - "Evaluación crediticia automatizada mediante scoring y buró de crédito"
+    - "Generación y presentación de oferta personalizada al cliente"
+    - "Aceptación digital del contrato y condiciones del préstamo"
+    - "Instrucción de desembolso al core bancario"
+
+  outOfScope:
+    - "Gestión de cobranza o recuperación de cartera vencida"
+    - "Préstamos hipotecarios o vehiculares (garantías reales)"
+    - "Refinanciamiento o reestructuración de deuda existente"
+
+  actors:
+    - id: "CUSTOMER"
+      description: "Inicia solicitud, carga documentos y acepta oferta"
+      channels: ["Web", "Mobile"]
+      type: "External/Primary"
+    - id: "CREDIT_ANALYST"
+      description: "Revisa casos en zona gris del scoring"
+      channels: ["Backoffice"]
+      type: "Internal/Support"
+    - id: "LOAN_OFFICER"
+      description: "Aprueba o rechaza solicitudes que requieren intervención humana"
+      channels: ["Backoffice"]
+      type: "Internal/Support"
+    - id: "SYSTEM"
+      description: "Ejecuta evaluación automática, genera oferta y coordina desembolso"
+      channels: ["Backoffice"]
+      type: "Internal/System"
+
+  useCases:
+    - id: "UC-001"
+      title: "Inicio de solicitud de préstamo"
+      primaryActor: "CUSTOMER"
+      outcome: "Solicitud creada con datos básicos y monto solicitado"
+      acceptanceCriteria:
+        - "Given: cliente autenticado en canal digital"
+        - "When: ingresa monto, plazo y propósito del préstamo"
+        - "Then: se crea una solicitud en estado DRAFT con número de referencia único"
+
+    - id: "UC-002"
+      title: "Carga de documentos de respaldo"
+      primaryActor: "CUSTOMER"
+      outcome: "Documentos almacenados y asociados a la solicitud"
+      acceptanceCriteria:
+        - "Given: solicitud en estado DRAFT"
+        - "When: el cliente carga comprobante de ingresos y documento de identidad"
+        - "Then: el sistema almacena los documentos y avanza la solicitud a DOCUMENTS_SUBMITTED"
+
+    - id: "UC-003"
+      title: "Evaluación crediticia automática"
+      primaryActor: "SYSTEM"
+      outcome: "Solicitud evaluada con score y decisión preliminar"
+      acceptanceCriteria:
+        - "Given: solicitud en DOCUMENTS_SUBMITTED"
+        - "When: el sistema consulta buró de crédito y scoring engine"
+        - "Then: se genera una decisión preliminar (APPROVED / REFERRED / REJECTED) y se adjunta el score obtenido"
+
+    - id: "UC-004"
+      title: "Generación de oferta personalizada"
+      primaryActor: "SYSTEM"
+      outcome: "Oferta con tasa, plazo y cuota presentada al cliente"
+      acceptanceCriteria:
+        - "Given: decisión preliminar APPROVED"
+        - "When: el sistema calcula condiciones según política de precios vigente"
+        - "Then: se genera una oferta con tasa efectiva, plazo y valor de cuota"
+
+    - id: "UC-005"
+      title: "Aceptación digital del contrato"
+      primaryActor: "CUSTOMER"
+      outcome: "Contrato firmado digitalmente y solicitud en estado ACCEPTED"
+      acceptanceCriteria:
+        - "Given: oferta presentada al cliente"
+        - "When: el cliente acepta los términos y firma digitalmente"
+        - "Then: el contrato queda registrado y la solicitud pasa a ACCEPTED"
+
+    - id: "UC-006"
+      title: "Revisión manual de caso referido"
+      primaryActor: "CREDIT_ANALYST"
+      outcome: "Caso aprobado o rechazado con justificación"
+      acceptanceCriteria:
+        - "Given: solicitud en estado REFERRED"
+        - "When: el analista revisa documentos y score del cliente"
+        - "Then: registra una decisión final con comentario de justificación"
+
+    - id: "UC-007"
+      title: "Instrucción de desembolso"
+      primaryActor: "SYSTEM"
+      outcome: "Monto del préstamo acreditado en cuenta del cliente"
+      acceptanceCriteria:
+        - "Given: solicitud en estado ACCEPTED"
+        - "When: se confirma la aceptación del contrato"
+        - "Then: el sistema instruye el desembolso al core bancario y actualiza el estado a DISBURSED"
+
+    - id: "UC-008"
+      title: "Notificación de estado al cliente"
+      primaryActor: "SYSTEM"
+      outcome: "Cliente informado en cada cambio de estado relevante"
+      acceptanceCriteria:
+        - "Given: cambio de estado en la solicitud"
+        - "When: el sistema detecta una transición de estado"
+        - "Then: se envía notificación al cliente por el canal preferido (email/SMS/push)"

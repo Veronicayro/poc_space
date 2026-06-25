@@ -1,0 +1,64 @@
+# Phase 0 - Gaps and assumptions initial bootstrap
+schema_version: "1.0"
+functionality_id: CXP
+generated_at: "2026-06-17"
+phase: workspace-readiness
+
+gaps:
+  - id: GAP-001
+    area: discovery
+    description: >
+      No existe inventario de APIs existentes previo. El sistema de Cuentas por Pagar
+      se está diseñando como nuevo sistema (greenfield).
+    severity: low
+    mitigation: Asumir diseño greenfield; no hay impacto en sistemas legacy de AP.
+
+  - id: GAP-002
+    area: integration
+    description: >
+      Los esquemas y endpoints exactos del ERP interno no han sido provistos.
+      Se asume integración REST estándar con transformación de mensajes.
+    severity: medium
+    mitigation: Modelar IntegrationAdapter con contratos de transformación explícitos.
+
+  - id: GAP-003
+    area: integration
+    description: >
+      Los endpoints y mecanismos de autenticación del Banking System no están especificados.
+      Se asume REST API con mutual TLS y webhook con HMAC signing.
+    severity: medium
+    mitigation: Definir contrato de integración bancaria con placeholders configurables.
+
+  - id: GAP-004
+    area: frontend
+    description: >
+      No hay referencias de diseño Figma disponibles (N/A). Las pantallas se inferirán
+      de los requisitos funcionales y patrones UX de gestión financiera.
+    severity: low
+    mitigation: Diseño orientado a tablas con filtros por estado, basado en user stories.
+
+  - id: GAP-005
+    area: nfr
+    description: >
+      No se especifica proveedor de cloud ni entorno de despliegue (on-premise vs cloud).
+      Se asume arquitectura cloud-agnostic con contenedores.
+    severity: low
+    mitigation: Diseñar para Kubernetes/container-native; cloud-provider-mapping pendiente.
+
+assumptions:
+  - id: ASS-001
+    description: El sistema es nuevo (greenfield); no hay API legacy de AP que migrar.
+  - id: ASS-002
+    description: >
+      Se usa OAuth2/OIDC con proveedor externo (Keycloak u equivalente) para autenticación.
+  - id: ASS-003
+    description: >
+      El estándar de dominio seleccionado es BIAN Release 14. Se usarán los Service Domains:
+      AccountsReceivable, Disbursement, FinancialAccounting, ContractorandSupplierAgreement,
+      FinancialGateway como referencia de alineación semántica.
+  - id: ASS-004
+    description: >
+      La arquitectura objetivo es microservicios con 4 capas: Experience, Business, Domain, Support/Integration.
+  - id: ASS-005
+    description: >
+      PostgreSQL es la base de datos principal con esquema separado por componente (schema-per-service).

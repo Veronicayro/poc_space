@@ -1,0 +1,237 @@
+domain:
+  name: "Accounts"
+  description: "Cuentas, saldos, transacciones y extractos."
+
+  capabilities:
+
+    AccountServicing:
+      apiProducts:
+
+        AccountManagementAPI:
+          metadata:
+            name: "Account Management API"
+            description: "Apertura y mantenimiento de cuentas (corriente/ahorros), estados, titulares y límites."
+            owner: "Deposits & Accounts Squad"
+            sla: "99.95%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 0"
+            region: "global"
+            tags: ["accounts", "servicing", "core-banking"]
+          apiType: "Internal"
+          versions:
+            - version: "1.3.0"
+              status: "Published"
+              x-contract-version: "2026-06-10"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/account-management/v1"
+                qa: "https://api.qa.globalbank.example.com/account-management/v1"
+                uat: "https://api.uat.globalbank.example.com/account-management/v1"
+                prod: "https://api.globalbank.example.com/account-management/v1"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Customers/CustomerOnboarding/CustomerProfileAPI"
+                  reason: "Validación de titularidad y datos del cliente."
+                - api: "Compliance/KYC/KYCScreeningAPI"
+                  reason: "Controles KYC para apertura."
+                - api: "Payments/PayeeManagement/BeneficiaryDirectoryAPI"
+                  reason: "Asociación de beneficiarios por cuenta."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code", "client_credentials"]
+                scopes:
+                  - "accounts.read"
+                  - "accounts.write"
+                  - "accounts.limits.write"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "db_time_ms_p95"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "accountId", "customerId", "action", "status"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Core banking regression tests required."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Account Management API"
+              version: "v1"
+            paths:
+              /accounts:
+                post:
+                  summary: "Abrir cuenta"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Cuenta creada"
+                      schemaRef: "#/components/schemas/Account"
+                get:
+                  summary: "Buscar cuentas"
+                  queryParams: ["customerId", "status", "cursor", "limit"]
+                  responses:
+                    "200":
+                      description: "Cuentas"
+                      schemaRef: "#/components/schemas/AccountSearchResponse"
+              /accounts/{accountId}:
+                get:
+                  summary: "Obtener cuenta"
+                  responses:
+                    "200":
+                      description: "Cuenta"
+                      schemaRef: "#/components/schemas/Account"
+                patch:
+                  summary: "Actualizar estado/límites"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "200":
+                      description: "Actualizada"
+                      schemaRef: "#/components/schemas/Account"
+
+        AccountTransactionsAPI:
+          metadata:
+            name: "Account Transactions API"
+            description: "Consulta de transacciones, preautorizaciones, movimientos pendientes y categorización."
+            owner: "Ledger & Transactions Squad"
+            sla: "99.9%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 1"
+            region: "global"
+            tags: ["accounts", "transactions", "ledger"]
+          apiType: "Internal"
+          versions:
+            - version: "2.1.0"
+              status: "Published"
+              x-contract-version: "2026-05-20"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/account-transactions/v2"
+                qa: "https://api.qa.globalbank.example.com/account-transactions/v2"
+                uat: "https://api.uat.globalbank.example.com/account-transactions/v2"
+                prod: "https://api.globalbank.example.com/account-transactions/v2"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Accounts/AccountServicing/AccountManagementAPI"
+                  reason: "Validación de cuenta y estado."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code"]
+                scopes:
+                  - "accounts.transactions.read"
+                  - "accounts.transactions.export"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "cache_hit_ratio"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "accountId", "fromDate", "toDate", "resultCount"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Data contract review required."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Account Transactions API"
+              version: "v2"
+            paths:
+              /accounts/{accountId}/transactions:
+                get:
+                  summary: "Listar transacciones"
+                  queryParams: ["fromDate", "toDate", "type", "cursor", "limit"]
+                  responses:
+                    "200":
+                      description: "Transacciones"
+                      schemaRef: "#/components/schemas/TransactionList"
+              /accounts/{accountId}/transactions/{transactionId}:
+                get:
+                  summary: "Detalle de transacción"
+                  responses:
+                    "200":
+                      description: "Transacción"
+                      schemaRef: "#/components/schemas/Transaction"
+
+        StatementDeliveryAPI:
+          metadata:
+            name: "Statement Delivery API"
+            description: "Generación y entrega de extractos (PDF), eStatements y notificación de disponibilidad."
+            owner: "Documents & Statements Squad"
+            sla: "99.5%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 2"
+            region: "global"
+            tags: ["statements", "documents"]
+          apiType: "Internal"
+          versions:
+            - version: "1.0.0"
+              status: "Published"
+              x-contract-version: "2026-03-01"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/statement-delivery/v1"
+                qa: "https://api.qa.globalbank.example.com/statement-delivery/v1"
+                uat: "https://api.uat.globalbank.example.com/statement-delivery/v1"
+                prod: "https://api.globalbank.example.com/statement-delivery/v1"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Channels/Notifications/NotificationDispatchAPI"
+                  reason: "Notificación al cliente cuando el extracto está listo."
+                - api: "Compliance/Records/DocumentArchiveAPI"
+                  reason: "Archivado regulatorio."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code"]
+                scopes:
+                  - "statements.read"
+                  - "statements.generate"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "pdf_generation_time_ms_p95"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "accountId", "statementPeriod", "deliveryChannel"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Batch window impact assessment."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Statement Delivery API"
+              version: "v1"
+            paths:
+              /accounts/{accountId}/statements:
+                post:
+                  summary: "Solicitar generación de extracto"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "202":
+                      description: "Generación en proceso"
+                      schemaRef: "#/components/schemas/StatementJob"
+                get:
+                  summary: "Listar extractos disponibles"
+                  queryParams: ["fromPeriod", "toPeriod", "cursor", "limit"]
+                  responses:
+                    "200":
+                      description: "Extractos"
+                      schemaRef: "#/components/schemas/StatementList"
+              /accounts/{accountId}/statements/{statementId}/download:
+                get:
+                  summary: "Descargar extracto (URL firmada)"
+                  responses:
+                    "200":
+                      description: "Enlace de descarga"
+                      schemaRef: "#/components/schemas/DownloadLink"

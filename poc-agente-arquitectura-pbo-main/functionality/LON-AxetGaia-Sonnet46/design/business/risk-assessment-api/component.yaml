@@ -1,0 +1,87 @@
+# component.yaml — risk-assessment-api
+# Layer: Business | BIAN: Underwriting (semantic_alignment) + CustomerCreditRating (adapted)
+component_id: COMP-LON-BUS-002
+name: risk-assessment-api
+functionality_id: LON
+layer: business
+type: Business API
+version: "1.0.0"
+status: design_complete
+generated_at: "2026-06-17"
+
+bian:
+  service_domain: Underwriting
+  secondary_sd: CustomerCreditRating
+  release: "14.0.0"
+  adoption_level: semantic_alignment
+  control_record: UnderwritingAssessment
+  source_oas3: architecture/cache/bian/release14.0.0/oas3/yamls/Underwriting.yaml
+
+description: >
+  API de evaluación de riesgo crediticio. Orquesta la consulta al bureau de
+  crédito (vía adaptador con caché Redis TTL 24h), calcula el DTI ratio,
+  registra el score crediticio y nivel de riesgo, y determina el nivel de
+  aprobación requerido (gerente vs comité).
+
+responsibilities:
+  - Orquestar consulta al bureau de crédito vía credit-bureau-adapter-api
+  - Calcular DTI ratio (Debt-to-Income) del solicitante
+  - Registrar score crediticio, nivel de riesgo y recomendación
+  - Determinar nivel de aprobación: CREDIT_MANAGER vs CREDIT_COMMITTEE
+  - Sugerir rechazo automático si score < umbral mínimo configurable
+  - Gestionar caché Redis TTL 24h de reportes de bureau
+
+technology:
+  runtime: "Node.js (Express) / Java (Spring Boot)"
+  database: PostgreSQL
+  cache: Redis (TTL 24h)
+  patterns:
+    - Layered Architecture
+    - Strategy Pattern (políticas de riesgo por segmento)
+    - Repository Pattern
+    - Cache-Aside Pattern
+
+api:
+  style: REST
+  versioning: URI (/v1)
+  base_path: /v1
+  bian_path_prefix: /Underwriting
+
+endpoints:
+  - POST /v1/Underwriting/Initiate
+  - GET /v1/Underwriting/{underwritingid}/Retrieve
+  - PUT /v1/Underwriting/{underwritingid}/Update
+  - PUT /v1/Underwriting/{underwritingid}/Exchange
+
+security:
+  authentication: "OAuth2 / OpenID Connect / JWT"
+  authorization: RBAC
+  roles: [RISK_ANALYST, CREDIT_MANAGER, CREDIT_OFFICER]
+
+risk_levels: [LOW, MEDIUM, HIGH, CRITICAL]
+recommendations: [APPROVE, REJECT, ESCALATE]
+
+cache:
+  technology: Redis
+  key_pattern: "bureau_report:{customerId}"
+  ttl_seconds: 86400
+  fallback: "Consulta directa al bureau si Redis no disponible"
+
+persistence:
+  technology: PostgreSQL
+  tables: [risk_assessments]
+  acid: true
+
+dependencies:
+  - name: credit-bureau-adapter-api
+    purpose: "Bureau score y reporte crediticio"
+    type: synchronous
+
+consumers:
+  - credit-origination-exp-api
+  - credit-request-api
+
+nfr:
+  sla_ms: 1000
+  cache_ttl: "24h"
+  bureau_latency_p99_ms: 800

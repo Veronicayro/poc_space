@@ -1,0 +1,543 @@
+# ============================================================
+# INPUT: Sistema de Originación de Créditos (LON)
+# Funcionalidad: Gestión del ciclo de vida de solicitudes
+#   de crédito desde la postulación hasta el desembolso.
+# ============================================================
+
+Context:
+  Description: >
+    El sistema de Originación de Créditos gestiona el registro, evaluación,
+    análisis de riesgo, aprobación y desembolso de solicitudes de crédito
+    de clientes naturales y empresariales, asegurando el cumplimiento de
+    políticas crediticias internas, la trazabilidad completa del ciclo de
+    vida de cada solicitud y la integración con sistemas externos de análisis
+    de riesgo (bureau de crédito) y core bancario para el desembolso final.
+
+  Actors:
+    - Oficial de Crédito:
+        Description: Responsable del registro inicial de la solicitud y la recopilación de documentación del cliente
+        Permissions:
+          - create_credit_request
+          - view_credit_request
+          - edit_credit_request
+          - upload_documents
+          - request_additional_info
+        Channels:
+          - Web
+
+    - Analista de Riesgo:
+        Description: Responsable de evaluar el perfil crediticio, score y nivel de riesgo del solicitante
+        Permissions:
+          - view_credit_request
+          - submit_risk_assessment
+          - view_bureau_report
+          - request_additional_info
+        Channels:
+          - Web
+
+    - Gerente de Créditos:
+        Description: >
+          Responsable de aprobar o rechazar solicitudes dentro de su nivel
+          de atribución; solicitudes que excedan su límite son escaladas al comité
+        Permissions:
+          - approve_credit_request
+          - reject_credit_request
+          - view_credit_request
+          - view_risk_assessment
+          - escalate_to_committee
+        Channels:
+          - Web
+
+    - Comité de Créditos:
+        Description: Órgano colegiado responsable de aprobar solicitudes de alto monto o riesgo elevado
+        Permissions:
+          - approve_credit_request
+          - reject_credit_request
+          - view_credit_request
+          - view_risk_assessment
+          - add_conditions
+        Channels:
+          - Web
+
+    - Oficial de Desembolso:
+        Description: Responsable de ejecutar el desembolso hacia la cuenta del cliente una vez aprobada la solicitud
+        Permissions:
+          - execute_disbursement
+          - view_credit_request
+          - view_disbursement_status
+          - confirm_disbursement
+        Channels:
+          - Web
+
+  External Systems:
+    - Credit Bureau:
+        Description: >
+          Proveedor externo de información crediticia del cliente
+          (ej. Equifax, TransUnion, Experian)
+        Integration Type: REST API / Synchronous
+        Responsibilities:
+          - consulta de historial crediticio del cliente
+          - cálculo y retorno de score crediticio
+          - verificación en listas negras y de riesgo
+          - reporte de deudas vigentes y vencidas
+
+    - Core Bancario:
+        Description: Sistema central del banco para gestión de cuentas y productos financieros
+        Integration Type: REST API / Batch Sync
+        Responsibilities:
+          - validación de cliente existente (KYC)
+          - creación del producto crédito en core
+          - ejecución del desembolso hacia cuenta destino
+          - registro de cuotas y tabla de amortización
+
+    - Document Management System (DMS):
+        Description: Sistema de gestión documental para almacenamiento y consulta de documentos del cliente
+        Integration Type: REST API
+        Responsibilities:
+          - almacenamiento de documentos adjuntos (cédula, estados financieros, etc.)
+          - recuperación de documentos por solicitud
+          - validación de integridad de documentos
+
+Containers:
+  - Frontend Web:
+      Technology: React (SPA)
+      Responsibilities:
+        - UI/UX de gestión de solicitudes de crédito
+        - carga y previsualización de documentos
+        - visualización del estado del workflow por etapa
+        - consumo de APIs del backend
+      Security:
+        - OAuth2 / OpenID Connect
+        - RBAC por rol (Oficial, Analista, Gerente, Comité, Desembolso)
+
+  - Backend API:
+      Technology: Node.js (Express) / Java (Spring Boot)
+      Responsibilities:
+        - exposición de endpoints REST versionados
+        - orquestación de lógica de negocio crediticio
+        - control transaccional de estados
+        - aplicación de políticas de crédito
+      Patterns:
+        - Layered Architecture
+        - DTO / Mapper
+        - Validation Pipeline
+        - Strategy Pattern (políticas de aprobación por segmento)
+
+  - Database:
+      Technology: PostgreSQL
+      Responsibilities:
+        - persistencia de solicitudes, evaluaciones y desembolsos
+        - historial de estados y decisiones crediticias
+      Characteristics:
+        - ACID compliance
+        - índices por estado, cliente y fecha de solicitud
+        - auditoría (audit trail tables)
+        - particionamiento por año para solicitudes históricas
+
+  - Integration Service:
+      Technology: REST / Webhooks / Message Broker (opcional)
+      Responsibilities:
+        - comunicación con Bureau de Crédito y Core Bancario
+        - transformación de mensajes (DTO ↔ External Schema)
+        - reintentos y manejo de errores (retry policy)
+        - caché de reportes de bureau (TTL configurable)
+
+Components:
+  - SolicitudCreditoController:
+      Type: REST Controller
+      Endpoints:
+        - POST /credit-requests
+        - GET /credit-requests/{id}
+        - PUT /credit-requests/{id}
+        - GET /credit-requests/{id}/documents
+        - POST /credit-requests/{id}/documents
+      Responsibilities:
+        - validación de entrada y esquema de datos
+        - mapeo request → DTO
+        - delegación a servicios de aplicación
+
+  - SolicitudCreditoService:
+      Type: Application Service
+      Responsibilities:
+        - lógica de negocio de solicitudes
+        - validación de cliente existente (integración KYC)
+        - prevención de solicitudes duplicadas activas
+        - cálculo de capacidad de pago (DTI - Debt-to-Income ratio)
+        - interacción con repositorio de solicitudes
+
+  - RiskAssessmentService:
+      Type: Application Service
+      Responsibilities:
+        - orquestación de consulta al bureau de crédito
+        - interpretación del score crediticio según política interna
+        - generación del informe de evaluación de riesgo
+        - determinación de nivel de aprobación requerido (gerente vs comité)
+
+  - CreditWorkflowService:
+      Type: Domain Service
+      Responsibilities:
+        - gestión de estados (state machine)
+        - validación de transiciones permitidas por rol
+        - registro de historial de estados con actor y timestamp
+        - escalado automático a comité según umbrales de monto/riesgo
+      States:
+        - DRAFT
+        - SUBMITTED
+        - UNDER_REVIEW
+        - RISK_ASSESSED
+        - PENDING_APPROVAL
+        - PENDING_COMMITTEE
+        - APPROVED
+        - REJECTED
+        - PENDING_DISBURSEMENT
+        - DISBURSED
+        - CANCELLED
+        - EXPIRED
+
+  - DisbursementService:
+      Type: Domain/Application Service
+      Responsibilities:
+        - coordinación del proceso de desembolso con core bancario
+        - generación de instrucción de desembolso
+        - confirmación y registro del desembolso ejecutado
+        - notificación al cliente por canal configurado
+
+  - CreditIntegrationAdapter:
+      Type: Infrastructure Component
+      Responsibilities:
+        - consumo de API del Bureau de Crédito
+        - consumo de API del Core Bancario
+        - consumo de API del DMS
+        - manejo de reintentos, timeouts y circuit breaker
+        - transformación de formatos externos a DTOs internos
+
+Figma:
+  Reference: N/A
+  Notes:
+    - UI basada en wizard de pasos para captura de solicitud
+    - Panel de estados con indicadores visuales por etapa (stepper)
+    - Vista de detalle con secciones: Datos Solicitante, Documentos, Evaluación de Riesgo, Historial
+    - Indicadores visuales por estado (color-coded statuses)
+    - Tabla de solicitudes con filtros por estado, fecha, tipo de crédito
+
+User Stories:
+  - HU-LON-001:
+      Title: Registrar solicitud de crédito
+      Actor: Oficial de Crédito
+      Description: Registrar una nueva solicitud de crédito de un cliente en el sistema
+      Acceptance Criteria:
+        - Debe validar que el cliente existe en el core bancario (KYC)
+        - Debe prevenir solicitudes duplicadas activas para el mismo cliente y tipo de crédito
+        - Debe capturar: tipo de crédito, monto solicitado, plazo, propósito del crédito
+        - Estado inicial debe ser DRAFT
+        - Debe permitir adjuntar documentos requeridos según tipo de crédito
+
+  - HU-LON-002:
+      Title: Enviar solicitud para evaluación
+      Actor: Oficial de Crédito
+      Description: Enviar la solicitud completa al flujo de evaluación crediticia
+      Acceptance Criteria:
+        - Solo solicitudes en estado DRAFT pueden enviarse
+        - Debe validar que todos los documentos obligatorios fueron adjuntados
+        - Al enviar, el estado cambia a SUBMITTED
+        - Se dispara la consulta automática al bureau de crédito
+        - Se notifica al Analista de Riesgo asignado
+
+  - HU-LON-003:
+      Title: Evaluar riesgo crediticio
+      Actor: Analista de Riesgo
+      Description: Realizar la evaluación de riesgo del solicitante basada en el reporte del bureau y políticas internas
+      Acceptance Criteria:
+        - Solo solicitudes en estado SUBMITTED o UNDER_REVIEW pueden evaluarse
+        - El analista debe visualizar el reporte del bureau de crédito
+        - Debe registrar el score obtenido, nivel de riesgo y recomendación
+        - Al completar la evaluación, el estado cambia a RISK_ASSESSED
+        - Si el score es inferior al mínimo configurable, el sistema sugiere rechazo automático
+
+  - HU-LON-004:
+      Title: Aprobar solicitud de crédito
+      Actor: Gerente de Créditos
+      Description: Aprobar una solicitud de crédito que se encuentre dentro del nivel de atribución del gerente
+      Acceptance Criteria:
+        - Solo solicitudes en estado RISK_ASSESSED o PENDING_APPROVAL pueden aprobarse
+        - Solo si el monto solicitado no supera el límite de atribución del gerente
+        - Debe registrarse usuario, timestamp y condiciones de aprobación
+        - El estado cambia a APPROVED
+        - Si el monto supera el límite, debe escalar a PENDING_COMMITTEE
+
+  - HU-LON-005:
+      Title: Rechazar solicitud de crédito
+      Actor: Gerente de Créditos / Comité de Créditos
+      Description: Rechazar una solicitud que no cumple los criterios crediticios
+      Acceptance Criteria:
+        - Solicitudes en estado PENDING_APPROVAL o PENDING_COMMITTEE pueden rechazarse
+        - El motivo de rechazo es obligatorio
+        - Debe registrarse usuario, timestamp y motivo de rechazo
+        - El estado cambia a REJECTED
+        - Se notifica al Oficial de Crédito
+
+  - HU-LON-006:
+      Title: Escalar solicitud al Comité de Créditos
+      Actor: Gerente de Créditos
+      Description: Escalar solicitudes de alto monto o riesgo elevado al comité para decisión colegiada
+      Acceptance Criteria:
+        - Solo solicitudes en estado PENDING_APPROVAL pueden escalarse
+        - Debe registrarse la justificación de escalamiento
+        - El estado cambia a PENDING_COMMITTEE
+        - El Comité recibe notificación con el expediente completo
+
+  - HU-LON-007:
+      Title: Ejecutar desembolso
+      Actor: Oficial de Desembolso
+      Description: Ejecutar el desembolso del crédito aprobado hacia la cuenta del cliente
+      Acceptance Criteria:
+        - Solo solicitudes en estado APPROVED pueden desembolsarse
+        - Debe confirmar la cuenta destino del desembolso
+        - El sistema envía instrucción al core bancario
+        - Al confirmación del core, el estado cambia a DISBURSED
+        - Se registra fecha y referencia del desembolso
+        - Se genera tabla de amortización en el core bancario
+
+  - HU-LON-008:
+      Title: Consultar estado de solicitud
+      Actor: Oficial de Crédito / Gerente de Créditos / Analista de Riesgo
+      Description: Consultar el estado actual y el historial de una solicitud de crédito
+      Acceptance Criteria:
+        - El usuario solo puede ver solicitudes según su rol y permisos
+        - Debe mostrar estado actual, historial de transiciones, actor y timestamp de cada cambio
+        - Debe permitir filtrar por estado, fecha, tipo de crédito y cliente
+
+Design Decision Assertions (DDA):
+  - DDA-001:
+      Decision: Ciclo de vida basado en máquina de estados explícita
+      Rationale: >
+        El proceso de originación de crédito involucra múltiples etapas con
+        transiciones controladas por rol y nivel de atribución. Una state machine
+        previene transiciones inválidas y garantiza trazabilidad del flujo.
+      Implications:
+        - Mayor trazabilidad y auditoría del proceso crediticio
+        - Complejidad adicional en definición y mantenimiento de reglas de transición
+        - Facilita implementación de alertas y escalados automáticos
+
+  - DDA-002:
+      Decision: API REST versionada con patrón Layered Architecture
+      Rationale: >
+        Estándar ampliamente adoptado para APIs bancarias; el versionamiento
+        garantiza compatibilidad hacia atrás con sistemas consumidores.
+      Implications:
+        - Stateless por diseño
+        - Versionamiento requerido (v1, v2...)
+        - Contratos OpenAPI como fuente de verdad
+
+  - DDA-003:
+      Decision: Consulta síncrona al bureau de crédito con caché por TTL
+      Rationale: >
+        La consulta al bureau es crítica para la evaluación pero tiene costo
+        por transacción. Un caché con TTL de 24 horas reduce costos y latencia
+        para evaluaciones repetidas del mismo cliente.
+      Implications:
+        - Necesidad de política de invalidación de caché
+        - Riesgo de datos desactualizados mitigado por TTL corto
+        - Ahorro de costos de consulta al bureau
+
+  - DDA-004:
+      Decision: Estrategia de aprobación multinivel basada en umbrales de monto y riesgo
+      Rationale: >
+        La política crediticia del banco requiere que montos altos o perfiles
+        de riesgo elevado sean evaluados por un órgano colegiado. Parametrizar
+        los umbrales en configuración permite ajustar la política sin cambios de código.
+      Implications:
+        - Umbrales de monto y score almacenados como configuración externalizable
+        - Escalado automático reduce carga operativa del gerente
+        - Necesidad de auditoría de cambios en la configuración de umbrales
+
+  - DDA-005:
+      Decision: Integración con DMS para gestión de documentos
+      Rationale: >
+        Centralizar los documentos en un DMS especializado evita sobrecarga de la
+        base de datos principal y permite gestión del ciclo de vida documental
+        (versionamiento, expiración, auditoría de accesos).
+      Implications:
+        - Dependencia de disponibilidad del DMS
+        - Necesidad de fallback si el DMS no está disponible
+        - Simplifica cumplimiento normativo de retención de documentos
+
+Architecture Decision Records (ADR):
+  - ADR-001:
+      Title: Uso de PostgreSQL como base de datos principal
+      Status: Accepted
+      Context: >
+        El proceso de originación de crédito requiere consistencia transaccional
+        fuerte: una solicitud no puede estar en dos estados simultáneamente y
+        las evaluaciones deben ser atómicas con los cambios de estado.
+      Decision: Base de datos relacional PostgreSQL con ACID compliance
+      Consequences:
+        - Fuerte integridad referencial entre solicitudes, evaluaciones y desembolsos
+        - Soporte nativo de transacciones serializable para cambios de estado
+        - Menor flexibilidad que NoSQL para esquemas dinámicos de documentos
+        - Particionamiento por año requerido para escalabilidad histórica
+
+  - ADR-002:
+      Title: Arquitectura en capas con separación de servicios por responsabilidad
+      Status: Accepted
+      Context: >
+        La lógica de negocio crediticio es compleja y combina reglas de dominio
+        (state machine, políticas de riesgo) con orquestación de integraciones
+        externas. Mezclar estas responsabilidades dificulta el testing y mantenimiento.
+      Decision: >
+        Separación explícita en: Controller (HTTP), Application Service
+        (orquestación), Domain Service (reglas de negocio), Integration Adapter
+        (sistemas externos), Repository (persistencia).
+      Consequences:
+        - Mayor testeabilidad por capa independiente
+        - Complejidad inicial de estructura de proyecto
+        - Facilita evolución independiente de cada capa
+
+  - ADR-003:
+      Title: Implementación de RBAC con OAuth2 / OpenID Connect
+      Status: Accepted
+      Context: >
+        El sistema involucra múltiples actores con permisos distintos y niveles
+        de atribución diferenciados. El control de acceso debe ser granular,
+        auditable y alineado con los estándares de seguridad bancaria.
+      Decision: Role-Based Access Control con tokens JWT emitidos por Identity Provider
+      Roles:
+        - CREDIT_OFFICER
+        - RISK_ANALYST
+        - CREDIT_MANAGER
+        - CREDIT_COMMITTEE
+        - DISBURSEMENT_OFFICER
+      Consequences:
+        - Seguridad reforzada con tokens de corta duración
+        - Necesidad de gestión centralizada de roles y permisos
+        - Integración con Identity Provider corporativo requerida
+
+  - ADR-004:
+      Title: Máquina de estados explícita para el ciclo de vida de solicitudes
+      Status: Accepted
+      Context: >
+        El proceso de originación de crédito tiene 12 estados posibles y
+        transiciones controladas por rol, monto y score. Sin una state machine
+        explícita, la lógica de transición se dispersa y es propensa a errores.
+      Decision: >
+        Implementar una state machine centralizada en CreditWorkflowService
+        con tabla de transiciones permitidas parametrizable. Cada transición
+        registra actor, timestamp y motivo en AuditLog.
+      Consequences:
+        - Centralización de lógica de transición; fácil auditoría
+        - Tabla de transiciones como fuente de verdad de reglas de negocio
+        - Complejidad adicional en pruebas de cobertura de estados
+
+  - ADR-005:
+      Title: Caché de reportes de bureau de crédito con Redis
+      Status: Accepted
+      Context: >
+        Las consultas al bureau tienen costo unitario y latencia variable (200-800ms).
+        Durante el proceso de evaluación, el mismo reporte puede ser consultado
+        múltiples veces por distintos actores.
+      Decision: >
+        Almacenar el reporte de bureau en Redis con TTL de 24 horas por
+        cliente. Invalidar el caché manualmente si se requiere refresco.
+      Consequences:
+        - Reducción de costos de consulta al bureau
+        - Latencia reducida para consultas repetidas
+        - Riesgo de datos desactualizados en ventana de 24h (aceptable por política)
+        - Dependencia de disponibilidad de Redis (fallback a consulta directa)
+
+Non-Functional Requirements:
+  Performance:
+    - SLA: < 500ms por request de consulta; < 1000ms para evaluación de riesgo
+    - Soporte: 200 concurrent users
+    - Throughput objetivo: 50 solicitudes nuevas por hora en hora pico
+  Security:
+    - Autenticación: OAuth2 / OpenID Connect con JWT
+    - Autorización: RBAC por rol con claims en token
+    - Encriptación: TLS 1.2+ en tránsito; AES-256 en reposo para datos sensibles
+    - Datos sensibles: enmascaramiento de número de identificación y datos bancarios en logs
+  Observability:
+    - Logging estructurado (JSON) con correlation ID por solicitud
+    - Métricas de negocio (tasa de aprobación, tiempo promedio de evaluación) en Prometheus
+    - Trazas distribuidas (OpenTelemetry) para flujos que cruzan servicios
+    - Alertas automáticas por solicitudes en estado SUBMITTED > 48h sin evaluación
+  Reliability:
+    - Retry policies con backoff exponencial para llamadas al bureau y core bancario
+    - Circuit breakers para integraciones externas (umbral: 5 fallos en 30s)
+    - Idempotencia en endpoints de creación de solicitud y ejecución de desembolso
+  Compliance:
+    - Auditoría completa de todas las acciones (ISO 27001 / Basel III readiness)
+    - Retención de expedientes crediticios por mínimo 7 años
+    - Trazabilidad del proceso de decisión crediticia (GDPR / regulación local)
+    - Registro de consentimiento del cliente para consulta al bureau
+
+Data Model (high-level):
+  Entities:
+    - CreditRequest:
+        fields:
+          - id
+          - customer_id
+          - credit_type           # PERSONAL, MORTGAGE, VEHICLE, BUSINESS
+          - requested_amount
+          - currency
+          - term_months
+          - purpose
+          - status                # Ver estados en CreditWorkflowService
+          - assigned_officer_id
+          - created_at
+          - updated_at
+
+    - RiskAssessment:
+        fields:
+          - id
+          - credit_request_id
+          - bureau_score
+          - risk_level            # LOW, MEDIUM, HIGH, CRITICAL
+          - dti_ratio             # Debt-to-Income ratio
+          - recommendation        # APPROVE, REJECT, ESCALATE
+          - analyst_id
+          - assessed_at
+          - bureau_report_ref     # Referencia al reporte en caché/DMS
+
+    - CreditDecision:
+        fields:
+          - id
+          - credit_request_id
+          - decision              # APPROVED, REJECTED, ESCALATED
+          - decision_maker_id
+          - decision_maker_role   # CREDIT_MANAGER, CREDIT_COMMITTEE
+          - conditions            # Condiciones de aprobación (opcional)
+          - rejection_reason      # Motivo de rechazo (opcional)
+          - decided_at
+
+    - Disbursement:
+        fields:
+          - id
+          - credit_request_id
+          - destination_account
+          - amount
+          - currency
+          - status                # PENDING, EXECUTED, FAILED
+          - core_reference        # Referencia del core bancario
+          - disbursed_at
+          - executed_by
+
+    - CreditDocument:
+        fields:
+          - id
+          - credit_request_id
+          - document_type         # ID, INCOME_PROOF, FINANCIAL_STATEMENT, etc.
+          - dms_reference         # Referencia al documento en DMS
+          - uploaded_by
+          - uploaded_at
+          - is_mandatory
+
+    - AuditLog:
+        fields:
+          - entity
+          - entity_id
+          - action
+          - previous_state
+          - new_state
+          - actor_id
+          - actor_role
+          - timestamp
+          - metadata              # JSON con contexto adicional

@@ -1,0 +1,35 @@
+sequenceDiagram
+    title Secuencia: Registro y Aprobación de Factura (UC-CXP-001, UC-CXP-002)
+
+    actor Analista as Analista Financiero
+    actor Gerente as Gerente Financiero
+    participant ExpAPI as accounts-payable-exp-api
+    participant InvAPI as invoice-management-api
+    participant ERPAPI as erp-integration-api
+    participant LfcAPI as invoice-lifecycle-api
+    participant ERP as ERP System
+
+    Note over Analista,ERP: UC-CXP-001: Registro de Factura
+
+    Analista->>ExpAPI: POST /invoices {supplier_id, invoice_number, amount...}
+    ExpAPI->>InvAPI: POST /invoices
+    InvAPI->>ERPAPI: GET /erp/suppliers/{supplierId}/validate
+    ERPAPI->>ERP: GET /suppliers/{supplierId}
+    ERP-->>ERPAPI: {status: ACTIVE}
+    ERPAPI-->>InvAPI: {valid: true}
+    InvAPI->>InvAPI: Verificar unicidad (supplier_id + invoice_number)
+    InvAPI->>LfcAPI: POST /invoice-lifecycle/{id}/transition {to_status: PENDING}
+    LfcAPI-->>InvAPI: {current_status: PENDING}
+    InvAPI-->>ExpAPI: 201 {id, status: PENDING}
+    ExpAPI-->>Analista: 201 Factura creada (PENDING)
+
+    Note over Analista,ERP: UC-CXP-002: Aprobación de Factura
+
+    Gerente->>ExpAPI: POST /invoices/{id}/approve {comment}
+    ExpAPI->>InvAPI: POST /invoices/{id}/approve
+    InvAPI->>LfcAPI: GET /invoice-lifecycle/{id}/current-state
+    LfcAPI-->>InvAPI: {current_status: PENDING}
+    InvAPI->>LfcAPI: POST /invoice-lifecycle/{id}/transition {to_status: APPROVED, performed_by: gerente_id}
+    LfcAPI-->>InvAPI: {current_status: APPROVED}
+    InvAPI-->>ExpAPI: 200 {status: APPROVED}
+    ExpAPI-->>Gerente: 200 Factura aprobada

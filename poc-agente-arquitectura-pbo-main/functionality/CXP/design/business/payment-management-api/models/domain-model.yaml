@@ -1,0 +1,70 @@
+# Domain Model - payment-management-api
+schema_version: "1.0"
+component_id: payment-management-api
+generated_at: "2026-06-17"
+
+entities:
+  - name: PaymentOrder
+    bian_equivalent: DisbursementTransaction
+    table: payment_orders
+    schema: cxp_payments
+    fields:
+      - name: id
+        type: UUID
+        pk: true
+      - name: invoice_id
+        type: UUID
+        nullable: false
+        index: true
+      - name: scheduled_date
+        type: DATE
+        nullable: false
+        index: true
+      - name: execution_date
+        type: TIMESTAMPTZ
+        nullable: true
+      - name: amount
+        type: DECIMAL(18,2)
+        nullable: false
+      - name: currency
+        type: CHAR(3)
+        nullable: false
+      - name: status
+        type: VARCHAR(20)
+        nullable: false
+        index: true
+        values: [SCHEDULED, PROCESSING, PAID, FAILED, CANCELLED]
+      - name: idempotency_key
+        type: VARCHAR(256)
+        nullable: false
+        unique: true
+      - name: banking_reference
+        type: VARCHAR(200)
+        nullable: true
+      - name: created_by
+        type: VARCHAR(100)
+        nullable: false
+      - name: created_at
+        type: TIMESTAMPTZ
+        nullable: false
+    business_rules: [BR-CXP-009]
+
+  - name: IdempotencyLog
+    table: idempotency_log
+    schema: cxp_payments
+    description: "Previene pagos duplicados; almacena resultado de ejecuciones previas"
+    immutable: true
+    fields:
+      - name: idempotency_key
+        type: VARCHAR(256)
+        pk: true
+      - name: payment_order_id
+        type: UUID
+        nullable: false
+      - name: result_status
+        type: VARCHAR(20)
+        nullable: false
+      - name: created_at
+        type: TIMESTAMPTZ
+        nullable: false
+    business_rules: [BR-CXP-009]

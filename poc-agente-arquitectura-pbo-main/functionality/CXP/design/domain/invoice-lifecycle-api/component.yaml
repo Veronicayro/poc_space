@@ -1,0 +1,85 @@
+# Phase 5 Output: Component Design - invoice-lifecycle-api
+schema_version: "1.0"
+functionality_id: CXP
+component_id: invoice-lifecycle-api
+phase: backend-component-design
+generated_at: "2026-06-17"
+
+name: "Invoice Lifecycle API"
+layer: domain
+pattern: "Domain Service / State Machine"
+type: REST API
+version: "v1"
+technology: "Node.js / Java Spring Boot"
+base_path: "/api/v1/invoice-lifecycle"
+
+bian_alignment:
+  service_domain: AccountsReceivable
+  adoption: semantic_alignment
+  control_record: InvoiceLifecycleProcedure
+
+description: >
+  Servicio de dominio puro que gestiona la máquina de estados de facturas.
+  Sin dependencias externas. Valida transiciones según BR-CXP-004, persiste
+  el historial de estados y el audit trail de todas las operaciones.
+
+responsibilities:
+  - "Validar y ejecutar transiciones de estado (state machine)"
+  - "Rechazar transiciones inválidas (BR-CXP-004)"
+  - "Persistir historial inmutable de estados"
+  - "Registrar audit log de todas las acciones"
+  - "Exponer estado actual e historial de facturas"
+
+capabilities: [CAP-CXP-001, CAP-CXP-004]
+use_cases: [UC-CXP-002, UC-CXP-003, UC-CXP-006]
+business_rules: [BR-CXP-004, BR-CXP-005, BR-CXP-013]
+
+state_machine:
+  entity: Invoice
+  states: [PENDING, APPROVED, REJECTED, SCHEDULED, PAID, CANCELLED]
+  transitions:
+    PENDING: [APPROVED, REJECTED, CANCELLED]
+    APPROVED: [SCHEDULED, CANCELLED]
+    SCHEDULED: [PAID, CANCELLED]
+    REJECTED: []
+    PAID: []
+    CANCELLED: []
+  rule_ref: BR-CXP-004
+
+endpoints:
+  - method: POST
+    path: /invoice-lifecycle/{id}/transition
+    description: "Ejecutar transición de estado validada"
+    body: "{to_status, performed_by, comment}"
+    business_rules: [BR-CXP-004]
+
+  - method: GET
+    path: /invoice-lifecycle/{id}/history
+    description: "Obtener historial inmutable de transiciones"
+
+  - method: GET
+    path: /invoice-lifecycle/{id}/current-state
+    description: "Obtener estado actual de la factura"
+
+persistence:
+  database: PostgreSQL
+  schema: cxp_lifecycle
+  tables:
+    - name: invoice_lifecycle
+      description: "Estado actual de cada factura"
+      key_columns: [invoice_id]
+    - name: state_transitions
+      description: "Historial inmutable de transiciones"
+      immutable: true
+    - name: audit_log
+      description: "Audit trail completo (BR-CXP-013)"
+      immutable: true
+
+downstream_dependencies: []
+
+nfr:
+  observability: true
+  audit: true
+  sla_ms: 100
+
+maturity: draft

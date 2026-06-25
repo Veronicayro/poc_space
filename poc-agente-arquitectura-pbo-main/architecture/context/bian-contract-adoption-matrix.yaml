@@ -1,0 +1,96 @@
+# bian-contract-adoption-matrix.yaml
+# Global (backend-agnostic) BIAN contract adoption matrix.
+#
+# Usage:
+# - Register internal contracts (OpenAPI/AsyncAPI) and their mapping/compatibility with BIAN Service Domains.
+# - This file starts as a template and is populated incrementally for each new API/event contract.
+# - It is not dependent on any single functionality or a specific backend/technology.
+
+domain_standard:
+  provider: BIAN
+  release: "14.0.0"
+
+contracts:
+  - contract_ref: "functionality/KYC_ONBOARDING_DIGITAL/design/business/kyc-onboarding-api/contract/openapi.yaml"
+    contract_type: oas3
+    owner: "Customer Platform / KYC Squad"
+    functionality_id: KYC_ONBOARDING_DIGITAL
+    bian_adoption_file: "functionality/KYC_ONBOARDING_DIGITAL/design/business/kyc-onboarding-api/contract/bian-adoption.yaml"
+    source_oas3: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+    source_asyncapi: null
+    adoption_level: semantic_alignment
+    service_domains:
+      - name: PartyLifecycleManagement
+        adoption_model: semantic_alignment
+        primary: true
+        references:
+          - "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+        operations:
+          - internal_operation: "POST /onboarding-cases"
+            bian_operation: "POST /PartyLifecycleManagement/Initiate"
+            bian_operationId: Initiate
+            bian_pattern: InCR
+          - internal_operation: "GET /onboarding-cases/{partylifecyclemanagementid}"
+            bian_operation: "GET /PartyLifecycleManagement/{partylifecyclemanagementid}/Retrieve"
+            bian_operationId: Retrieve
+            bian_pattern: ReCR
+          - internal_operation: "PUT /onboarding-cases/{partylifecyclemanagementid}/control"
+            bian_operation: "PUT /PartyLifecycleManagement/{partylifecyclemanagementid}/Control"
+            bian_operationId: Control
+            bian_pattern: CoCR
+          - internal_operation: "PUT /onboarding-cases/{partylifecyclemanagementid}/documents/{documentationid}/execute"
+            bian_operation: "PUT /PartyLifecycleManagement/{partylifecyclemanagementid}/Documentation/{documentationid}/Execute"
+            bian_operationId: ExecuteDocumentation
+            bian_pattern: ExBQ
+          - internal_operation: "GET /onboarding-cases/{partylifecyclemanagementid}/qualification/{qualificationid}"
+            bian_operation: "GET /PartyLifecycleManagement/{partylifecyclemanagementid}/Qualification/{qualificationid}/Retrieve"
+            bian_operationId: RetrieveQualification
+            bian_pattern: ReBQ
+          - internal_operation: "GET /onboarding-cases/{partylifecyclemanagementid}/identity-proofing/{identityproofingid}"
+            bian_operation: "GET /PartyLifecycleManagement/{partylifecyclemanagementid}/IdentityProofing/{identityproofingid}/Retrieve"
+            bian_operationId: RetrieveIdentityProofing
+            bian_pattern: ReBQ
+        omitted_bian_operations: [Update, Exchange, Execute, Request, UpdateDocumentation, RequestDocumentation, RetrieveDocumentation, UpdatePrecedents, RetrievePrecedents]
+        notes: >
+          6 of 15 BIAN paths selected (40%). Omitted paths are either out of MVP scope
+          or replaced by AP-specific patterns (async events for Exchange, internal execution
+          for Execute). AP extension: GET /onboarding-cases (analyst queue list).
+    validation_status: validated
+    generated_at: "2026-06-22"
+# Example (to populate):
+# contracts:
+#   - contract_ref: "path/to/contract/openapi.yaml"
+#     contract_type: "oas3"
+#     owner: "team-or-domain"
+#     service_domains:
+#       - name: "Disbursement"
+#         adoption_model: "mapped_adoption"
+#         primary: true
+#         references:
+#           - "architecture/cache/bian/release14.0.0/oas3/yamls/Disbursement.yaml"
+#         operations:
+#           - internal_operation: "POST /invoices"
+#             bian_operation: "POST /Disbursement/Initiate"
+#             bian_operationId: "Initiate"
+#             bian_pattern: "InCR"
+#         notes: "Semantic traceability via mapping; internal paths remain resource-oriented"
+#
+#   - contract_ref: "path/to/contract/asyncapi.yaml"
+#     contract_type: "asyncapi"
+#     owner: "team-or-domain"
+#     service_domains:
+#       - name: "FinancialAccounting"
+#         adoption_model: "mapped_adoption"
+#         primary: false
+#         references:
+#           - "architecture/cache/bian/release14.0.0/asyncapi-3.x/yamls/FinancialAccounting.yaml"
+#         operations:
+#           - internal_operation: "channel erp.accounting.sync (subscribe)"
+#             bian_operation: "N/A (event reference)"
+#             bian_operationId: "N/A"
+#             bian_pattern: "N/A"
+#
+notes:
+  - "This file is the single audit point for BIAN contract adoption in the repository."
+  - "Each contract can map to 1..n Service Domains."
+  - "If a contract is BIAN-like, set adoption_model=bian_like_contract and operations may be omitted if the surface matches."

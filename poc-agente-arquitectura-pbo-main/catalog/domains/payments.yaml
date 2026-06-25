@@ -1,0 +1,378 @@
+domain:
+  name: "Payments"
+  description: "Pagos, transferencias, beneficiarios y procesamiento."
+
+  capabilities:
+
+    PaymentsProcessing:
+      apiProducts:
+
+        PaymentsProcessingAPI:
+          metadata:
+            name: "Payments Processing API"
+            description: "Iniciación y procesamiento de pagos domésticos e internacionales, con estado y trazabilidad end-to-end."
+            owner: "Payments Rail Squad"
+            sla: "99.95%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 0"
+            region: "global"
+            tags: ["payments", "processing", "rails", "iso20022"]
+          apiType: "Internal"
+          versions:
+            - version: "2.4.0"
+              status: "Published"
+              x-contract-version: "2026-06-05"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/payments-processing/v2"
+                qa: "https://api.qa.globalbank.example.com/payments-processing/v2"
+                uat: "https://api.uat.globalbank.example.com/payments-processing/v2"
+                prod: "https://api.globalbank.example.com/payments-processing/v2"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Accounts/AccountServicing/AccountManagementAPI"
+                  reason: "Validar cuenta origen, límites y estado."
+                - api: "Compliance/Sanctions/SanctionsScreeningAPI"
+                  reason: "Screening de sanciones para pagos internacionales."
+                - api: "Risk/Fraud/FraudDecisioningAPI"
+                  reason: "Decisión antifraude en tiempo real."
+                - api: "Channels/Notifications/NotificationDispatchAPI"
+                  reason: "Notificar confirmación/estado."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code"]
+                scopes:
+                  - "payments.initiate"
+                  - "payments.read"
+                  - "payments.cancel"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "payment_acceptance_rate"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "paymentId", "customerId", "amount", "currency", "status"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Payments change window + rail certification."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Payments Processing API"
+              version: "v2"
+            paths:
+              /payments:
+                post:
+                  summary: "Iniciar pago"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  requestBody:
+                    contentType: "application/json"
+                    schemaRef: "#/components/schemas/PaymentInitiationRequest"
+                  responses:
+                    "201":
+                      description: "Pago aceptado"
+                      schemaRef: "#/components/schemas/Payment"
+                    "422":
+                      description: "Reglas de negocio (insuficiente, límites, etc.)"
+                get:
+                  summary: "Buscar pagos"
+                  queryParams: ["customerId", "status", "cursor", "limit"]
+                  responses:
+                    "200":
+                      description: "Pagos"
+                      schemaRef: "#/components/schemas/PaymentList"
+              /payments/{paymentId}:
+                get:
+                  summary: "Consultar estado de pago"
+                  responses:
+                    "200":
+                      description: "Pago"
+                      schemaRef: "#/components/schemas/Payment"
+              /payments/{paymentId}/cancellation:
+                post:
+                  summary: "Solicitar cancelación"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "202":
+                      description: "Cancelación en proceso"
+                      schemaRef: "#/components/schemas/PaymentCancellation"
+
+        InstantTransfersAPI:
+          metadata:
+            name: "Instant Transfers API"
+            description: "Transferencias inmediatas (p2p/p2b) con confirmación en segundos y disponibilidad 24/7."
+            owner: "Instant Payments Squad"
+            sla: "99.95%"
+            dataClassification: ["Confidential", "PII"]
+            criticalityTier: "Tier 0"
+            region: "global"
+            tags: ["payments", "instant", "p2p"]
+          apiType: "Internal"
+          versions:
+            - version: "1.6.0"
+              status: "Published"
+              x-contract-version: "2026-06-02"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/instant-transfers/v1"
+                qa: "https://api.qa.globalbank.example.com/instant-transfers/v1"
+                uat: "https://api.uat.globalbank.example.com/instant-transfers/v1"
+                prod: "https://api.globalbank.example.com/instant-transfers/v1"
+              consumers:
+                - "Mobile Banking App"
+              dependencies:
+                - api: "Payments/PaymentsProcessing/PaymentsProcessingAPI"
+                  reason: "Reutiliza el motor de pagos y tracking."
+                - api: "Risk/Fraud/FraudDecisioningAPI"
+                  reason: "Fraude en tiempo real."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code"]
+                scopes:
+                  - "payments.instant.initiate"
+                  - "payments.instant.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "end_to_end_time_ms_p95"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "transferId", "amount", "currency", "status"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Rail SLA adherence review."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Instant Transfers API"
+              version: "v1"
+            paths:
+              /instant-transfers:
+                post:
+                  summary: "Iniciar transferencia instantánea"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Transferencia creada"
+                      schemaRef: "#/components/schemas/InstantTransfer"
+              /instant-transfers/{transferId}:
+                get:
+                  summary: "Consultar transferencia"
+                  responses:
+                    "200":
+                      description: "Transferencia"
+                      schemaRef: "#/components/schemas/InstantTransfer"
+
+    PayeeManagement:
+      apiProducts:
+
+        BeneficiaryDirectoryAPI:
+          metadata:
+            name: "Beneficiary Directory API"
+            description: "Gestión de beneficiarios/recipients del cliente (cuentas destino, alias, validación)."
+            owner: "Payee Services Squad"
+            sla: "99.9%"
+            dataClassification: ["PII", "Confidential"]
+            criticalityTier: "Tier 1"
+            region: "global"
+            tags: ["payments", "beneficiaries", "directory"]
+          apiType: "Internal"
+          versions:
+            - version: "1.2.0"
+              status: "Published"
+              x-contract-version: "2026-05-10"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/beneficiary-directory/v1"
+                qa: "https://api.qa.globalbank.example.com/beneficiary-directory/v1"
+                uat: "https://api.uat.globalbank.example.com/beneficiary-directory/v1"
+                prod: "https://api.globalbank.example.com/beneficiary-directory/v1"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Customers/CustomerOnboarding/CustomerProfileAPI"
+                  reason: "Validación de ownership del beneficiario por cliente."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code"]
+                scopes:
+                  - "beneficiaries.read"
+                  - "beneficiaries.write"
+                  - "beneficiaries.verify"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: true
+                  fields: ["timestamp", "correlationId", "customerId", "beneficiaryId", "action"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Backward compatible changes preferred."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Beneficiary Directory API"
+              version: "v1"
+            paths:
+              /customers/{customerId}/beneficiaries:
+                get:
+                  summary: "Listar beneficiarios"
+                  responses:
+                    "200":
+                      description: "Beneficiarios"
+                      schemaRef: "#/components/schemas/BeneficiaryList"
+                post:
+                  summary: "Crear beneficiario"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "201":
+                      description: "Creado"
+                      schemaRef: "#/components/schemas/Beneficiary"
+              /customers/{customerId}/beneficiaries/{beneficiaryId}:
+                get:
+                  summary: "Detalle de beneficiario"
+                  responses:
+                    "200":
+                      description: "Beneficiario"
+                      schemaRef: "#/components/schemas/Beneficiary"
+                delete:
+                  summary: "Eliminar beneficiario"
+                  responses:
+                    "204":
+                      description: "Eliminado"
+
+        PaymentLimitsAPI:
+          metadata:
+            name: "Payment Limits API"
+            description: "Consulta/gestión de límites transaccionales por cliente/canal/producto (diario/mensual)."
+            owner: "Payments Controls Squad"
+            sla: "99.9%"
+            dataClassification: ["Confidential"]
+            criticalityTier: "Tier 1"
+            region: "global"
+            tags: ["payments", "limits", "controls"]
+          apiType: "Internal"
+          versions:
+            - version: "1.0.0"
+              status: "Published"
+              x-contract-version: "2026-02-15"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/payment-limits/v1"
+                qa: "https://api.qa.globalbank.example.com/payment-limits/v1"
+                uat: "https://api.uat.globalbank.example.com/payment-limits/v1"
+                prod: "https://api.globalbank.example.com/payment-limits/v1"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+              dependencies:
+                - api: "Risk/Fraud/FraudDecisioningAPI"
+                  reason: "Ajustes dinámicos por riesgo."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["authorization_code", "client_credentials"]
+                scopes:
+                  - "payments.limits.read"
+                  - "payments.limits.write"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: false
+                  fields: ["timestamp", "correlationId", "customerId", "channel", "limitType"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Policy governance review."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "Payment Limits API"
+              version: "v1"
+            paths:
+              /customers/{customerId}/payment-limits:
+                get:
+                  summary: "Obtener límites del cliente"
+                  responses:
+                    "200":
+                      description: "Límites"
+                      schemaRef: "#/components/schemas/PaymentLimitSet"
+                put:
+                  summary: "Actualizar límites (reemplazo)"
+                  headers:
+                    - name: "Idempotency-Key"
+                      required: true
+                  responses:
+                    "200":
+                      description: "Actualizado"
+                      schemaRef: "#/components/schemas/PaymentLimitSet"
+
+        FXRatesAPI:
+          metadata:
+            name: "FX Rates API"
+            description: "Cotizaciones FX para pagos internacionales (mid, buy/sell) con vigencia y fuente."
+            owner: "Treasury Pricing Squad"
+            sla: "99.9%"
+            dataClassification: ["Confidential"]
+            criticalityTier: "Tier 1"
+            region: "global"
+            tags: ["fx", "rates", "pricing"]
+          apiType: "Internal"
+          versions:
+            - version: "1.4.0"
+              status: "Published"
+              x-contract-version: "2026-06-12"
+              environments:
+                dev: "https://api.dev.globalbank.example.com/fx-rates/v1"
+                qa: "https://api.qa.globalbank.example.com/fx-rates/v1"
+                uat: "https://api.uat.globalbank.example.com/fx-rates/v1"
+                prod: "https://api.globalbank.example.com/fx-rates/v1"
+              consumers:
+                - "Mobile Banking App"
+                - "Web Banking"
+                - "Partner Fintech"
+              dependencies:
+                - api: "Risk/MarketRisk/MarketRiskIndicatorsAPI"
+                  reason: "Indicadores de volatilidad para spreads."
+              security:
+                scheme: "OAuth2"
+                grantTypes: ["client_credentials", "authorization_code"]
+                scopes:
+                  - "fx.rates.read"
+              observability:
+                metrics: ["request_count", "latency_ms_p95", "error_rate_5xx", "stale_quotes"]
+                logs:
+                  level: "INFO"
+                  piiRedaction: false
+                  fields: ["timestamp", "correlationId", "base", "quote", "source", "asOf"]
+                tracing:
+                  enabled: true
+              lifecycle:
+                deprecationPolicy: "12 months notice."
+                changeManagement: "Pricing committee review for major changes."
+          openapiSummary:
+            openapi: "3.0.3"
+            info:
+              title: "FX Rates API"
+              version: "v1"
+            paths:
+              /fx/rates:
+                get:
+                  summary: "Obtener tasas FX"
+                  queryParams: ["base", "quote", "asOf"]
+                  responses:
+                    "200":
+                      description: "Tasas"
+                      schemaRef: "#/components/schemas/FXRateQuote"

@@ -1,0 +1,59 @@
+C4Context
+    title Architecture Backend TO-BE — Cuentas por Pagar (CXP)
+
+    Person(analyst, "Analista Financiero", "Registra y edita facturas")
+    Person(manager, "Gerente Financiero", "Aprueba o rechaza facturas")
+    Person(treasurer, "Tesorero", "Programa y ejecuta pagos")
+
+    System_Boundary(cxp, "Sistema CXP - Cuentas por Pagar") {
+
+        System_Boundary(exp_layer, "Experience Layer") {
+            Container(exp_api, "accounts-payable-exp-api", "Node.js/Express", "BFF - Agrega invoices + payments para la SPA. RBAC por rol.")
+        }
+
+        System_Boundary(biz_layer, "Business Layer") {
+            Container(inv_api, "invoice-management-api", "Node.js/Spring Boot", "Lógica de negocio de facturas. Valida proveedor, unicidad, orquesta estados.")
+            Container(pay_api, "payment-management-api", "Node.js/Spring Boot", "Programación y ejecución de pagos. Idempotencia, webhooks.")
+        }
+
+        System_Boundary(domain_layer, "Domain Layer") {
+            Container(lfc_api, "invoice-lifecycle-api", "Node.js/Spring Boot", "State machine pura. PENDING→APPROVED→SCHEDULED→PAID. Audit trail.")
+        }
+
+        System_Boundary(support_layer, "Support Layer") {
+            Container(erp_api, "erp-integration-api", "Node.js/Spring Boot", "Adaptador ERP. Valida proveedores, registra asientos contables. Circuit breaker.")
+            Container(bank_api, "banking-integration-api", "Node.js/Spring Boot", "Adaptador Banking. Órdenes de pago + webhooks HMAC-SHA256. Idempotencia.")
+        }
+
+        SystemDb(pg_invoices, "PostgreSQL: cxp_invoices", "Facturas + historial de estados")
+        SystemDb(pg_payments, "PostgreSQL: cxp_payments", "Órdenes de pago + idempotency log")
+        SystemDb(pg_lifecycle, "PostgreSQL: cxp_lifecycle", "Lifecycle + audit log")
+        SystemDb(pg_banking, "PostgreSQL: cxp_banking", "Banking idempotency log")
+    }
+
+    System_Ext(erp_sys, "ERP System", "Sistema contable central. Valida proveedores y registra asientos.")
+    System_Ext(bank_sys, "Banking System", "Plataforma bancaria. Ejecuta transferencias y envía confirmaciones.")
+    System_Ext(oidc, "OAuth2/OIDC Provider", "Keycloak - Autenticación y autorización RBAC")
+
+    BiRel(analyst, exp_api, "HTTPS + JWT Bearer")
+    BiRel(manager, exp_api, "HTTPS + JWT Bearer")
+    BiRel(treasurer, exp_api, "HTTPS + JWT Bearer")
+
+    Rel(exp_api, inv_api, "REST HTTPS")
+    Rel(exp_api, pay_api, "REST HTTPS")
+
+    Rel(inv_api, lfc_api, "REST HTTPS (transitions)")
+    Rel(inv_api, erp_api, "REST HTTPS (validate supplier)")
+    Rel(pay_api, lfc_api, "REST HTTPS (transitions)")
+    Rel(pay_api, bank_api, "REST HTTPS + X-Idempotency-Key")
+
+    Rel(erp_api, erp_sys, "REST HTTPS + OAuth2 (TLS 1.2+)")
+    Rel(bank_api, bank_sys, "REST HTTPS + mTLS + API Key")
+    Rel(bank_sys, bank_api, "Webhook HMAC-SHA256")
+
+    Rel(inv_api, pg_invoices, "PostgreSQL ACID")
+    Rel(pay_api, pg_payments, "PostgreSQL ACID")
+    Rel(lfc_api, pg_lifecycle, "PostgreSQL ACID")
+    Rel(bank_api, pg_banking, "PostgreSQL ACID")
+
+    Rel(exp_api, oidc, "JWT validation (JWKS)")

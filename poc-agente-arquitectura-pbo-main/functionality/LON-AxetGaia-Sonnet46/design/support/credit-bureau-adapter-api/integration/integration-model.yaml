@@ -1,0 +1,39 @@
+# integration-model.yaml — credit-bureau-adapter-api
+component_id: COMP-LON-SUP-001
+name: credit-bureau-adapter-api
+generated_at: "2026-06-17"
+
+integrations:
+  - id: INT-LON-SUP001-EXT
+    name: bureau-external-api
+    target_service: Bureau de Crédito (Equifax / TransUnion / Experian)
+    direction: outbound
+    type: synchronous_external
+    protocol: "REST API / HTTPS"
+    description: >
+      Consulta al bureau externo para obtener score crediticio, historial
+      de deudas y verificación en listas negras.
+    request_flow:
+      - "1. Verificar caché Redis: GET bureau_report:{customerId}"
+      - "2. Si HIT: retornar reporte cacheado (< 10ms)"
+      - "3. Si MISS: llamar Bureau API externa"
+      - "4. Si SUCCESS: SET Redis TTL 24h + retornar reporte"
+      - "5. Si FAIL Redis: llamar Bureau API directamente (fallback)"
+    external_endpoints:
+      - "GET /bureau/v1/customers/{customerId}/credit-report"
+    response_fields:
+      - score (INTEGER, 300-850)
+      - risk_level (LOW/MEDIUM/HIGH/CRITICAL)
+      - total_debts (DECIMAL)
+      - overdue_debts (DECIMAL)
+      - blacklist_status (BOOLEAN)
+      - report_date (ISO8601)
+    authentication: "API Key en header X-Bureau-Api-Key"
+    timeout_ms: 800
+    retry:
+      max_attempts: 3
+      delays_ms: [100, 200, 400]
+    circuit_breaker:
+      threshold_failures: 5
+      window_seconds: 30
+      recovery_check_seconds: 60

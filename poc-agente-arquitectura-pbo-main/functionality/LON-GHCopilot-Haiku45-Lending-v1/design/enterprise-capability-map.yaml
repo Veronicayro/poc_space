@@ -1,0 +1,244 @@
+---
+enterpriseCapabilityMap:
+  metadata:
+    functionalityId: "LON-GHCopilot-Haiku45-Lending-v1"
+    functionalityName: "Digital Personal Loan Origination"
+    mappingDate: "2026-06-24"
+    mappedBy: "enterprise-capability-mapper"
+    domainStandard: "BIAN Release 14"
+    sourceEvaluation: "design/bian/bian-service-domain-evaluation.yaml"
+
+  capabilityHierarchy:
+    - capabilityId: "CAP-LOAN-ORIGINATION-CORE"
+      capabilityName: "Loan Origination (Digital)"
+      capabilityLevel: "Strategic Business Capability"
+      description: "End-to-end digital origination of personal loans from request to disbursement"
+      parent: null
+      businessOutcome: "Enable customers to obtain personal loans through digital channels with automated credit decisions"
+      owner: "Lending Business Unit"
+      
+      subCapabilities:
+        # LOAN REQUEST & INTAKE
+        - capabilityId: "CAP-LOAN-001-REQUEST"
+          capabilityName: "Loan Request Intake"
+          level: "Core"
+          description: "Capture loan request with amount, term, and customer data"
+          mappedUseCases: ["UC-001", "UC-002"]
+          mappedBusinessRules: ["BR-001", "BR-002", "BR-008"]
+          businessOutcome: "Validated, documented loan requests ready for credit evaluation"
+          
+          bianAlignment:
+            - serviceDomain: "CustomerOffer"
+              operation: "Create"
+              alignmentType: "direct"
+              confidence: 0.95
+              rationale: "CustomerOffer.Create initiates the offer procedure with customer and product details"
+              bianFile: "architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml"
+            
+            - serviceDomain: "PartyLifecycleManagement"
+              operation: "Retrieve"
+              alignmentType: "direct"
+              confidence: 0.95
+              rationale: "Prerequisite validation of KYC status before request acceptance"
+              bianFile: "architecture/cache/bian/release14.0.0/oas3/yamls/PartyLifecycleManagement.yaml"
+          
+          externalDependencies: ["EXT-003:CORE_BANKING"]
+          riskFactors:
+            - "KYC check failure blocks request initiation"
+            - "Multiple simultaneous requests per customer (BR-008)"
+
+        # CREDIT EVALUATION & DECISION
+        - capabilityId: "CAP-LOAN-002-UNDERWRITING"
+          capabilityName: "Credit Evaluation & Decision"
+          level: "Core"
+          description: "Automated and manual credit assessment with decision (APPROVED/REFERRED/REJECTED)"
+          mappedUseCases: ["UC-003", "UC-006"]
+          mappedBusinessRules: ["BR-003", "BR-004", "BR-005", "BR-010"]
+          businessOutcome: "Credit-qualified lending decisions with audit trail and risk assessment"
+          
+          bianAlignment:
+            - serviceDomain: "Underwriting"
+              operation: "ExecuteUnderwritingAssessment"
+              alignmentType: "direct"
+              confidence: 0.95
+              rationale: "Underwriting.Assessment covers automated scoring, bureau inquiry, and decision logic"
+              bianFile: "architecture/cache/bian/release14.0.0/oas3/yamls/Underwriting.yaml"
+          
+          externalDependencies: ["EXT-001:CREDIT_BUREAU", "EXT-002:SCORING_ENGINE"]
+          riskFactors:
+            - "Credit bureau unavailability forces REFERRED (manual review) fallback"
+            - "Score calculation variance from external scoring service"
+
+        # OFFER GENERATION & ACCEPTANCE
+        - capabilityId: "CAP-LOAN-003-OFFER"
+          capabilityName: "Offer Generation & Acceptance"
+          level: "Core"
+          description: "Generate personalized loan offer with rates/terms; capture customer acceptance"
+          mappedUseCases: ["UC-004", "UC-005"]
+          mappedBusinessRules: ["BR-006", "BR-007", "BR-009"]
+          businessOutcome: "Customer-accepted loan contracts with regulatory compliance and valid signatures"
+          
+          bianAlignment:
+            - serviceDomain: "CustomerOffer"
+              operation: "ExchangeFacilityApplication"
+              alignmentType: "direct"
+              confidence: 0.95
+              rationale: "CustomerOffer.FacilityApplication handles offer pricing, terms, and acceptance/rejection"
+              bianFile: "architecture/cache/bian/release14.0.0/oas3/yamls/CustomerOffer.yaml"
+            
+            - serviceDomain: "ReferenceDataDirectory"
+              operation: "Retrieve"
+              alignmentType: "direct"
+              confidence: 0.90
+              rationale: "Reference rates and pricing policy configuration for offer generation"
+              bianFile: "architecture/cache/bian/release14.0.0/oas3/yamls/ReferenceDataDirectory.yaml"
+          
+          externalDependencies: ["EXT-004:DIGITAL_SIGNATURE_PROVIDER"]
+          riskFactors:
+            - "Offer expiration enforcement (72-hour window)"
+            - "Regulatory compliance of rate terms (BR-006)"
+            - "Signature validation chain"
+
+        # DISBURSEMENT
+        - capabilityId: "CAP-LOAN-004-DISBURSEMENT"
+          capabilityName: "Loan Disbursement"
+          level: "Core"
+          description: "Instruct and confirm fund transfer to customer account"
+          mappedUseCases: ["UC-007"]
+          mappedBusinessRules: ["BR-011"]
+          businessOutcome: "Funds transferred to customer with confirmation and audit trail"
+          
+          bianAlignment:
+            - serviceDomain: "Disbursement"
+              operation: "ExecuteDisbursement"
+              alignmentType: "direct"
+              confidence: 0.90
+              rationale: "Disbursement.Execute handles fund transfer instruction and confirmation"
+              bianFile: "architecture/cache/bian/release14.0.0/oas3/yamls/Disbursement.yaml"
+          
+          externalDependencies: ["EXT-003:CORE_BANKING"]
+          riskFactors:
+            - "Core banking availability critical (no fallback)"
+            - "Account validation delays"
+            - "Deferred disbursement handling for core failures"
+
+        # NOTIFICATIONS & COMMUNICATION
+        - capabilityId: "CAP-LOAN-005-NOTIFICATION"
+          capabilityName: "Customer Communication"
+          level: "Supporting"
+          description: "Multi-channel status updates to customer (email, SMS, push)"
+          mappedUseCases: ["UC-008"]
+          mappedBusinessRules: []
+          businessOutcome: "Customer informed of request status at each significant state change"
+          
+          bianAlignment: []
+          alignmentNote: "Notification is cross-cutting; no BIAN SD. Handled by external service and event infrastructure."
+          
+          externalDependencies: ["EXT-005:NOTIFICATION_SERVICE"]
+          riskFactors:
+            - "Best-effort delivery; not guaranteed"
+            - "Retry and deduplication required"
+
+  capabilityToBusinessRuleTraceability:
+    - businessRuleId: "BR-001"
+      mappedCapabilities: ["CAP-LOAN-001-REQUEST"]
+      rationale: "KYC validation prerequisite"
+    
+    - businessRuleId: "BR-002"
+      mappedCapabilities: ["CAP-LOAN-001-REQUEST"]
+      rationale: "Endebtedness limit enforced during request validation"
+    
+    - businessRuleId: "BR-003"
+      mappedCapabilities: ["CAP-LOAN-002-UNDERWRITING"]
+      rationale: "Credit bureau inquiry mandatory in evaluation"
+    
+    - businessRuleId: "BR-004"
+      mappedCapabilities: ["CAP-LOAN-002-UNDERWRITING"]
+      rationale: "Automatic rejection threshold in scoring"
+    
+    - businessRuleId: "BR-005"
+      mappedCapabilities: ["CAP-LOAN-002-UNDERWRITING"]
+      rationale: "Gray-zone referral logic in assessment"
+    
+    - businessRuleId: "BR-006"
+      mappedCapabilities: ["CAP-LOAN-003-OFFER"]
+      rationale: "Regulatory maximum rates enforced in offer generation"
+    
+    - businessRuleId: "BR-007"
+      mappedCapabilities: ["CAP-LOAN-003-OFFER"]
+      rationale: "Offer expiration timing"
+    
+    - businessRuleId: "BR-008"
+      mappedCapabilities: ["CAP-LOAN-001-REQUEST"]
+      rationale: "Single active request per customer"
+    
+    - businessRuleId: "BR-009"
+      mappedCapabilities: ["CAP-LOAN-003-OFFER"]
+      rationale: "Advanced e-signature required for acceptance"
+    
+    - businessRuleId: "BR-010"
+      mappedCapabilities: ["CAP-LOAN-002-UNDERWRITING"]
+      rationale: "Audit trail of credit decisions"
+    
+    - businessRuleId: "BR-011"
+      mappedCapabilities: ["CAP-LOAN-004-DISBURSEMENT"]
+      rationale: "Validation before disbursement execution"
+    
+    - businessRuleId: "BR-012"
+      mappedCapabilities: ["CAP-LOAN-002-UNDERWRITING"]
+      rationale: "Encryption of sensitive data at rest"
+
+  serviceDomainSelection:
+    selectedServiceDomains:
+      - serviceDomain: "CustomerOffer"
+        orchestrationRole: "Orchestrating"
+        primaryCapabilities: ["CAP-LOAN-001-REQUEST", "CAP-LOAN-003-OFFER"]
+        coverage: "95%"
+        confidence: "HIGH"
+        criticalOperations: ["Create", "Update", "ExchangeFacilityApplication"]
+      
+      - serviceDomain: "Underwriting"
+        orchestrationRole: "Orchestrating"
+        primaryCapabilities: ["CAP-LOAN-002-UNDERWRITING"]
+        coverage: "95%"
+        confidence: "HIGH"
+        criticalOperations: ["ExecuteUnderwritingAssessment", "Update"]
+      
+      - serviceDomain: "Disbursement"
+        orchestrationRole: "Non-Orchestrating"
+        primaryCapabilities: ["CAP-LOAN-004-DISBURSEMENT"]
+        coverage: "90%"
+        confidence: "HIGH"
+        criticalOperations: ["ExecuteDisbursement"]
+      
+      - serviceDomain: "PartyLifecycleManagement"
+        orchestrationRole: "Supporting"
+        primaryCapabilities: ["CAP-LOAN-001-REQUEST"]
+        coverage: "85%"
+        confidence: "HIGH"
+        criticalOperations: ["Retrieve"]
+
+  unResolvedCapabilities:
+    - capabilityId: "CAP-LOAN-UNKNOWN-001"
+      title: "Document Classification & Validation"
+      description: "Automatic classification and validation of uploaded documents (UC-002)"
+      reason: "BIAN does not define document handling; external system (DOCUMENT_STORAGE, EXT-006) required"
+      severity: "MEDIUM"
+      resolutionPath: "Phase 6 — Backend Component Design defines document handling patterns"
+
+  alignmentQualityAssurance:
+    totalCapabilitiesIdentified: 5
+    capabilitiesWithBIANAlignment: 4
+    alignmentCoverage: "80%"
+    highConfidenceMappings: 4
+    mediumConfidenceMappings: 1
+    lowConfidenceMappings: 0
+    
+    summaryAssessment: |
+      BIAN Release 14 provides excellent coverage for Digital Personal Loan Origination.
+      - 4 primary Service Domains (CustomerOffer, Underwriting, Disbursement, PartyLifecycleManagement) 
+        cover all core capabilities.
+      - External dependencies are explicit (credit bureau, scoring, core banking, signature provider).
+      - Cross-cutting capabilities (notifications) are handled via event infrastructure.
+      - High confidence in direct mappings for credit evaluation, offer management, and disbursement.
+      - Alignment quality: READY FOR PHASE 2 (scope-and-execution-planning).

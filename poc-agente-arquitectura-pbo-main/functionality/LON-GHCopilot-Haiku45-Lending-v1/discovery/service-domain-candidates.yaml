@@ -1,0 +1,68 @@
+serviceDomainCandidates:
+  metadata:
+    functionality: "Digital Personal Loan Origination"
+    standard: "BIAN Release 14"
+    created: "2026-06-24"
+    source: "GHCopilot-Haiku45 inferred from use-cases and business rules"
+    note: |
+      Candidatos BIAN Service Domain derivados del análisis de casos de negocio.
+      La evaluación detallada y selección final será realizada en Phase 1 por bian-service-domain-evaluator.
+
+  candidates:
+    - id: "BIAN-SD-001"
+      name: "CustomerOffer"
+      relevance: "PRIMARY"
+      rationale: |
+        Cubre la generación, presentación y ciclo de vida de ofertas personalizadas.
+        Alineado con UC-004 (Generación de oferta) y UC-005 (Aceptación digital).
+      mappedUseCases: ["UC-004", "UC-005"]
+      estimatedCoverage: "HIGH"
+
+    - id: "BIAN-SD-002"
+      name: "Underwriting"
+      relevance: "PRIMARY"
+      rationale: |
+        Cubre la evaluación crediticia y toma de decisiones en el origination.
+        Alineado con UC-003 (Evaluación crediticia) y UC-006 (Revisión manual).
+      mappedUseCases: ["UC-003", "UC-006"]
+      estimatedCoverage: "HIGH"
+
+    - id: "BIAN-SD-003"
+      name: "ConsumerLoan"
+      relevance: "SECONDARY"
+      rationale: |
+        Cubre el servicing y ciclo de vida del préstamo consumer tras su originación.
+        Incluye aspectos post-desembolso, pero la funcionalidad solicitada se limita al origination.
+      mappedUseCases: ["UC-007"]
+      estimatedCoverage: "MEDIUM"
+      note: "Puede ser relevante para integración con sistema core en UC-007."
+
+    - id: "BIAN-SD-004"
+      name: "Disbursement"
+      relevance: "SECONDARY"
+      rationale: |
+        Cubre la instrucción y ejecución de desembolsos.
+        Alineado con UC-007 (Instrucción de desembolso).
+      mappedUseCases: ["UC-007"]
+      estimatedCoverage: "HIGH"
+      note: "Puede ser independiente o integrado con ConsumerLoan según arquitectura."
+
+    - id: "BIAN-SD-005"
+      name: "PartyLifecycleManagement"
+      relevance: "SUPPORTING"
+      rationale: |
+        Cubre identidad y ciclo de vida del cliente, incluyendo KYC.
+        Relevante para BR-001 (KYC aprobado requerido).
+      mappedUseCases: ["UC-001"]
+      estimatedCoverage: "MEDIUM"
+      note: "Interacción/dependencia con sistema identity/KYC existente."
+
+    - id: "BIAN-SD-006"
+      name: "ReferenceDataDirectory"
+      relevance: "SUPPORTING"
+      rationale: |
+        Cubre datos maestros y de referencia (tasas, límites, políticas de pricing).
+        Relevante para UC-004 (cálculo de oferta) y BR-006 (tasas máximas).
+      mappedUseCases: ["UC-004"]
+      estimatedCoverage: "MEDIUM"
+      note: "Fuente de configuración para políticas y umbrales."

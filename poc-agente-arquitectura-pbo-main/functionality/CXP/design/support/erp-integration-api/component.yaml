@@ -1,0 +1,80 @@
+# Phase 5 Output: Component Design - erp-integration-api
+schema_version: "1.0"
+functionality_id: CXP
+component_id: erp-integration-api
+phase: backend-component-design
+generated_at: "2026-06-17"
+
+name: "ERP Integration API"
+layer: support
+pattern: "Adapter / Anti-Corruption Layer"
+type: REST API
+version: "v1"
+technology: "Node.js / Java Spring Boot"
+base_path: "/api/v1/erp"
+
+bian_alignment:
+  service_domains: [FinancialAccounting, ContractorandSupplierAgreement]
+  adoption: reference
+
+description: >
+  Adaptador de integración con el sistema ERP. Actúa como Anti-Corruption Layer
+  que transforma modelos del dominio CXP al esquema del ERP externo y viceversa.
+  Implementa circuit breaker y retry policy para resiliencia.
+
+responsibilities:
+  - "Validar existencia y estado activo de proveedores en ERP"
+  - "Registrar asientos contables en ERP tras ejecución de pagos"
+  - "Transformar mensajes CXP ↔ ERP schema"
+  - "Implementar circuit breaker y retry policy"
+  - "Cachear validaciones de proveedor (TTL: 5min)"
+
+capabilities: [CAP-CXP-003]
+use_cases: [UC-CXP-001, UC-CXP-005]
+business_rules: [BR-CXP-001]
+
+endpoints:
+  - method: GET
+    path: /erp/suppliers/{supplierId}/validate
+    description: "Validar proveedor activo en ERP"
+    cache: true
+    cache_ttl_seconds: 300
+    business_rules: [BR-CXP-001]
+
+  - method: POST
+    path: /erp/accounting/entries
+    description: "Registrar asiento contable en ERP"
+    bian_ref: FinancialAccounting.LedgerPosting
+
+external_system:
+  id: ERP
+  integration_type: "REST API"
+  auth: "OAuth2 client credentials"
+  transport: "TLS 1.2+"
+
+resilience:
+  retry:
+    enabled: true
+    max_retries: 3
+    backoff: exponential
+    initial_delay_ms: 500
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    timeout_seconds: 30
+    half_open_calls: 2
+
+cache:
+  enabled: true
+  type: "In-memory / Redis"
+  ttl_seconds: 300
+  key_pattern: "supplier:{supplierId}:validation"
+
+persistence: false
+
+nfr:
+  observability: true
+  circuit_breaker: true
+  sla_ms: 300
+
+maturity: draft

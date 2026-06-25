@@ -1,0 +1,34 @@
+# Component Integration Model - erp-integration-api
+schema_version: "1.0"
+component_id: erp-integration-api
+generated_at: "2026-06-17"
+
+integrations:
+  - id: INT-ERP-001
+    target: ERP System
+    type: REST HTTP (outbound)
+    direction: outbound
+    protocol: HTTPS
+    auth: "OAuth2 client credentials"
+    transport: "TLS 1.2+"
+    operations:
+      - "GET /suppliers/{supplierId} → validate supplier"
+      - "POST /accounting/entries → register ledger posting"
+    timeout_ms: 5000
+    retry:
+      enabled: true
+      max: 3
+      backoff: exponential
+      initial_delay_ms: 500
+    circuit_breaker:
+      enabled: true
+      threshold: 5
+      timeout_seconds: 30
+    message_transformation:
+      supplier_validation: "CXP supplierId → ERP supplier lookup"
+      accounting_entry: "CXP PaymentOrder → ERP LedgerPosting (FinancialAccounting schema)"
+    gap_ref: GAP-002
+
+inbound_consumers:
+  - invoice-management-api
+  - payment-management-api

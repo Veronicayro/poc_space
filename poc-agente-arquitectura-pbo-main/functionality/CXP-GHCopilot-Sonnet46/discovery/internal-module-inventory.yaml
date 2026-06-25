@@ -1,0 +1,45 @@
+schema_version: "1.0"
+functionality_id: CXP-GHCopilot-Sonnet46
+
+components:
+  - id: FacturaController
+    type: REST Controller
+    endpoints:
+      - POST /invoices
+      - GET /invoices/{id}
+      - PUT /invoices/{id}
+    responsibilities:
+      - validación de entrada
+      - mapeo request → DTO
+      - delegación a servicios
+
+  - id: FacturaService
+    type: Application Service
+    responsibilities:
+      - lógica de negocio de facturas
+      - validaciones (duplicados, montos, proveedor)
+      - interacción con repositorio
+
+  - id: WorkflowService
+    type: Domain Service
+    responsibilities:
+      - gestión de estados (state machine)
+      - validación de transiciones
+      - registro de historial de estados
+    states: [PENDING, APPROVED, REJECTED, SCHEDULED, PAID, CANCELLED]
+
+  - id: PaymentScheduler
+    type: Domain/Application Service
+    responsibilities:
+      - programación de pagos
+      - generación de órdenes de pago
+      - integración con sistema bancario
+
+  - id: IntegrationAdapter
+    type: Infrastructure Component
+    responsibilities:
+      - consumo de APIs externas
+      - manejo de webhooks
+      - transformación de formatos
+
+existing_apis: []

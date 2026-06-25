@@ -1,0 +1,119 @@
+openapi: 3.0.1
+info:
+  title: Credit Bureau Adapter API — LON
+  description: >
+    Adaptador de integración con el Bureau de Crédito externo.
+    Gestiona el caché Redis TTL 24h y abstrae la comunicación con
+    proveedores (Equifax, TransUnion, Experian).
+  version: 1.0.0
+  contact:
+    name: LON Architecture Team
+servers:
+  - url: https://api.bank.internal/lon-bureau/v1
+    description: Producción (internal)
+
+tags:
+  - name: CreditReports
+    description: Reportes crediticios del bureau externo (con caché Redis TTL 24h)
+
+paths:
+  /credit-reports/{customerId}:
+    get:
+      tags: [CreditReports]
+      summary: Get customer credit report (cache-aside Redis TTL 24h)
+      operationId: getCustomerCreditReport
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Credit report (from cache or bureau API)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditReportResponse'
+        '503':
+          description: Bureau and Redis both unavailable
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HTTPError'}
+
+  /credit-reports/query:
+    post:
+      tags: [CreditReports]
+      summary: Query bureau with explicit parameters (bypass cache option)
+      operationId: queryCreditReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreditReportQueryRequest'
+      responses:
+        '200':
+          description: Credit report response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditReportResponse'
+
+  /credit-reports/{customerId}/cache:
+    delete:
+      tags: [CreditReports]
+      summary: Invalidate Redis cache for customer (manual refresh)
+      operationId: invalidateBureauCache
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: {type: string, description: "Justificación del refresco manual"}
+      responses:
+        '200':
+          description: Cache invalidated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invalidated: {type: boolean}
+                  customer_id: {type: string}
+
+components:
+  schemas:
+    CreditReportQueryRequest:
+      type: object
+      required: [customer_id]
+      properties:
+        customer_id: {type: string}
+        bypass_cache: {type: boolean, default: false}
+
+    CreditReportResponse:
+      type: object
+      properties:
+        customer_id: {type: string}
+        score: {type: integer, minimum: 300, maximum: 850, description: "Bureau credit score"}
+        risk_level: {type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL]}
+        total_debts: {type: number, format: double}
+        overdue_debts: {type: number, format: double}
+        blacklist_status: {type: boolean}
+        report_date: {type: string, format: date-time}
+        source: {type: string, enum: [CACHE, BUREAU_API], description: "CACHE=from Redis; BUREAU_API=fresh query"}
+        ttl_remaining_seconds: {type: integer}
+
+    HTTPError:
+      type: object
+      properties:
+        type: {type: string}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        correlation_id: {type: string}

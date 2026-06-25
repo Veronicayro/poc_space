@@ -1,0 +1,221 @@
+openapi: 3.0.3
+info:
+  title: Banking Integration API
+  description: >
+    Support API - Adaptador de integración con el Banking System externo.
+    Gestiona envío de órdenes de pago y recepción de webhooks bancarios.
+    Referencia BIAN: FinancialGateway (BankingPaymentOrder).
+  version: "1.0.0"
+
+servers:
+  - url: /api/v1/banking
+
+tags:
+  - name: payment-orders
+  - name: webhooks
+
+paths:
+  /banking/payment-orders:
+    post:
+      tags: [payment-orders]
+      operationId: createBankingPaymentOrder
+      summary: Enviar orden de pago al Banking System
+      description: >
+        Idempotente por X-Idempotency-Key. Sujeto a circuit breaker y retry.
+        Autenticación: mTLS + API Key.
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "Clave de idempotencia; previene pagos duplicados (BR-CXP-009)"
+        - name: X-Correlation-ID
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankingPaymentOrderRequest"
+      responses:
+        "201":
+          description: Orden de pago aceptada por el banco
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankingPaymentOrderResponse"
+        "409":
+          description: Orden ya existe (idempotency key duplicada)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankingPaymentOrderResponse"
+        "422":
+          description: Error de validación del banco
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+        "503":
+          description: Banking System no disponible (circuit breaker)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+  /banking/payment-orders/{orderId}:
+    get:
+      tags: [payment-orders]
+      operationId: getBankingPaymentOrderStatus
+      summary: Consultar estado de orden de pago en banco
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Estado de la orden de pago
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankingPaymentOrderResponse"
+        "404":
+          description: Orden no encontrada en el banco
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+  /banking/webhooks/inbound:
+    post:
+      tags: [webhooks]
+      operationId: receiveBankingWebhook
+      summary: Recibir webhook de confirmación del Banking System
+      description: >
+        Valida firma HMAC-SHA256 del header X-Banking-Signature.
+        Verifica timestamp para prevenir replay attacks (tolerancia 300s).
+        Almacena event_id para idempotencia.
+      parameters:
+        - name: X-Banking-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+          description: "HMAC-SHA256 del body con clave compartida"
+        - name: X-Banking-Timestamp
+          in: header
+          required: true
+          schema:
+            type: string
+            format: date-time
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankingWebhookEvent"
+      responses:
+        "200":
+          description: Webhook procesado
+        "400":
+          description: Firma inválida o timestamp expirado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+components:
+  schemas:
+    BankingPaymentOrderRequest:
+      type: object
+      required: [payment_order_id, supplier_id, amount, currency, scheduled_date]
+      properties:
+        payment_order_id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        supplier_id:
+          type: string
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        scheduled_date:
+          type: string
+          format: date
+        bank_account:
+          type: string
+          description: "Número de cuenta bancaria del proveedor"
+        description:
+          type: string
+
+    BankingPaymentOrderResponse:
+      type: object
+      properties:
+        banking_order_id:
+          type: string
+          description: "Identificador asignado por el banco"
+        payment_order_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [ACCEPTED, PENDING, PROCESSING, CONFIRMED, FAILED, REJECTED]
+        banking_reference:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    BankingWebhookEvent:
+      type: object
+      required: [event_id, event_type, payment_order_id, status]
+      properties:
+        event_id:
+          type: string
+          description: "Identificador único del evento (idempotencia)"
+        event_type:
+          type: string
+          enum: [PAYMENT_CONFIRMED, PAYMENT_FAILED, PAYMENT_REJECTED]
+        payment_order_id:
+          type: string
+        banking_order_id:
+          type: string
+        status:
+          type: string
+          enum: [CONFIRMED, FAILED, REJECTED]
+        banking_reference:
+          type: string
+        error_code:
+          type: string
+        error_message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        correlation_id:
+          type: string

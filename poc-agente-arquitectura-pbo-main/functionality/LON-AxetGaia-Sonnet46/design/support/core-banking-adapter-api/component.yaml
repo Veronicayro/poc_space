@@ -1,0 +1,70 @@
+# component.yaml — core-banking-adapter-api
+# Layer: Support | External: Core Bancario
+component_id: COMP-LON-SUP-002
+name: core-banking-adapter-api
+functionality_id: LON
+layer: support
+type: Integration Adapter
+version: "1.0.0"
+status: design_complete
+generated_at: "2026-06-17"
+
+description: >
+  Adaptador de integración con el Core Bancario. Expone operaciones de
+  validación KYC, creación del producto crédito post-aprobación, instrucción
+  de desembolso y consulta de tabla de amortización. Implementa retry,
+  circuit breaker y manejo de idempotencia para el desembolso.
+
+responsibilities:
+  - Validar existencia del cliente (KYC) en el core
+  - Crear el producto crédito en el core post-aprobación
+  - Enviar instrucción de desembolso y recibir confirmación
+  - Consultar tabla de amortización generada por el core
+  - Transformar formatos del core a DTOs internos de LON
+
+technology:
+  runtime: "Node.js (Express) / Java (Spring Boot)"
+  patterns:
+    - Adapter Pattern
+    - Circuit Breaker
+    - Retry with Exponential Backoff
+    - Idempotency
+
+api:
+  style: REST
+  versioning: URI (/v1)
+  base_path: /v1
+
+key_endpoints:
+  - "GET /v1/customers/{customerId}/kyc"
+  - "POST /v1/loan-products"
+  - "POST /v1/disbursements"
+  - "GET /v1/disbursements/{disbursementId}/status"
+  - "GET /v1/amortization-schedules/{loanId}"
+
+external_system:
+  name: Core Bancario
+  integration_type: "REST API / Batch Sync"
+
+resilience:
+  circuit_breaker:
+    threshold: 5
+    window_seconds: 30
+  retry:
+    max_attempts: 3
+    backoff: exponential
+  timeout_ms: 3000
+  idempotency: "Disbursement via Idempotency-Key header"
+
+consumers:
+  - credit-request-api
+  - disbursement-api
+
+security:
+  authentication: "OAuth2 client credentials hacia core bancario"
+  internal_auth: "JWT Bearer (inter-service)"
+
+nfr:
+  sla_kyc_ms: 1000
+  sla_disbursement_ms: 3000
+  critical_path: "Desembolso — requiere intervención manual si falla"

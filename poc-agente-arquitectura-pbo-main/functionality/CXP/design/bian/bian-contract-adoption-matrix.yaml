@@ -1,0 +1,109 @@
+# Phase 6 Output: BIAN Contract Adoption Matrix - Cuentas por Pagar (CXP)
+schema_version: "1.0"
+functionality_id: CXP
+phase: backend-contract-design
+generated_at: "2026-06-17"
+bian_release: "14.0.0"
+
+summary:
+  total_apis: 6
+  business_domain_apis: 4
+  support_apis: 2
+  adoption_approach: semantic_alignment
+  note: >
+    No se adoptan contratos BIAN directamente. La alineación es semántica:
+    se usa la estructura y nomenclatura de BIAN como referencia para los
+    contratos OpenAPI propios. BLOCK-01 no aplica.
+
+contract_matrix:
+  - api: accounts-payable-exp-api
+    layer: experience
+    contract: design/experience/accounts-payable-exp-api/contract/openapi.yaml
+    bian_alignment: null
+    bian_adoption_level: "N/A (Experience/BFF layer)"
+    bian_adoption_file: null
+    notes: "Experience layer; no requiere alineación BIAN directa"
+
+  - api: invoice-management-api
+    layer: business
+    contract: design/business/invoice-management-api/contract/openapi.yaml
+    bian_alignment:
+      service_domain: AccountsReceivable
+      adoption_level: semantic_alignment
+    bian_adoption_file: null
+    semantic_mapping:
+      - cxp_term: Invoice
+        bian_term: AccountsReceivableProcedure
+      - cxp_term: invoiceStatus
+        bian_term: AccountsReceivableProcedureStatus
+      - cxp_term: "POST /invoices (createInvoice)"
+        bian_term: "Initiate AccountsReceivableProcedure"
+      - cxp_term: "POST /invoices/{id}/approve"
+        bian_term: "Update AccountsReceivableProcedure (Fulfill)"
+    notes: "Semántica BIAN aplicada; dirección invertida (AP vs AR)"
+
+  - api: payment-management-api
+    layer: business
+    contract: design/business/payment-management-api/contract/openapi.yaml
+    bian_alignment:
+      service_domain: Disbursement
+      adoption_level: semantic_alignment
+    bian_adoption_file: null
+    semantic_mapping:
+      - cxp_term: PaymentOrder
+        bian_term: DisbursementTransaction
+      - cxp_term: SchedulePaymentRequest
+        bian_term: DisbursementProcedure
+      - cxp_term: "POST /payments (schedulePayment)"
+        bian_term: "Initiate DisbursementProcedure"
+      - cxp_term: "POST /payments/{id}/execute"
+        bian_term: "Exchange DisbursementTransaction"
+    notes: "Semántica BIAN Disbursement aplicada directamente"
+
+  - api: invoice-lifecycle-api
+    layer: domain
+    contract: design/domain/invoice-lifecycle-api/contract/openapi.yaml
+    bian_alignment:
+      service_domain: AccountsReceivable
+      adoption_level: semantic_alignment
+      control_record: InvoiceLifecycleProcedure
+    bian_adoption_file: null
+    semantic_mapping:
+      - cxp_term: TransitionRequest
+        bian_term: StatusUpdate
+      - cxp_term: "POST /invoice-lifecycle/{id}/transition"
+        bian_term: "Update AccountsReceivableProcedure"
+      - cxp_term: "GET /invoice-lifecycle/{id}/history"
+        bian_term: "Retrieve AccountsReceivableProcedureLog"
+    notes: "State machine mapeada al ciclo de vida BIAN"
+
+  - api: erp-integration-api
+    layer: support
+    contract: design/support/erp-integration-api/contract/openapi.yaml
+    bian_alignment:
+      service_domains: [FinancialAccounting, ContractorandSupplierAgreement]
+      adoption_level: reference
+    bian_adoption_file: null
+    semantic_mapping:
+      - cxp_term: AccountingEntryRequest
+        bian_term: LedgerPosting
+      - cxp_term: SupplierValidationResponse
+        bian_term: ContractorAndSupplierAgreementParty
+    notes: "Referencia semántica BIAN; implementación adaptada al ERP"
+
+  - api: banking-integration-api
+    layer: support
+    contract: design/support/banking-integration-api/contract/openapi.yaml
+    bian_alignment:
+      service_domain: FinancialGateway
+      adoption_level: reference
+    bian_adoption_file: null
+    semantic_mapping:
+      - cxp_term: BankingPaymentOrderRequest
+        bian_term: FinancialGatewayTransaction
+      - cxp_term: BankingWebhookEvent
+        bian_term: FinancialGatewayOutcome
+    notes: "Referencia semántica BIAN FinancialGateway"
+
+bian_gate_status: PASS
+bian_block_01_status: "NOT_APPLICABLE (adoption_level = semantic_alignment/reference; no direct contract adoption)"

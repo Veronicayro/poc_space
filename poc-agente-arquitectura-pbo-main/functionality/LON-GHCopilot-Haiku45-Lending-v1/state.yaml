@@ -1,0 +1,297 @@
+# Estado de Arquitectura — Digital Personal Loan Origination
+# GHCopilot-Haiku45 | Lending | Java
+
+stateMetadata:
+  functionalityId: "LON-GHCopilot-Haiku45-Lending-v1"
+  functionalityName: "Digital Personal Loan Origination"
+  featurePrincipal: "Lending"
+  createdDate: "2026-06-24"
+  lastUpdated: "2026-06-25"
+  orchestratorVersion: "target-architecture-design/4.2.0"
+  executionMode: "standard"
+  technologyStack: "Java"
+  targetComponent: "loan-origination-api"
+
+phases:
+  current: "backend-diagram-design"
+  status: "COMPLETED"
+  lastPhaseCompletedDate: "2026-06-25"
+  currentPhaseStartedDate: "2026-06-25"
+  sequence:
+
+    - phase: "Phase 1"
+      name: "enterprise-capability-alignment"
+      status: "COMPLETED"
+      completedDate: "2026-06-24"
+      requiredInputs:
+        - "discovery/use-cases.yaml"
+        - "discovery/business-rules.yaml"
+        - "discovery/service-domain-candidates.yaml"
+        - "discovery/gaps-and-assumptions.md"
+      expectedOutputs:
+        - "design/context/context-pack.yaml"
+        - "design/context/gaps.yaml"
+        - "design/enterprise-capability-map.yaml"
+        - "design/domain-standard-alignment.yaml"
+        - "design/semantic-dictionary.yaml"
+        - "design/bian/bian-release14-source-index.yaml"
+        - "design/bian/bian-service-domain-evaluation.yaml"
+        - "design/bian/gaps-and-access-issues.md"
+      producedOutputs:
+        - "design/context/context-pack.yaml"
+        - "design/enterprise-capability-map.yaml"
+        - "design/domain-standard-alignment.yaml"
+        - "design/semantic-dictionary.yaml"
+        - "design/bian/bian-release14-source-index.yaml"
+        - "design/bian/bian-service-domain-evaluation.yaml"
+        - "design/bian/gaps-and-access-issues.md"
+
+    - phase: "Phase 2"
+      name: "scope-and-execution-planning"
+      status: "COMPLETED"
+      completedDate: "2026-06-24"
+      revalidatedDate: "2026-06-25"
+      revalidationPurpose: "Validar outputs de Fase 2 contra decisiones finalizadas de Fase 4"
+      revalidationFindings:
+        - "Colisión CreditApplicationAPI resuelta por Fase 4 (EXTENDER finalizado)"
+        - "Decisión REUTILIZAR DisbursementAPI confirmada"
+        - "Plan de ejecución sigue válido en modo standard"
+        - "existing-component-impact.yaml actualizado con decisiones de Fase 4"
+      requiredInputs:
+        - "discovery/existing-apis-inventory.yaml"
+        - "discovery/internal-module-inventory.yaml"
+        - "discovery/integration-inventory.yaml"
+        - "design/context/context-pack.yaml"
+        - "design/enterprise-capability-map.yaml"
+        - "design/domain-standard-alignment.yaml"
+      expectedOutputs:
+        - "design/execution-plan.yaml"
+        - "design/existing-component-impact.yaml"
+      producedOutputs:
+        - "design/execution-plan.yaml"
+        - "design/existing-component-impact.yaml (actualizado 2026-06-25)"
+      skills:
+        - "architecture-scope-planner"
+        - "existing-landscape-analyzer"
+
+    - phase: "Phase 3"
+      name: "solution-landscape"
+      status: "COMPLETED"
+      completedDate: "2026-06-24"
+      requiredInputs:
+        - "design/context/context-pack.yaml"
+        - "design/enterprise-capability-map.yaml"
+        - "design/domain-standard-alignment.yaml"
+        - "design/execution-plan.yaml"
+        - "design/existing-component-impact.yaml"
+      expectedOutputs:
+        - "design/architecture-overview.md"
+        - "design/api-landscape.yaml"
+        - "design/component-inventory.yaml"
+      producedOutputs:
+        - "design/architecture-overview.md"
+        - "design/api-landscape.yaml (BORRADOR - decisiones de accion pendientes de Fase 4)"
+        - "design/component-inventory.yaml (BORRADOR - 9 componentes secuenciados)"
+      skills:
+        - "backend-component-designer (landscape mode)"
+
+    - phase: "Phase 4"
+      name: "api-landscape-design"
+      status: "COMPLETED"
+      completedDate: "2026-06-25"
+      orchestrator: "api-landscape-governance/SKILL.md"
+      producedOutputs:
+        - "design/api-landscape.yaml (FINALIZADO - 9 APIs: 1 reutilizar, 1 extender, 7 crear)"
+        - "design/diagrams/api-landscape-diagram.md (diagrama Mermaid - todas las capas)"
+        - "design/diagrams/api-landscape-inventory-delta.md (tabla comparativa - catalogo vs nuevo)"
+        - "design/experience-api-style-evaluation.md (REST principal - GraphQL opcional)"
+      governanceDecisions:
+        - id: "DECISION-001"
+          api: "LoanRequest-Experience-API"
+          collision: "CreditApplicationAPI v1.3"
+          decision: "EXTENDER"
+          catalog_ref: "catalog/domains/loans.yaml#CreditApplicationAPI"
+          rationale: "80% de cobertura; extender con carga de documentos (v1.4+, backward-compatible)"
+          confidence: "HIGH"
+        - id: "DECISION-002"
+          api: "Disbursement-Domain-API"
+          collision: "DisbursementAPI v1.1"
+          decision: "REUTILIZAR"
+          catalog_ref: "catalog/domains/loans.yaml#DisbursementAPI"
+          rationale: "Cobertura 100%; todas las operaciones cubiertas, alineado con BIAN, SLA 99.9%"
+          confidence: "PERFECT"
+      metrics:
+        totalAPIs: 9
+        reutilizar: 1
+        extender: 1
+        crear: 7
+        existingInCatalog: 2
+        newAPIs: 7
+      skills:
+        - "api-landscape-governance"
+
+    - phase: "Phase 5"
+      name: "security-nfr-observability"
+      status: "READY"
+      unlockedDate: "2026-06-25"
+      blockedBy: []
+      notes: "Fase 4 completada. Fase 5 desbloqueada y lista para ejecutar."
+
+    - phase: "Phase 6"
+      name: "backend-component-design"
+      status: "IN_PROGRESS"
+      startedDate: "2026-06-25"
+      completedComponents:
+        - rank: 1
+          name: "PartyLifecycleMgmt-Domain-API"
+          status: "designed"
+          completedDate: "2026-06-25"
+          designArtifacts:
+            - "design/domain/partylifecyclemgmt/component.yaml"
+            - "design/domain/partylifecyclemgmt/readme.md"
+            - "design/domain/partylifecyclemgmt/integration/integration-model.yaml"
+            - "design/domain/partylifecyclemgmt/models/domain-model.yaml"
+        - rank: 2
+          name: "CustomerOffer-Domain-API"
+          status: "designed"
+          completedDate: "2026-06-25"
+          designArtifacts:
+            - "design/domain/customeroffer/component.yaml"
+            - "design/domain/customeroffer/readme.md"
+            - "design/domain/customeroffer/integration/integration-model.yaml"
+            - "design/domain/customeroffer/models/domain-model.yaml"
+            - "design/domain/customeroffer/data/persistence-model.yaml"
+            - "design/domain/customeroffer/events/event-model.yaml"
+        - rank: 5
+          name: "LoanOriginationOrchestrator-Business-API"
+          status: "designed"
+          completedDate: "2026-06-25"
+          designArtifacts:
+            - "design/business/loanoriginationorchestrator/component.yaml"
+            - "design/business/loanoriginationorchestrator/readme.md"
+            - "design/business/loanoriginationorchestrator/integration/integration-model.yaml"
+            - "design/business/loanoriginationorchestrator/models/domain-model.yaml"
+            - "design/business/loanoriginationorchestrator/data/persistence-model.yaml"
+      pendingComponents:
+        - rank: 3
+          name: "Underwriting-Domain-API"
+          status: "awaiting-phase-6.3"
+        - rank: 4
+          name: "Disbursement-Domain-API"
+          status: "awaiting-phase-6.4"
+        - rank: 6
+          name: "LoanRequest-Experience-API"
+          status: "awaiting-phase-6.6"
+        - rank: 7
+          name: "LoanOffer-Experience-API"
+          status: "awaiting-phase-6.7"
+        - rank: 8
+          name: "CreditEvaluation-Experience-API"
+          status: "awaiting-phase-6.8"
+        - rank: 9
+          name: "StatusNotification-Support-API"
+          status: "awaiting-phase-6.9"
+      skills:
+        - "backend-component-designer"
+        - "data-cache-event-state-designer (decision mode)"
+        - "security-nfr-observability-designer"
+
+    - phase: "Phase 7"
+      name: "backend-contract-design"
+      status: "COMPLETED"
+      completedDate: "2026-06-25"
+      startedDate: "2026-06-25"
+      completedContracts:
+        - component: "PartyLifecycleMgmt-Domain-API"
+          contractType: "OpenAPI 3.0.3 con extensiones BIAN"
+          producedOutputs:
+            - "design/domain/partylifecyclemgmt/contract/openapi.yaml"
+            - "design/domain/partylifecyclemgmt/contract/bian-adoption.yaml"
+            - "design/bian/bian-contract-adoption-matrix.yaml"
+          bianAlignment:
+            serviceDomain: "PartyLifecycleManagement"
+            selectedOperations: ["Retrieve"]
+            operationsMapped: 2
+            operationsOmitted: 4
+          hardGates:
+            - gate: "BLOCK-01 (acceso al baseline BIAN)"
+              status: "PASSED"
+            - gate: "BLOCK-02 (completitud de evidencia)"
+              status: "PASSED"
+            - gate: "BLOCK-03 (contrato derivado de BIAN)"
+              status: "PASSED"
+        - component: "LoanOriginationOrchestrator-Business-API"
+          contractType: "REST OpenAPI 3.0.3 + AsyncAPI 2.6"
+          apiNotBIANDerived: true
+          producedOutputs:
+            - "design/business/loanoriginationorchestrator/contract/openapi.yaml"
+            - "design/business/loanoriginationorchestrator/contract/asyncapi.yaml"
+          operationsSummary:
+            total: 10
+            asyncEvents: 8
+          validationStatus: "validated"
+      skills:
+        - "bian-contract-deriver (autonomous)"
+        - "experience-contract-designer (orchestrator contract generation)"
+
+    - phase: "Phase 8"
+      name: "backend-diagram-design"
+      status: "COMPLETED"
+      completedDate: "2026-06-25"
+      startedDate: "2026-06-25"
+      producedOutputs:
+        - "design/architecture-diagram.md (4 diagramas Mermaid: dependencias, flujo feliz, excepcion, arquitectura por capas)"
+        - "design/diagrams/component-dependency-matrix.md (6 matrices de dependencias)"
+      diagrams:
+        - id: "DIAGRAM-1-DEPENDENCY-GRAPH"
+          title: "Grafico de Dependencias entre Componentes"
+          type: "Mermaid Flowchart (TB)"
+          components: 9
+          externalSystems: 8
+          status: "validated"
+        - id: "DIAGRAM-2-HAPPY-PATH"
+          title: "Diagrama de Secuencia - Flujo Feliz"
+          type: "Mermaid Sequence Diagram"
+          useCasesCovered: ["UC-001", "UC-002", "UC-003", "UC-004", "UC-005", "UC-007"]
+          stateTransitions: 7
+          status: "validated"
+        - id: "DIAGRAM-3-EXCEPTION-PATH"
+          title: "Diagrama de Secuencia - Revision Manual (UC-006)"
+          type: "Mermaid Sequence Diagram"
+          useCasesCovered: ["UC-006"]
+          decisionPaths: 2
+          status: "validated"
+        - id: "DIAGRAM-4-LAYER-ARCHITECTURE"
+          title: "Diagrama de Arquitectura por Capas (estilo C4)"
+          type: "Mermaid Flowchart (TB)"
+          layers: 4
+          actors: 3
+          status: "validated"
+      metrics:
+        totalDiagrams: 4
+        componentsVisual: 9
+        useCasesVisual: 8
+        businessRulesVisual: 12
+        externalIntegrations: 8
+        layersCovered: 4
+      skills:
+        - "diagram-generator"
+
+qualifiers:
+  executionMode: "standard"
+  technology: "Java"
+  targetComponent: "loan-origination-api"
+  domainStandard: "BIAN Release 14"
+
+catalogCollision:
+  detected: true
+  severity: "MEDIUM"
+  collisions:
+    - id: "COLLISION-001"
+      source: "catalog/bian-capability-index.yaml"
+      capabilityId: "CAP-LOAN-001"
+      capabilityName: "Loan Origination & Underwriting"
+      existingAPI: "CreditApplicationAPI v1.3"
+      overlap: "Alto — solicitud de prestamo, evaluacion, oferta"
+      resolution: "AUTONOMO — Fase 4 (api-landscape-governance) decidio REUTILIZAR/EXTENDER/CREAR"
+      notes: "Colision auto-continuada segun protocolo del agente; sin USER_DECISION_REQUIRED"

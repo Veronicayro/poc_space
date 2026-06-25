@@ -1,0 +1,441 @@
+# =============================================================================
+# API LANDSCAPE — YAML CANÓNICO DE REFERENCIA
+# Versión: 1.0 | Fecha: 2026-06
+# =============================================================================
+#
+# Este archivo ilustra los escenarios más importantes para el diseño de
+# api-landscape.yaml segmentado por capas con decisiones REUSE/EXTEND/CREATE.
+#
+# CAPAS:
+#   experience  → BFF / Experience APIs (canal → negocio)
+#   business    → APIs de orquestación / proceso de negocio
+#   domain      → APIs de dominio BIAN (Service Domains R14)
+#   support     → Adaptadores / ACL a sistemas legados y externos
+#
+# DECISIONES por capa:
+#   reutilizar  → existe en catálogo y cubre completamente el caso
+#   extender    → existe en catálogo pero falta operación/endpoint (backward-compatible)
+#   crear       → no existe en catálogo; GAP confirmado
+#
+# CUÁNDO UNA CAPA ES "N/A":
+#   business    → flujo simple read-only sin orquestación multi-dominio
+#   support     → capacidad cloud-native sin sistema legado involucrado
+#   domain      → capacidad propietaria sin SD BIAN aplicable (cov: N/no-match)
+#
+# FUENTES DE CONTRASTACIÓN POR CAPA:
+#   experience  → catalog/domains/*.yaml (BFF/Channel APIs)
+#   business    → catalog/domains/*.yaml (Business/Process APIs)
+#   domain      → catalog/bian-capability-index.yaml (BIAN SD → API existente)
+#   support     → functionality/<ID>/discovery/integration-inventory.yaml
+# =============================================================================
+
+schema_version: "2.0"
+schema_id: api-landscape
+
+# =============================================================================
+# ESCENARIO A
+# Título:    Funcionalidad completa — las 4 capas participan
+# Caso:      "Consultar detalle de cuenta corriente con movimientos recientes"
+# Patrón:    Nueva BFF + Business existente que se extiende + 2 Domain SDs
+#            (uno se extiende, otro se reutiliza) + Adaptador de core existente
+# =============================================================================
+scenarios:
+
+  - scenario_id: A
+    title: "Funcionalidad completa — las 4 capas participan"
+    use_case_example: "Consultar detalle de cuenta corriente con movimientos recientes"
+    layers:
+
+      experience:
+        # La capa de experiencia SIEMPRE aplica cuando hay un canal/usuario final.
+        # Aquí se crea una nueva BFF porque no existe en catálogo para este flujo.
+        apis:
+          - api_name: pbco-bmo-api-experience-account-detail
+            flow: "Ver detalle de cuenta con movimientos recientes"
+            pattern: BFF
+            action: crear
+            justification: >
+              No existe BFF en catálogo que agregue datos de cuenta + movimientos
+              en un único payload optimizado para canal móvil/web.
+            catalog_ref: null
+            consumers: [MobileApp, WebApp]
+            calls_to:
+              - layer: business
+                api: AccountManagementAPI   # orquestación delegada a business
+
+      business:
+        # La capa de negocio aplica porque este flujo necesita orquestar
+        # dos Domain APIs: CurrentAccount (saldo) + PositionKeeping (movimientos).
+        # AccountManagementAPI existe en catálogo pero le falta el endpoint
+        # agregado — se extiende con un nuevo endpoint backward-compatible.
+        apis:
+          - api_name: AccountManagementAPI
+            version: "v1.3"
+            capability: "Account Servicing & Lifecycle"   # CAP-ACC-001
+            operation_needed: GetAccountWithRecentTransactions
+            action: extender
+            justification: >
+              CAP-ACC-001 (cov:P) — AccountManagementAPI v1.3 gestiona cuentas
+              pero no tiene endpoint que combine saldo + últimos movimientos.
+              Se añade GET /accounts/{id}/summary (backward-compatible, campo opcional).
+            catalog_ref: "catalog/domains/accounts.yaml#AccountManagementAPI"
+            new_endpoint_proposed: "GET /accounts/{id}/summary"
+            calls_to:
+              - layer: domain
+                api: pbco-api-domain-currentaccount
+              - layer: domain
+                api: AccountTransactionsAPI
+
+      domain:
+        # Dos Service Domains BIAN involucrados: CurrentAccount y PositionKeeping.
+        # CurrentAccount: cobertura parcial → extender con operación Retrieve específica.
+        # PositionKeeping: cobertura aligned → reutilizar directamente.
+        apis:
+          - api_name: pbco-api-domain-currentaccount
+            service_domain: CurrentAccount           # BIAN R14 SD
+            bian_operation: Retrieve                 # BQ: CurrentAccountFulfillmentArrangement
+            bian_capability: CAP-ACC-001
+            bian_coverage: P                         # partial — faltan BQs específicos
+            action: extender
+            justification: >
+              CAP-ACC-001 (cov:P) — La cobertura parcial indica que AccountManagementAPI
+              no expone todos los Behavior Qualifiers de CurrentAccount.
+              Se extiende: GET /current-accounts/{crRef}/retrieve
+            catalog_ref: "catalog/domains/accounts.yaml#AccountManagementAPI"
+            bian_baseline_ref: "architecture/cache/bian/release14.0.0/index/CurrentAccount.json"
+            calls_to:
+              - layer: support
+                api: pbco-adp-core-accounts
+
+          - api_name: AccountTransactionsAPI
+            version: "v2.1"
+            service_domain: PositionKeeping          # BIAN R14 SD
+            bian_operation: Retrieve
+            bian_capability: CAP-ACC-002
+            bian_coverage: A                         # aligned — cobertura completa
+            action: reutilizar
+            justification: >
+              CAP-ACC-002 (cov:A) — AccountTransactionsAPI v2.1 cubre
+              completamente PositionKeeping. El endpoint existente satisface el caso.
+            catalog_ref: "catalog/domains/accounts.yaml#AccountTransactionsAPI"
+            existing_endpoint: "GET /accounts/{id}/transactions"
+            calls_to:
+              - layer: support
+                api: pbco-adp-core-accounts
+
+      support:
+        # El core bancario expone operaciones SOAP legacy.
+        # Ya existe un adaptador ACL para cuentas — se reutiliza.
+        apis:
+          - api_name: pbco-adp-core-accounts
+            pattern: Adapter/ACL
+            target_system: CoreBancario
+            legacy_operations:
+              - ObtenerCuentas
+              - ObtenerMovimientos
+            action: reutilizar
+            justification: >
+              Adaptador al core de cuentas ya existe y expone los dos servicios
+              legacy necesarios. No requiere cambios para este caso de uso.
+            catalog_ref: "functionality/*/discovery/integration-inventory.yaml#CoreBancario"
+
+# =============================================================================
+# ESCENARIO B
+# Título:    Funcionalidad simple — capa de negocio N/A
+# Caso:      "Consultar tipo de cambio FX para mostrar en pantalla"
+# Patrón:    Consulta read-only simple, Experience → Domain directo
+#            Sin orquestación multi-dominio → business no aplica
+#            Sin sistema legado → support no aplica
+# =============================================================================
+
+  - scenario_id: B
+    title: "Funcionalidad simple — business N/A, support N/A"
+    use_case_example: "Consultar tipo de cambio FX para mostrar en pantalla"
+    layers:
+
+      experience:
+        apis:
+          - api_name: pbco-bmo-api-experience-fx-rates
+            flow: "Consultar tipo de cambio en tiempo real"
+            pattern: BFF
+            action: crear
+            justification: >
+              No existe BFF en catálogo para exposición de FX rates al canal.
+              FXRatesAPI es un Domain API — se necesita una capa de experiencia
+              que adapte la respuesta al formato del canal.
+            calls_to:
+              - layer: domain
+                api: FXRatesAPI               # directo — sin capa business
+
+      business:
+        applicable: false
+        reason: >
+          Consulta simple de datos de referencia. No requiere orquestación
+          de múltiples dominios ni aplicación de reglas de proceso complejas.
+          La Experience API llama directamente al Domain API.
+          REGLA: business es N/A cuando el flujo involucra un solo Domain SD
+          y no hay validaciones de negocio transversales.
+
+      domain:
+        apis:
+          - api_name: FXRatesAPI
+            version: "v1.4"
+            service_domain: CurrencyExchange         # BIAN R14 SD
+            bian_operation: Retrieve
+            bian_capability: CAP-PAY-004
+            bian_coverage: P
+            action: reutilizar
+            justification: >
+              CAP-PAY-004 (cov:P) — FXRatesAPI v1.4 expone consulta de tipos de
+              cambio. GET /fx-rates/{currencyPair} satisface el caso sin cambios.
+            catalog_ref: "catalog/domains/payments.yaml#FXRatesAPI"
+            existing_endpoint: "GET /fx-rates/{currencyPair}"
+
+      support:
+        applicable: false
+        reason: >
+          FX Rates provienen de un feed de mercado integrado directamente en
+          FXRatesAPI. No hay sistema legado adicional involucrado.
+          REGLA: support es N/A cuando el Domain API se integra con proveedores
+          externos cloud (no sistemas legados on-premise).
+
+# =============================================================================
+# ESCENARIO C
+# Título:    GAP total — todo debe crearse
+# Caso:      "Configurar y gestionar pagos programados / recurrentes"
+# Patrón:    GAP-001 (StandingOrder sin cobertura en catálogo)
+#            Todas las capas requieren creación desde cero
+# =============================================================================
+
+  - scenario_id: C
+    title: "GAP total — todo debe crearse (ninguna capa tiene cobertura)"
+    use_case_example: "Configurar y gestionar pagos programados / recurrentes (Standing Orders)"
+    layers:
+
+      experience:
+        apis:
+          - api_name: pbco-bmo-api-experience-standing-orders
+            flow: "Crear, modificar y cancelar órdenes permanentes de pago"
+            pattern: BFF
+            action: crear
+            justification: >
+              GAP-001: No existe BFF ni ninguna API en catálogo para pagos
+              programados. Capacidad completamente nueva.
+            calls_to:
+              - layer: business
+                api: pbco-bmo-api-business-standing-order-mgmt
+
+      business:
+        apis:
+          - api_name: pbco-bmo-api-business-standing-order-mgmt
+            capability: "Standing Order Management"
+            action: crear
+            justification: >
+              GAP-001 — No existe API de negocio en catálogo para gestión de
+              órdenes permanentes. Requiere orquestación:
+              validar límites (PaymentLimitsAPI) + autorizar + programar ejecución
+              en el scheduler del core. Capacidad de negocio inexistente.
+            calls_to:
+              - layer: domain
+                api: pbco-api-domain-standingorder
+              - layer: domain
+                api: PaymentLimitsAPI            # límites ya existen (reutilizar)
+
+      domain:
+        apis:
+          - api_name: pbco-api-domain-standingorder
+            service_domain: StandingOrder        # BIAN R14 SD
+            bian_operation: Initiate
+            bian_capability: GAP-001
+            bian_coverage: N                     # no-match — sin cobertura en catálogo
+            action: crear
+            justification: >
+              GAP-001 — StandingOrder no tiene cobertura en catálogo actual.
+              Crear nueva API derivada de BIAN R14 StandingOrder SD.
+              Naming convention: pbco-api-domain-standingorder
+            catalog_ref: null
+            bian_baseline_ref: "architecture/cache/bian/release14.0.0/index/StandingOrder.json"
+            calls_to:
+              - layer: support
+                api: pbco-adp-core-payments-scheduler
+
+          - api_name: PaymentLimitsAPI
+            version: "v1.0"
+            service_domain: CustomerAccessEntitlement  # BIAN R14 SD
+            bian_operation: Retrieve
+            bian_capability: CAP-PAY-003
+            bian_coverage: P
+            action: reutilizar
+            justification: >
+              CAP-PAY-003 — PaymentLimitsAPI ya expone consulta de límites.
+              Se reutiliza como dependencia del nuevo flujo de Standing Orders.
+            catalog_ref: "catalog/domains/payments.yaml#PaymentLimitsAPI"
+
+      support:
+        apis:
+          - api_name: pbco-adp-core-payments-scheduler
+            pattern: Adapter/ACL
+            target_system: CoreBancario
+            legacy_operation: ProgramarPago
+            action: crear
+            justification: >
+              No existe adaptador para el scheduler de pagos programados del core.
+              Se crea nuevo ACL que traduce el modelo BIAN StandingOrder al
+              modelo propietario del sistema legado de programación de pagos.
+
+# =============================================================================
+# ESCENARIO D
+# Título:    Reutilización total — el catálogo ya cubre la funcionalidad
+# Caso:      "Consultar estado y límite de tarjeta de crédito"
+# Patrón:    CAP-CARD-001 (cov:A) — todas las APIs existentes satisfacen el caso
+# =============================================================================
+
+  - scenario_id: D
+    title: "Reutilización total — el catálogo cubre todas las capas"
+    use_case_example: "Consultar estado y límite de tarjeta de crédito"
+    layers:
+
+      experience:
+        apis:
+          - api_name: CardManagementAPI         # reutilizar BFF/Experience existente
+            version: "v1.5"
+            flow: "Ver estado y límite de tarjeta"
+            pattern: BFF
+            action: reutilizar
+            justification: >
+              BFF de tarjetas ya expone el endpoint de estado de tarjeta
+              en el canal móvil. Sin cambios requeridos.
+            catalog_ref: "catalog/domains/cards.yaml#CardManagementAPI"
+            existing_endpoint: "GET /cards/{id}/status"
+
+      business:
+        apis:
+          - api_name: CardManagementAPI
+            version: "v1.5"
+            capability: "Card Issuance & Lifecycle"   # CAP-CARD-001
+            operation: RetrieveCardStatus
+            action: reutilizar
+            justification: >
+              CAP-CARD-001 (cov:A) — CardManagementAPI v1.5 cubre completamente
+              CreditCard SD. El endpoint existente satisface el caso sin cambios.
+            catalog_ref: "catalog/domains/cards.yaml#CardManagementAPI"
+            existing_endpoint: "GET /cards/{id}"
+
+      domain:
+        apis:
+          - api_name: CardManagementAPI
+            version: "v1.5"
+            service_domain: CreditCard           # BIAN R14 SD
+            bian_operation: Retrieve
+            bian_capability: CAP-CARD-001
+            bian_coverage: A                     # aligned — cobertura completa
+            action: reutilizar
+            justification: >
+              CAP-CARD-001 (cov:A) — CardManagementAPI v1.5 cubre completamente
+              CreditCard SD. Reutilizar directamente, sin extensión requerida.
+            catalog_ref: "catalog/domains/cards.yaml#CardManagementAPI"
+            bian_baseline_ref: "architecture/cache/bian/release14.0.0/index/CreditCard.json"
+            existing_endpoint: "GET /cards/{crRef}/retrieve"
+
+      support:
+        applicable: false
+        reason: >
+          CardManagementAPI tiene integración directa con el procesador de tarjetas
+          (Visa/MC) vía protocolo estándar. No hay sistema legado on-premise
+          adicional requerido para este caso de uso.
+          REGLA: support es N/A cuando el Domain API ya gestiona su propia
+          integración con el proveedor externo.
+
+# =============================================================================
+# ESCENARIO E
+# Título:    Capacidad propietaria cloud-native — domain N/A (sin SD BIAN)
+# Caso:      "Enviar notificaciones push/SMS a dispositivos móviles"
+# Patrón:    CAP-CHAN-002 (cov:N — sin SD BIAN en R14)
+#            Domain es N/A porque es capacidad propietaria
+#            Support aplica (gateway de notificaciones externo)
+# =============================================================================
+
+  - scenario_id: E
+    title: "Capacidad propietaria cloud-native — domain N/A (sin BIAN SD)"
+    use_case_example: "Enviar notificaciones push/SMS al cliente tras operación"
+    layers:
+
+      experience:
+        applicable: false
+        reason: >
+          Las notificaciones son disparadas por eventos internos del sistema,
+          no por acciones del usuario en el canal. No hay BFF de entrada.
+          REGLA: experience es N/A en flujos event-driven sin interacción directa
+          del usuario final como iniciador.
+
+      business:
+        apis:
+          - api_name: NotificationDispatchAPI
+            version: "v1.7"
+            capability: "Multichannel Notification Dispatch"   # CAP-CHAN-002
+            action: reutilizar
+            justification: >
+              CAP-CHAN-002 (cov:N — sin SD BIAN pero API propietaria existente).
+              NotificationDispatchAPI v1.7 ya gestiona envío push/SMS.
+              Se reutiliza — el consumidor (ej. PaymentsAPI) la invoca tras
+              completar la operación de negocio.
+            catalog_ref: "catalog/domains/channels.yaml#NotificationDispatchAPI"
+            existing_endpoint: "POST /notifications/dispatch"
+            calls_to:
+              - layer: support
+                api: pbco-adp-notification-gateway
+
+      domain:
+        applicable: false
+        reason: >
+          BIAN Release 14 no define un Service Domain específico para
+          notificaciones push/SMS en tiempo real (CAP-CHAN-002 cov:N).
+          Esta capacidad es propietaria del banco — no se deriva de BIAN SD.
+          REGLA: domain es N/A cuando bian_coverage=N (no-match) y la
+          capacidad es completamente propietaria.
+
+      support:
+        apis:
+          - api_name: pbco-adp-notification-gateway
+            pattern: Adapter/ACL
+            target_system: NotificationGateway      # proveedor externo cloud (ej. Firebase/AWS SNS)
+            external_operations:
+              - SendPushNotification
+              - SendSMS
+            action: reutilizar
+            justification: >
+              Adaptador al gateway de notificaciones externo ya existe.
+              NotificationDispatchAPI v1.7 lo consume internamente.
+              No requiere cambios para nuevos consumidores del mismo gateway.
+            catalog_ref: "catalog/domains/channels.yaml#NotificationDispatchAPI"
+
+# =============================================================================
+# MATRIZ RESUMEN DE DECISIONES POR CAPA Y ESCENARIO
+# =============================================================================
+#
+# Escenario | Experience  | Business    | Domain              | Support
+# ----------|-------------|-------------|---------------------|------------------
+# A         | crear       | extender    | extender+reutilizar | reutilizar
+# B         | crear       | N/A         | reutilizar          | N/A
+# C         | crear       | crear       | crear+reutilizar    | crear
+# D         | reutilizar  | reutilizar  | reutilizar          | N/A
+# E         | N/A         | reutilizar  | N/A                 | reutilizar
+#
+# REGLAS DE ORO:
+#
+# 1. experience es N/A  → cuando el flujo es event-driven (sin usuario iniciador)
+# 2. business   es N/A  → cuando el flujo involucra 1 solo SD y sin reglas transversales
+# 3. domain     es N/A  → cuando bian_coverage=N (capacidad propietaria sin SD BIAN)
+# 4. support    es N/A  → cuando Domain API integra directo con proveedor cloud/externo
+#
+# FUENTE DE DECISIÓN POR CAPA:
+#   experience  → catalog/domains/*.yaml — buscar BFF/Channel APIs por flujo
+#   business    → catalog/domains/*.yaml — buscar Process/Business APIs por capacidad
+#   domain      → catalog/bian-capability-index.yaml — buscar por bian_sd (SD de Fase 1)
+#   support     → discovery/integration-inventory.yaml — buscar adaptadores existentes
+#
+# TRAZABILIDAD FASE 1 → FASE 0 → LANDSCAPE:
+#   Fase 1 produce: bian-service-domain-evaluation.yaml (BIAN SDs identificados)
+#   Fase 0 contrasta: bian-capability-index.yaml[bian_sd_to_capability] → REUSE|EXTEND|CREATE
+#   Landscape refleja: action: reutilizar|extender|crear + catalog_ref trazable por cada API
+# =============================================================================

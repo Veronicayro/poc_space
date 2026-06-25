@@ -1,0 +1,562 @@
+openapi: 3.0.3
+info:
+  title: Accounts Payable Experience API
+  description: >
+    BFF (Backend for Frontend) para el sistema de Cuentas por Pagar.
+    Expone endpoints REST agregados para la SPA React con RBAC por rol.
+  version: "1.0.0"
+  contact:
+    name: CXP Architecture Team
+
+servers:
+  - url: /api/v1/accounts-payable
+    description: Base path v1
+
+tags:
+  - name: invoices
+    description: Gestión de facturas de proveedores
+  - name: payments
+    description: Gestión de pagos
+
+paths:
+  /invoices:
+    get:
+      tags: [invoices]
+      operationId: listInvoices
+      summary: Listar facturas con filtros
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, REJECTED, SCHEDULED, PAID, CANCELLED]
+        - name: supplier_id
+          in: query
+          schema:
+            type: string
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lista de facturas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+      security:
+        - bearerAuth: []
+
+    post:
+      tags: [invoices]
+      operationId: createInvoice
+      summary: Registrar nueva factura
+      description: "Rol requerido: ANALYST"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvoiceRequest"
+      responses:
+        "201":
+          description: Factura creada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      security:
+        - bearerAuth: []
+
+  /invoices/{id}:
+    get:
+      tags: [invoices]
+      operationId: getInvoice
+      summary: Obtener detalle de factura
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Detalle de factura
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetailResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      security:
+        - bearerAuth: []
+
+    put:
+      tags: [invoices]
+      operationId: updateInvoice
+      summary: Editar factura (solo estado PENDING)
+      description: "Rol requerido: ANALYST"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInvoiceRequest"
+      responses:
+        "200":
+          description: Factura actualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      security:
+        - bearerAuth: []
+
+  /invoices/{id}/approve:
+    post:
+      tags: [invoices]
+      operationId: approveInvoice
+      summary: Aprobar factura
+      description: "Rol requerido: MANAGER"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveInvoiceRequest"
+      responses:
+        "200":
+          description: Factura aprobada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      security:
+        - bearerAuth: []
+
+  /invoices/{id}/reject:
+    post:
+      tags: [invoices]
+      operationId: rejectInvoice
+      summary: Rechazar factura
+      description: "Rol requerido: MANAGER. Motivo obligatorio."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectInvoiceRequest"
+      responses:
+        "200":
+          description: Factura rechazada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      security:
+        - bearerAuth: []
+
+  /invoices/{id}/cancel:
+    post:
+      tags: [invoices]
+      operationId: cancelInvoice
+      summary: Cancelar factura
+      description: "Roles: ANALYST, MANAGER"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelInvoiceRequest"
+      responses:
+        "200":
+          description: Factura cancelada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      security:
+        - bearerAuth: []
+
+  /invoices/{id}/schedule-payment:
+    post:
+      tags: [payments]
+      operationId: schedulePayment
+      summary: Programar pago de factura
+      description: "Rol requerido: TREASURER"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchedulePaymentRequest"
+      responses:
+        "201":
+          description: Pago programado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      security:
+        - bearerAuth: []
+
+  /payments:
+    get:
+      tags: [payments]
+      operationId: listPayments
+      summary: Listar pagos
+      description: "Rol requerido: TREASURER"
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Lista de pagos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentListResponse"
+      security:
+        - bearerAuth: []
+
+  /payments/{id}:
+    get:
+      tags: [payments]
+      operationId: getPayment
+      summary: Detalle de pago
+      description: "Rol requerido: TREASURER"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Detalle de pago
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentDetailResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      security:
+        - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateInvoiceRequest:
+      type: object
+      required: [supplier_id, invoice_number, amount, currency, issue_date, due_date]
+      properties:
+        supplier_id:
+          type: string
+        invoice_number:
+          type: string
+        amount:
+          type: number
+          format: double
+          minimum: 0.01
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        issue_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        description:
+          type: string
+
+    UpdateInvoiceRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+        due_date:
+          type: string
+          format: date
+        description:
+          type: string
+
+    ApproveInvoiceRequest:
+      type: object
+      properties:
+        comment:
+          type: string
+          maxLength: 500
+
+    RejectInvoiceRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+
+    CancelInvoiceRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+
+    SchedulePaymentRequest:
+      type: object
+      required: [scheduled_date]
+      properties:
+        scheduled_date:
+          type: string
+          format: date
+          description: "Debe ser >= fecha actual"
+
+    InvoiceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        supplier_id:
+          type: string
+        invoice_number:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, SCHEDULED, PAID, CANCELLED]
+        issue_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    InvoiceDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/InvoiceResponse"
+        - type: object
+          properties:
+            state_history:
+              type: array
+              items:
+                $ref: "#/components/schemas/StateHistoryEntry"
+
+    StateHistoryEntry:
+      type: object
+      properties:
+        from_status:
+          type: string
+        to_status:
+          type: string
+        performed_by:
+          type: string
+        performed_at:
+          type: string
+          format: date-time
+        comment:
+          type: string
+
+    InvoiceListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceResponse"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    PaymentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        scheduled_date:
+          type: string
+          format: date
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    PaymentDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/PaymentResponse"
+        - type: object
+          properties:
+            execution_date:
+              type: string
+              format: date-time
+            banking_reference:
+              type: string
+
+    PaymentListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentResponse"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    Pagination:
+      type: object
+      properties:
+        next_cursor:
+          type: string
+        prev_cursor:
+          type: string
+        limit:
+          type: integer
+        total:
+          type: integer
+
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        correlation_id:
+          type: string
+
+  responses:
+    Unauthorized:
+      description: No autenticado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    Forbidden:
+      description: Sin permiso para esta operación
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    Conflict:
+      description: Conflicto (ej: factura duplicada)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    UnprocessableEntity:
+      description: Error de validación de negocio
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"

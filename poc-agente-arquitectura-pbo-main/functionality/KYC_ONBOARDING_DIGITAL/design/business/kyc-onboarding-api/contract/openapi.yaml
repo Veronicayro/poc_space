@@ -1,0 +1,837 @@
+openapi: "3.0.3"
+info:
+  title: KYC Onboarding API
+  description: >
+    Business API for end-to-end digital KYC onboarding of new bank customers.
+    Derived from BIAN Release 14 PartyLifecycleManagement Service Domain.
+    Manages OnboardingCase lifecycle (INITIATED → DOCS_SUBMITTED → UNDER_VALIDATION
+    → APPROVED | REVIEW_REQUIRED → APPROVED | REJECTED).
+  version: "1.0.0"
+  contact:
+    name: Customer Platform / KYC Squad
+  x-bian-sd: PartyLifecycleManagement
+  x-bian-release: "14.0.0"
+  x-bian-control-record: PartyRelationshipAdministrativePlan
+  x-bian-adoption-level: semantic_alignment
+  x-bian-adoption-file: functionality/KYC_ONBOARDING_DIGITAL/design/business/kyc-onboarding-api/contract/bian-adoption.yaml
+
+servers:
+  - url: https://api.dev.bank.example.com/api/kyc-onboarding/v1
+    description: dev
+  - url: https://api.qa.bank.example.com/api/kyc-onboarding/v1
+    description: qa
+  - url: https://api.bank.example.com/api/kyc-onboarding/v1
+    description: prod
+
+security:
+  - oauth2:
+      - kyc.onboarding.read
+
+tags:
+  - name: PartyRelationshipAdministrativePlan
+    description: >
+      BIAN Control Record — party lifecycle administrative plan management.
+      Covers onboarding case initiation, status retrieval, and lifecycle control.
+  - name: Documentation
+    description: >
+      BIAN Documentation sub-behavior — identity document submission and management.
+  - name: Qualification
+    description: >
+      BIAN Qualification sub-behavior — KYC qualification check results.
+  - name: IdentityProofing
+    description: >
+      BIAN IdentityProofing sub-behavior — identity proofing task results.
+
+paths:
+
+  /onboarding-cases:
+    post:
+      tags: [PartyRelationshipAdministrativePlan]
+      summary: "InCR — Initiate party lifecycle administrative plan (digital KYC onboarding case)"
+      description: >
+        BIAN: InCR Initiate party life-cycle administrative plan.
+        AP adaptation: initiates a digital KYC onboarding case for a new customer.
+        Coordinates creation of customer profile via CustomerProfileAPI.
+        Enforces BR-001 (mandatory fields) and BR-007 (PII encryption).
+      operationId: initiatePartyRelationshipAdministrativePlan
+      x-bian-operation: Initiate
+      x-bian-cr: PartyRelationshipAdministrativePlan
+      security:
+        - oauth2: [kyc.onboarding.initiate]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "Client-generated UUID for idempotent initiation"
+        - name: X-Request-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiatePartyRelationshipAdministrativePlanRequest'
+      responses:
+        "201":
+          description: "OnboardingCase initiated — status INITIATED"
+          headers:
+            Location:
+              schema:
+                type: string
+              description: "URL of the created onboarding case"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyRelationshipAdministrativePlanResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "422":
+          $ref: '#/components/responses/UnprocessableEntity'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    get:
+      tags: [PartyRelationshipAdministrativePlan]
+      summary: "List onboarding cases (analyst review queue)"
+      description: >
+        AP-specific extension (no direct BIAN baseline analog).
+        Returns paginated list of onboarding cases. When called with
+        status=REVIEW_REQUIRED, returns the analyst review queue (UC-004).
+      operationId: listPartyRelationshipAdministrativePlans
+      x-bian-operation: Query
+      x-bian-cr: PartyRelationshipAdministrativePlan
+      security:
+        - oauth2: [kyc.onboarding.read]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/PartyRelationshipAdministrativePlanStatusEnum'
+          description: "Filter by lifecycle status"
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: "Pagination cursor"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: "Paginated list of onboarding cases"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyRelationshipAdministrativePlanListResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /onboarding-cases/{partylifecyclemanagementid}:
+    get:
+      tags: [PartyRelationshipAdministrativePlan]
+      summary: "ReCR — Retrieve details about a party lifecycle administrative plan"
+      description: >
+        BIAN: ReCR Retrieve details about a party life-cycle administrative plan.
+        AP adaptation: retrieves full OnboardingCase status including KYCResult if available.
+        CUSTOMER can only retrieve their own case (enforced via token subject claim).
+      operationId: retrievePartyRelationshipAdministrativePlan
+      x-bian-operation: Retrieve
+      x-bian-cr: PartyRelationshipAdministrativePlan
+      security:
+        - oauth2: [kyc.onboarding.read]
+      parameters:
+        - $ref: '#/components/parameters/partylifecyclemanagementid'
+      responses:
+        "200":
+          description: "OnboardingCase details"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyRelationshipAdministrativePlanResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /onboarding-cases/{partylifecyclemanagementid}/control:
+    put:
+      tags: [PartyRelationshipAdministrativePlan]
+      summary: "CoCR — Control processing of party lifecycle plan (analyst review decision)"
+      description: >
+        BIAN: CoCR Control the processing of a party-life-cycle administrative plan.
+        AP adaptation: submits KYC analyst review decision (APPROVED or REJECTED) for a
+        case in REVIEW_REQUIRED state. Enforces BR-004 and BR-006 (audit trail).
+        Requires scope: kyc.onboarding.review.write (KYC_ANALYST role).
+      operationId: controlPartyRelationshipAdministrativePlan
+      x-bian-operation: Control
+      x-bian-cr: PartyRelationshipAdministrativePlan
+      security:
+        - oauth2: [kyc.onboarding.review.write]
+      parameters:
+        - $ref: '#/components/parameters/partylifecyclemanagementid'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlPartyRelationshipAdministrativePlanRequest'
+      responses:
+        "200":
+          description: "Review decision recorded; case status updated"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyRelationshipAdministrativePlanResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "422":
+          $ref: '#/components/responses/UnprocessableEntity'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /onboarding-cases/{partylifecyclemanagementid}/documents/{documentationid}/execute:
+    put:
+      tags: [Documentation]
+      summary: "ExBQ — Execute document submission for party lifecycle"
+      description: >
+        BIAN: ExBQ Execute an automated action (e.g. input data about a document).
+        AP adaptation: submits identity document reference for the onboarding case (UC-002).
+        Validates document expiry (BR-002). Stores document reference via CustomerIdentityAPI.
+        Advances case state to DOCS_SUBMITTED on success.
+      operationId: executeDocumentation
+      x-bian-operation: Execute
+      x-bian-cr: PartyRelationshipAdministrativePlan
+      security:
+        - oauth2: [kyc.onboarding.documents.write]
+      parameters:
+        - $ref: '#/components/parameters/partylifecyclemanagementid'
+        - $ref: '#/components/parameters/documentationid'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteDocumentationRequest'
+      responses:
+        "200":
+          description: "Document accepted; case advanced to DOCS_SUBMITTED"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentationResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "422":
+          $ref: '#/components/responses/UnprocessableEntity'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /onboarding-cases/{partylifecyclemanagementid}/qualification/{qualificationid}:
+    get:
+      tags: [Qualification]
+      summary: "ReBQ — Retrieve details about KYC qualification routine"
+      description: >
+        BIAN: ReBQ Retrieve details about a party qualification routine.
+        AP adaptation: retrieves the KYC qualification check result for the onboarding case
+        (AML screening + overall qualification status — UC-003).
+      operationId: retrieveQualification
+      x-bian-operation: Retrieve
+      x-bian-cr: PartyRelationshipAdministrativePlan
+      security:
+        - oauth2: [kyc.onboarding.read]
+      parameters:
+        - $ref: '#/components/parameters/partylifecyclemanagementid'
+        - $ref: '#/components/parameters/qualificationid'
+      responses:
+        "200":
+          description: "Qualification check result"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualificationResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /onboarding-cases/{partylifecyclemanagementid}/identity-proofing/{identityproofingid}:
+    get:
+      tags: [IdentityProofing]
+      summary: "ReBQ — Retrieve details about party identity proofing routine"
+      description: >
+        BIAN: ReBQ Retrieve details about a party identity proofing routine.
+        AP adaptation: retrieves the identity proofing result from ID_VERIFICATION_PROVIDER
+        for the onboarding case (UC-003).
+      operationId: retrieveIdentityProofing
+      x-bian-operation: Retrieve
+      x-bian-cr: PartyRelationshipAdministrativePlan
+      security:
+        - oauth2: [kyc.onboarding.read]
+      parameters:
+        - $ref: '#/components/parameters/partylifecyclemanagementid'
+        - $ref: '#/components/parameters/identityproofingid'
+      responses:
+        "200":
+          description: "Identity proofing result"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityProofingResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://iam.bank.example.com/oauth2/authorize
+          tokenUrl: https://iam.bank.example.com/oauth2/token
+          scopes:
+            kyc.onboarding.initiate: "Initiate a new onboarding case"
+            kyc.onboarding.documents.write: "Submit identity documents"
+            kyc.onboarding.read: "Read onboarding case status"
+            kyc.onboarding.review.write: "Submit analyst review decision"
+            kyc.onboarding.validate: "Trigger KYC validation (system)"
+
+  parameters:
+    partylifecyclemanagementid:
+      name: partylifecyclemanagementid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: >
+        BIAN: partylifecyclemanagementid — unique identifier of the
+        PartyRelationshipAdministrativePlan (OnboardingCase).
+    documentationid:
+      name: documentationid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: "BIAN: documentationid — unique identifier of the Documentation sub-behavior instance"
+    qualificationid:
+      name: qualificationid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: "BIAN: qualificationid — unique identifier of the Qualification sub-behavior instance"
+    identityproofingid:
+      name: identityproofingid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: "BIAN: identityproofingid — unique identifier of the IdentityProofing sub-behavior instance"
+
+  schemas:
+
+    # ─── Control Record: PartyRelationshipAdministrativePlan ──────────────────
+
+    InitiatePartyRelationshipAdministrativePlanRequest:
+      type: object
+      required:
+        - party_lifecycle_maintenance_task_type
+        - party_reference
+        - channel
+      properties:
+        party_lifecycle_maintenance_task_type:
+          type: string
+          enum: [digital_kyc_onboarding]
+          description: >
+            BIAN: PartyRelationshipAdministrativePlan.PartyLife-cycleMaintenanceTaskType.
+            AP adaptation: fixed to 'digital_kyc_onboarding' for this use case.
+        party_reference:
+          $ref: '#/components/schemas/PartyReference'
+          description: >
+            BIAN: PartyRelationshipAdministrativePlan.PartyReference.
+            AP adaptation: customer personal data for onboarding registration.
+        channel:
+          type: string
+          enum: [WEB, MOBILE]
+          description: "AP adaptation: originating channel for the onboarding request"
+        correlation_id:
+          type: string
+          maxLength: 128
+          description: "AP adaptation: client correlation reference (also used as idempotency anchor)"
+      additionalProperties: false
+
+    PartyRelationshipAdministrativePlanResponse:
+      type: object
+      properties:
+        partylifecyclemanagementid:
+          type: string
+          format: uuid
+          description: >
+            BIAN: partylifecyclemanagementid — unique identifier of the
+            PartyRelationshipAdministrativePlan Control Record instance (OnboardingCase id).
+        customer_id:
+          type: string
+          format: uuid
+          description: >
+            BIAN: PartyRelationshipAdministrativePlan.CustomerReference.PartyReference.
+            AP adaptation: replaces CustomerReference with scalar customer_id
+            from CustomerProfileAPI.
+        party_relationship_lifecycle_status:
+          $ref: '#/components/schemas/PartyRelationshipAdministrativePlanStatusEnum'
+          description: >
+            BIAN: PartyRelationshipAdministrativePlan.PartyRelationshipLifecycleStatus.
+            AP adaptation: AP-specific enum values mapped from BIAN Status lifecycle.
+        party_lifecycle_maintenance_task_result:
+          type: string
+          description: >
+            BIAN: PartyRelationshipAdministrativePlan.PartyLife-cycleMaintenanceTaskResult.
+            AP adaptation: human-readable outcome summary.
+          nullable: true
+        party_relationship_lifecycle_phase:
+          $ref: '#/components/schemas/PartyRelationshipLifecyclePhase'
+          description: >
+            BIAN: PartyRelationshipAdministrativePlan.PartyRelationshipLifecyclePhase.
+        kyc_result:
+          $ref: '#/components/schemas/KYCResultSummary'
+          description: "AP adaptation: embedded KYC result summary when available"
+          nullable: true
+        initiated_at:
+          type: string
+          format: date-time
+          description: "AP adaptation: case initiation timestamp"
+        updated_at:
+          type: string
+          format: date-time
+          description: "AP adaptation: last state update timestamp"
+        approved_at:
+          type: string
+          format: date-time
+          description: "AP adaptation: approval timestamp (null until APPROVED)"
+          nullable: true
+
+    PartyRelationshipAdministrativePlanListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyRelationshipAdministrativePlanResponse'
+        next_cursor:
+          type: string
+          nullable: true
+          description: "Cursor for next page; null if no more results"
+        total_count:
+          type: integer
+          description: "Total matching cases (for analyst queue sizing)"
+
+    ControlPartyRelationshipAdministrativePlanRequest:
+      type: object
+      required:
+        - party_lifecycle_maintenance_task_type
+        - party_lifecycle_maintenance_task_result
+      properties:
+        party_lifecycle_maintenance_task_type:
+          type: string
+          enum: [analyst_review_decision]
+          description: >
+            BIAN: PartyRelationshipAdministrativePlan.PartyLife-cycleMaintenanceTaskType.
+            AP adaptation: fixed to 'analyst_review_decision' for UC-004 Control behavior.
+        party_lifecycle_maintenance_task_result:
+          type: string
+          enum: [APPROVED, REJECTED]
+          description: >
+            BIAN: PartyRelationshipAdministrativePlan.PartyLife-cycleMaintenanceTaskResult.
+            AP adaptation: analyst decision outcome.
+        justification:
+          type: string
+          maxLength: 1000
+          description: "AP adaptation: analyst justification for the decision (recommended)"
+          nullable: true
+      additionalProperties: false
+
+    PartyRelationshipAdministrativePlanStatusEnum:
+      type: string
+      enum:
+        - INITIATED
+        - DOCS_SUBMITTED
+        - UNDER_VALIDATION
+        - REVIEW_REQUIRED
+        - APPROVED
+        - REJECTED
+      description: >
+        BIAN: PartyRelationshipAdministrativePlan.PartyRelationshipLifecycleStatus (adapted).
+        AP-specific lifecycle states derived from BIAN Status type.
+        BIAN-to-AP mapping:
+          Initiate behavior triggered → INITIATED
+          Documentation sub-behavior executed → DOCS_SUBMITTED
+          Execute behavior running → UNDER_VALIDATION
+          Control triggered (auto-escalation, BR-004) → REVIEW_REQUIRED
+          Positive task result → APPROVED (BR-005 gate met)
+          Negative task result → REJECTED
+
+    PartyRelationshipLifecyclePhase:
+      type: object
+      description: >
+        BIAN: PartyRelationshipAdministrativePlan.PartyRelationshipLifecyclePhase.
+        AP adaptation: simplified phase representation.
+      properties:
+        phase_name:
+          type: string
+          description: "BIAN: PartyRelationshipLifecyclePhase.PhaseName"
+        is_current_phase:
+          type: boolean
+          description: "BIAN: PartyRelationshipLifecyclePhase.IsCurrentPhase"
+        phase_status:
+          type: string
+          description: "BIAN: PartyRelationshipLifecyclePhase.PhaseStatus"
+
+    PartyReference:
+      type: object
+      required:
+        - party_name
+        - party_identification
+        - document_type
+        - document_expires_at
+      description: >
+        BIAN: PartyRelationshipAdministrativePlan.PartyReference (Party schema).
+        AP adaptation: includes document fields required for onboarding BR-001, BR-002.
+      properties:
+        party_name:
+          type: string
+          maxLength: 256
+          description: >
+            BIAN: Party.PartyName. PII field — encrypted at rest (BR-007).
+        party_type:
+          type: string
+          enum: [individual, corporate]
+          default: individual
+          description: "BIAN: Party.PartyType"
+        party_identification:
+          $ref: '#/components/schemas/PartyIdentification'
+        document_type:
+          type: string
+          enum: [CEDULA, PASAPORTE, OTRO]
+          description: "AP adaptation: document type for identity verification"
+        document_expires_at:
+          type: string
+          format: date
+          description: >
+            AP adaptation: document expiry date. Validated > today (BR-002).
+      additionalProperties: false
+
+    PartyIdentification:
+      type: object
+      required:
+        - party_identification_type
+        - party_identification_value
+      description: >
+        BIAN: Partyidentification schema.
+        AP adaptation: maps to document number and type.
+      properties:
+        party_identification_type:
+          type: string
+          enum: [national_id, passport, other]
+          description: "BIAN: Partyidentification.PartyIdentificationType"
+        party_identification_value:
+          type: string
+          maxLength: 64
+          description: >
+            BIAN: Partyidentification.PartyIdentification.
+            PII field — encrypted at rest (BR-007).
+
+    KYCResultSummary:
+      type: object
+      description: "AP adaptation: summary of KYC validation result embedded in CR response"
+      properties:
+        overall_status:
+          type: string
+          enum: [APPROVED, REVIEW_REQUIRED, REJECTED]
+        identity_verification_status:
+          type: string
+          enum: [PASSED, FAILED, PENDING]
+          description: >
+            BIAN: IdentityProofing.SpecialistAgencyServiceRequestResult (adapted).
+        aml_screening_status:
+          type: string
+          enum: [CLEAR, MATCH, PENDING]
+          description: >
+            BIAN: Qualification.SpecialistAgencyRegulatorServiceRequestResult (adapted).
+        validated_at:
+          type: string
+          format: date-time
+
+    # ─── Documentation sub-behavior ──────────────────────────────────────────
+
+    ExecuteDocumentationRequest:
+      type: object
+      required:
+        - party_lifecycle_required_documentation
+        - document_directory_entry_instance_reference
+        - document_expires_at
+      description: >
+        BIAN: Documentation sub-behavior Execute request.
+        AP adaptation: submits identity document metadata reference for onboarding.
+      properties:
+        party_lifecycle_required_documentation:
+          type: string
+          enum: [CEDULA, PASAPORTE, OTRO]
+          description: >
+            BIAN: Documentation.PartyLife-cycleRequiredDocumentation.
+            AP adaptation: required document type for the onboarding lifecycle.
+        document_directory_entry_instance_reference:
+          type: string
+          format: uuid
+          description: >
+            BIAN: Documentation.DocumentDirectoryEntryInstanceReference.
+            AP adaptation: reference to the CustomerIdentityAPI identity_id created
+            during document upload by the client before calling this endpoint.
+        document_expires_at:
+          type: string
+          format: date
+          description: >
+            AP adaptation: document expiry date for BR-002 validation (must be > today).
+      additionalProperties: false
+
+    DocumentationResponse:
+      type: object
+      description: "BIAN: Documentation sub-behavior Execute response (adapted)"
+      properties:
+        documentationid:
+          type: string
+          format: uuid
+          description: "BIAN: documentationid — Documentation sub-behavior instance identifier"
+        party_lifecycle_required_documentation:
+          type: string
+          description: "BIAN: Documentation.PartyLife-cycleRequiredDocumentation"
+        document_directory_entry_instance_reference:
+          type: string
+          format: uuid
+          description: "BIAN: Documentation.DocumentDirectoryEntryInstanceReference"
+        onboarding_case_status:
+          $ref: '#/components/schemas/PartyRelationshipAdministrativePlanStatusEnum'
+          description: "AP adaptation: updated OnboardingCase status after document submission"
+        executed_at:
+          type: string
+          format: date-time
+
+    # ─── Qualification sub-behavior ──────────────────────────────────────────
+
+    QualificationResponse:
+      type: object
+      description: >
+        BIAN: Qualification sub-behavior Retrieve response (adapted).
+        AP adaptation: KYC qualification result including AML screening outcome.
+      properties:
+        qualificationid:
+          type: string
+          format: uuid
+          description: "BIAN: qualificationid"
+        qualification_type:
+          type: string
+          description: "BIAN: Qualification.QualificationType"
+        specialist_agency_regulator_service_request_result:
+          type: string
+          enum: [CLEAR, MATCH, PENDING, ERROR]
+          description: >
+            BIAN: Qualification.SpecialistAgencyRegulatorServiceRequestResult.
+            AP adaptation: AML/PEP screening result from KYCScreeningAPI + AML_SERVICE.
+        qualification_task_work_products:
+          type: string
+          description: "BIAN: Qualification.QualificationTaskWorkProducts — result evidence reference"
+          nullable: true
+        screening_reference:
+          type: string
+          description: >
+            AP adaptation: reference to KYCScreeningAPI screeningId.
+            BIAN: Qualification.SpecialistAgencyServiceReference (adapted).
+          nullable: true
+        validated_at:
+          type: string
+          format: date-time
+
+    # ─── IdentityProofing sub-behavior ────────────────────────────────────────
+
+    IdentityProofingResponse:
+      type: object
+      description: >
+        BIAN: IdentityProofing sub-behavior Retrieve response (adapted).
+        AP adaptation: identity proofing result from ID_VERIFICATION_PROVIDER.
+      properties:
+        identityproofingid:
+          type: string
+          format: uuid
+          description: "BIAN: identityproofingid"
+        identity_proofing_type:
+          type: string
+          description: "BIAN: IdentityProofing.IdentityProofingType"
+        specialist_agency_service_request_result:
+          type: string
+          enum: [PASSED, FAILED, PENDING, ERROR]
+          description: >
+            BIAN: IdentityProofing.SpecialistAgencyServiceRequestResult.
+            AP adaptation: identity verification result from ID_VERIFICATION_PROVIDER.
+        document_directory_entry_instance_reference:
+          type: string
+          format: uuid
+          description: >
+            BIAN: IdentityProofing.DocumentDirectoryEntryInstanceReference.
+            AP adaptation: reference to the verified identity document.
+          nullable: true
+        identity_proofing_task_work_products:
+          type: string
+          description: "BIAN: IdentityProofing.IdentityProofingTaskWorkProducts — verification evidence"
+          nullable: true
+        verified_at:
+          type: string
+          format: date-time
+
+    # ─── Error responses ──────────────────────────────────────────────────────
+
+    ProblemDetail:
+      type: object
+      description: "RFC 7807 Problem Detail"
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+        correlationId:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+  responses:
+    BadRequest:
+      description: "400 — Bad Request"
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    Unauthorized:
+      description: "401 — Unauthorized"
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    Forbidden:
+      description: "403 — Forbidden"
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    NotFound:
+      description: "404 — Not Found"
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    Conflict:
+      description: "409 — Conflict (e.g., duplicate Idempotency-Key)"
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    UnprocessableEntity:
+      description: "422 — Unprocessable Entity (business rule violation)"
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    TooManyRequests:
+      description: "429 — Too Many Requests"
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    InternalServerError:
+      description: "500 — Internal Server Error"
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'

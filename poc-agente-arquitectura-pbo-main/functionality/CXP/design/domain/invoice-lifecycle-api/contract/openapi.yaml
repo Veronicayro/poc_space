@@ -1,0 +1,185 @@
+openapi: 3.0.3
+info:
+  title: Invoice Lifecycle API
+  description: >
+    Domain API para gestión de la máquina de estados de facturas.
+    Servicio de dominio puro. Alineado con BIAN AccountsReceivable (InvoiceLifecycleProcedure).
+  version: "1.0.0"
+
+servers:
+  - url: /api/v1/invoice-lifecycle
+
+tags:
+  - name: lifecycle
+
+paths:
+  /invoice-lifecycle/{id}/transition:
+    post:
+      tags: [lifecycle]
+      operationId: transitionInvoiceState
+      summary: Ejecutar transición de estado validada por state machine
+      description: >
+        Valida que la transición sea permitida según BR-CXP-004.
+        Persiste en historial inmutable y audit log.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransitionRequest"
+      responses:
+        "200":
+          description: Transición ejecutada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LifecycleStateResponse"
+        "422":
+          description: Transición de estado inválida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+        "404":
+          description: Factura no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+  /invoice-lifecycle/{id}/current-state:
+    get:
+      tags: [lifecycle]
+      operationId: getCurrentState
+      summary: Obtener estado actual de la factura
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Estado actual
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LifecycleStateResponse"
+        "404":
+          description: Factura no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+  /invoice-lifecycle/{id}/history:
+    get:
+      tags: [lifecycle]
+      operationId: getStateHistory
+      summary: Obtener historial inmutable de transiciones
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Historial de transiciones
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StateHistoryResponse"
+        "404":
+          description: Factura no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+components:
+  schemas:
+    TransitionRequest:
+      type: object
+      required: [to_status, performed_by]
+      properties:
+        to_status:
+          type: string
+          enum: [APPROVED, REJECTED, SCHEDULED, PAID, CANCELLED]
+          description: "Estado destino de la transición"
+        performed_by:
+          type: string
+          description: "ID del usuario que realiza la transición"
+        comment:
+          type: string
+          maxLength: 500
+          description: "Comentario opcional (obligatorio para REJECTED y CANCELLED)"
+
+    LifecycleStateResponse:
+      type: object
+      properties:
+        invoice_id:
+          type: string
+          format: uuid
+        current_status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, SCHEDULED, PAID, CANCELLED]
+        allowed_transitions:
+          type: array
+          items:
+            type: string
+          description: "Transiciones válidas desde el estado actual"
+        last_updated_at:
+          type: string
+          format: date-time
+        last_updated_by:
+          type: string
+
+    StateHistoryResponse:
+      type: object
+      properties:
+        invoice_id:
+          type: string
+          format: uuid
+        transitions:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransitionEntry"
+
+    TransitionEntry:
+      type: object
+      properties:
+        from_status:
+          type: string
+        to_status:
+          type: string
+        performed_by:
+          type: string
+        performed_at:
+          type: string
+          format: date-time
+        comment:
+          type: string
+
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        correlation_id:
+          type: string

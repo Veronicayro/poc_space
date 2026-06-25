@@ -1,0 +1,97 @@
+# bian-adoption.yaml — risk-assessment-api
+# Evidence file for BIAN Release 14 contract adoption
+component: risk-assessment-api
+functionality_id: LON
+generated_at: "2026-06-17"
+validation_status: validated
+
+selected_service_domain: Underwriting
+secondary_service_domain: CustomerCreditRating
+
+source_oas3_files:
+  - architecture/cache/bian/release14.0.0/oas3/yamls/Underwriting.yaml
+  - architecture/cache/bian/release14.0.0/oas3/yamls/CustomerCreditRating.yaml
+
+selected_paths:
+  - path: /Underwriting/Initiate
+    method: POST
+    bian_summary: "InCR Initiate an underwriting assessment"
+    maps_to_lon_operation: initiateUnderwritingAssessment
+    adaptation: >
+      Semantic alignment. LON adds: automatic bureau query trigger (CustomerCreditRating),
+      DTI calculation, and credit_request_id linkage (not in BIAN baseline).
+
+  - path: "/Underwriting/{underwritingid}/Retrieve"
+    method: GET
+    bian_summary: "ReCR Retrieve underwriting details"
+    maps_to_lon_operation: retrieveUnderwritingAssessment
+    adaptation: "Direct alignment — extended with LON-specific fields (dti_ratio, auto_reject_suggested)"
+
+  - path: "/Underwriting/{underwritingid}/Update"
+    method: PUT
+    bian_summary: "UpCR Update underwriting"
+    maps_to_lon_operation: updateUnderwritingAssessment
+    adaptation: >
+      Used for analyst to register final assessment. LON-specific: triggers state
+      transition to RISK_ASSESSED in credit-request-api.
+
+  - path: "/Underwriting/{underwritingid}/Exchange"
+    method: PUT
+    bian_summary: "EcCR Exchange/verify underwriting data"
+    maps_to_lon_operation: exchangeUnderwritingAssessment
+    adaptation: "Used for bureau report refresh (invalidate Redis cache TTL 24h)"
+
+omitted_paths:
+  - path: "/Underwriting/{underwritingid}/Request"
+    reason: "Manual intervention requests handled operationally in LON"
+
+selected_schemas:
+  - UnderwritingAssessment (Control Record basis)
+  - InitiateUnderwritingAssessmentRequest
+  - UpdateUnderwritingAssessmentRequest
+  - UnderwritingAssessmentExchangeRequest
+  - UnderwritingAssessmentResponse
+  - RiskLevelEnum
+  - RiskRecommendationEnum
+
+omitted_schemas:
+  reason_complex_nested_types: "BIAN complex objects simplified to primitives in LON REST contract"
+  reason_UnderwritingGuidelines: "Policy thresholds managed as configuration; not exposed in contract"
+
+field_mappings:
+  - bian_field: "Underwriting.UnderwritingAssessmentReference"
+    lon_field: id
+    type_adaptation: "BIAN Reference → UUID string"
+
+  - bian_field: "Underwriting.CustomerReference"
+    lon_field: customer_id
+    type_adaptation: "BIAN Party reference → string ID"
+
+  - bian_field: "Underwriting.CreditAssessmentScore (from CustomerCreditRating)"
+    lon_field: bureau_score
+    type_adaptation: "BIAN score → integer 300-850"
+    note: "Score sourced from CustomerCreditRating SD via credit-bureau-adapter-api"
+
+  - bian_field: "Underwriting.RiskAssessmentLevel"
+    lon_field: risk_level
+    type_adaptation: "BIAN risk category → enum [LOW, MEDIUM, HIGH, CRITICAL]"
+
+  - bian_field: "Underwriting.UnderwritingDecision"
+    lon_field: recommendation
+    type_adaptation: "BIAN decision → enum [APPROVE, REJECT, ESCALATE]"
+
+  - bian_field: "Underwriting.UnderwritingAnalystReference"
+    lon_field: analyst_id
+    type_adaptation: "BIAN employee reference → string ID"
+
+adaptation_rationale: >
+  BIAN Underwriting gestiona el proceso de decisión de underwriting para préstamos.
+  CustomerCreditRating complementa con la consulta al bureau externo y el score.
+  
+  LON extensiones sobre estos SDs:
+  1. Cálculo DTI (Debt-to-Income) como extensión de dominio bancario
+  2. Caché Redis TTL 24h para reportes de bureau (no en BIAN baseline)
+  3. Sugerencia de rechazo automático si score < umbral mínimo configurable
+  4. Determinación automática del nivel de aprobación (Gerente vs Comité)
+     basada en umbrales parametrizables (no en BIAN baseline)
+  5. Linkage credit_request_id → CustomerOffer reference (LON domain bridge)

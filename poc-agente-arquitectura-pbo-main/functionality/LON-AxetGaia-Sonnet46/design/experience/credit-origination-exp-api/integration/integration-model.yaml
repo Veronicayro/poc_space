@@ -1,0 +1,49 @@
+# integration-model.yaml — credit-origination-exp-api (BFF)
+component_id: COMP-LON-EXP-001
+name: credit-origination-exp-api
+generated_at: "2026-06-17"
+
+integrations:
+  - id: INT-LON-EXP001-01
+    name: credit-request-crud
+    target_service: credit-request-api
+    direction: outbound
+    type: synchronous
+    protocol: REST / HTTP
+    description: "CRUD y operaciones de workflow de solicitudes de crédito"
+    operations:
+      - "GET /v1/CustomerOffer (listado con filtros)"
+      - "POST /v1/CustomerOffer/Initiate (crear)"
+      - "GET /v1/CustomerOffer/{id}/Retrieve (detalle)"
+      - "PUT /v1/CustomerOffer/{id}/Update (editar)"
+      - "PUT /v1/CustomerOffer/{id}/Exchange (submit/approve/reject/escalate)"
+
+  - id: INT-LON-EXP001-02
+    name: risk-assessment-read
+    target_service: risk-assessment-api
+    direction: outbound
+    type: synchronous
+    protocol: REST / HTTP
+    description: "Consulta de evaluaciones de riesgo para vistas de analista y gerente"
+    operations:
+      - "GET /v1/Underwriting/{id}/Retrieve"
+
+  - id: INT-LON-EXP001-03
+    name: disbursement-execute
+    target_service: disbursement-api
+    direction: outbound
+    type: synchronous
+    protocol: REST / HTTP
+    description: "Orquestación del flujo de desembolso para el oficial"
+    operations:
+      - "POST /v1/Disbursement/Initiate"
+      - "PUT /v1/Disbursement/{id}/Execute"
+      - "GET /v1/Disbursement/{id}/Retrieve"
+
+aggregation_patterns:
+  - endpoint: "GET /v1/credit-applications/{id}"
+    aggregates:
+      - credit-request-api (solicitud + documentos + historial)
+      - risk-assessment-api (evaluación de riesgo si existe)
+      - disbursement-api (estado de desembolso si aplica)
+    note: "Respuesta unificada con allowed_actions calculado según rol+estado"

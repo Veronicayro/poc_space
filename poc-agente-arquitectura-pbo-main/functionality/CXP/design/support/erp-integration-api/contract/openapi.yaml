@@ -1,0 +1,155 @@
+openapi: 3.0.3
+info:
+  title: ERP Integration API
+  description: >
+    Support API - Adaptador de integración con el sistema ERP.
+    Anti-Corruption Layer para validación de proveedores y registro de asientos contables.
+    Referencia BIAN: FinancialAccounting, ContractorandSupplierAgreement.
+  version: "1.0.0"
+
+servers:
+  - url: /api/v1/erp
+
+tags:
+  - name: suppliers
+  - name: accounting
+
+paths:
+  /erp/suppliers/{supplierId}/validate:
+    get:
+      tags: [suppliers]
+      operationId: validateSupplier
+      summary: Validar existencia y estado activo de proveedor en ERP
+      description: >
+        Resultado cacheado por 5 minutos (TTL=300s).
+        Llama al ERP externo; sujeto a circuit breaker y retry.
+      parameters:
+        - name: supplierId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Proveedor validado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierValidationResponse"
+        "404":
+          description: Proveedor no encontrado o inactivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+        "503":
+          description: ERP no disponible (circuit breaker abierto)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+  /erp/accounting/entries:
+    post:
+      tags: [accounting]
+      operationId: createAccountingEntry
+      summary: Registrar asiento contable en ERP tras ejecución de pago
+      description: >
+        Mapea PaymentOrder a LedgerPosting (FinancialAccounting BIAN schema).
+        Sujeto a retry con backoff exponencial.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountingEntryRequest"
+      responses:
+        "201":
+          description: Asiento contable registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountingEntryResponse"
+        "422":
+          description: Error de validación del asiento
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+        "503":
+          description: ERP no disponible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+components:
+  schemas:
+    SupplierValidationResponse:
+      type: object
+      properties:
+        supplier_id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, SUSPENDED]
+        valid:
+          type: boolean
+        cached:
+          type: boolean
+          description: "true si la respuesta proviene del cache"
+
+    AccountingEntryRequest:
+      type: object
+      required: [payment_order_id, invoice_id, amount, currency, accounting_date]
+      properties:
+        payment_order_id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        supplier_id:
+          type: string
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        accounting_date:
+          type: string
+          format: date
+        description:
+          type: string
+
+    AccountingEntryResponse:
+      type: object
+      properties:
+        entry_id:
+          type: string
+        erp_reference:
+          type: string
+        status:
+          type: string
+          enum: [POSTED, PENDING, FAILED]
+        posted_at:
+          type: string
+          format: date-time
+
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        correlation_id:
+          type: string

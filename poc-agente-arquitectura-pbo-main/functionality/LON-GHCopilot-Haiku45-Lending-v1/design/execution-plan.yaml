@@ -1,0 +1,437 @@
+---
+executionPlan:
+  metadata:
+    functionalityId: "LON-GHCopilot-Haiku45-Lending-v1"
+    functionality: "Digital Personal Loan Origination"
+    planDate: "2026-06-24"
+    plannedBy: "architecture-scope-planner + existing-landscape-analyzer"
+    technology: "Java"
+    executionMode: "standard"
+
+  # =============================
+  # EXECUTION MODE ANALYSIS
+  # =============================
+  executionModeAnalysis:
+    inferredMode: "standard"
+    modeOverride: "standard"
+    rationale: |
+      STANDARD execution mode (default for scope-and-execution-planning):
+      
+      Context:
+      - 8 use cases, 12 business rules → moderate complexity
+      - 4 BIAN Service Domains → clear standard alignment
+      - 6 external + 2 internal system integrations → manageable scope
+      - CreditApplicationAPI v1.3 exists (potential collision, resolved in Phase 4)
+      - 1 blocking dependency: INT-001 (Identity & KYC — mandatory)
+      - Java technology stack → standard backend patterns
+      
+      Characteristics of "standard" mode:
+      - Full backend component design required
+      - BIAN-derived contracts required (Phase 7)
+      - Event-driven + sync integrations both required
+      - Security, NFR, observability per component (Phase 6+)
+      - No cloud infrastructure design required (on-premise)
+      - Single domain (Lending); no multi-cloud / big-data required
+      
+      Decision drivers:
+      - Execution scope is focused (one domain, one capability)
+      - No multi-cloud or advanced analytics required
+      - No frontend design required (Web/Mobile already exist)
+      - Sufficient context from Phase 1 to proceed with design
+
+  # =============================
+  # DOMAIN STANDARD PROFILE
+  # =============================
+  domainStandardProfile:
+    provider: "BIAN"
+    version: "Release 14.0.0"
+    selectedServiceDomains: 4
+    
+    domains:
+      - rank: 1
+        sd: "CustomerOffer"
+        orchestrationRole: "Orchestrating"
+        capability: "CAP-LOAN-001-REQUEST, CAP-LOAN-003-OFFER"
+        confidence: 0.95
+      
+      - rank: 2
+        sd: "Underwriting"
+        orchestrationRole: "Orchestrating"
+        capability: "CAP-LOAN-002-UNDERWRITING"
+        confidence: 0.95
+      
+      - rank: 3
+        sd: "Disbursement"
+        orchestrationRole: "Orchestrating"
+        capability: "CAP-LOAN-004-DISBURSEMENT"
+        confidence: 0.95
+      
+      - rank: 4
+        sd: "PartyLifecycleManagement"
+        orchestrationRole: "Supporting"
+        capability: "CAP-LOAN-001-REQUEST (prerequisite: KYC check)"
+        confidence: 0.95
+    
+    rationale: |
+      BIAN Release 14 is the mandatory domain standard for this organization.
+      All 4 Service Domains have been validated in Phase 1 (design/bian/bian-service-domain-evaluation.yaml).
+      High confidence alignment (0.95) on all domains → BIAN-derived contracts required in Phase 7.
+
+  # =============================
+  # REQUIRED DESIGN VIEWS
+  # =============================
+  requiredDesignViews:
+    enterprise_capability_alignment: true  # ✓ Completed in Phase 1
+    frontend: false  # Not applicable (Web/Mobile already exist)
+    backend_tobe: true  # Required (API landscape, components, contracts)
+    backend_transition: false  # Not required (greenfield, no legacy constraints)
+    cloud_logical: false  # Not applicable (on-premise banking)
+    cloud_azure: false
+    cloud_aws: false
+    cloud_gcp: false
+    cloud_on_premise: false  # No cloud design required
+    multicloud: false
+    hybrid: false
+    bigdata: false  # No analytics required
+  
+  viewDetails:
+    backend_tobe:
+      description: "Design TO-BE backend architecture for loan origination"
+      phases: "Phase 3 (solution-landscape), Phase 6 (backend-component-design), Phase 7 (backend-contract-design), Phase 8 (backend-diagram-design)"
+
+  # =============================
+  # REQUIRED LAYERS
+  # =============================
+  requiredLayers:
+    experience: true  # REST/GraphQL APIs for Web/Mobile consumers
+    business: true  # Business API layer (offer, underwriting orchestration)
+    domain: true  # Domain API layer (CustomerOffer, Underwriting, Disbursement, PartyLifecycleManagement)
+    support: true  # Support APIs (audit, notifications, document storage)
+    frontend: false  # Frontend not in scope
+    cloud: false  # No cloud design
+    data: true  # Persistence layer (loan data, audit data)
+    cache: true  # Caching layer (KYC status, offer expiry)
+    events: true  # Event layer (state transitions, async notifications)
+
+  # =============================
+  # REQUIRED SKILLS FOR DOWNSTREAM PHASES
+  # =============================
+  requiredSkills:
+    - skillName: "api-landscape-designer"
+      phase: "Phase 4"
+      reason: "Design target API landscape across experience, business, domain layers; resolve CreditApplicationAPI collision via api-landscape-governance/SKILL.md"
+    
+    - skillName: "backend-component-designer"
+      phase: "Phase 6"
+      reason: "Design backend components for CustomerOffer, Underwriting, Disbursement SD integration"
+    
+    - skillName: "data-cache-event-state-designer"
+      phase: "Phase 6"
+      reason: "Design persistence, cache, event, and state models for loan origination entities"
+    
+    - skillName: "bian-contract-deriver"
+      phase: "Phase 7"
+      reason: "Derive OpenAPI contracts for Business/Domain APIs from BIAN Service Domains"
+    
+    - skillName: "experience-contract-designer"
+      phase: "Phase 7"
+      reason: "Design REST/GraphQL contracts for Experience APIs (loan request, offer, status)"
+    
+    - skillName: "security-nfr-observability-designer"
+      phase: "Phase 6-7"
+      reason: "Design cross-cutting security (PII/data classification), NFR (99.9% SLA), observability (metrics, logs, traces)"
+    
+    - skillName: "diagram-generator"
+      phase: "Phase 8"
+      reason: "Generate Mermaid diagrams for backend architecture and API landscape"
+
+  # =============================
+  # PHASE GATES & BLOCKING DEPENDENCIES
+  # =============================
+  phaseGates:
+    - gateName: "GATE-Phase3-Entry"
+      blocking: true
+      description: "Solution landscape design can proceed"
+      requiredArtifacts:
+        - "design/execution-plan.yaml" ✓
+        - "design/existing-component-impact.yaml" ✓
+    
+    - gateName: "GATE-Phase4-Entry"
+      blocking: true
+      description: "API landscape design can proceed; collision resolution is autonomous"
+      requiredArtifacts:
+        - "design/api-landscape.yaml"
+        - "design/component-inventory.yaml (draft)"
+      notes: "Phase 4 skill (api-landscape-governance/SKILL.md) autonomously decides EXTEND vs. CREATE for CreditApplicationAPI"
+    
+    - gateName: "GATE-Phase6-Entry"
+      blocking: true
+      description: "Backend component design can proceed"
+      requiredArtifacts:
+        - "design/api-landscape.yaml"
+        - "design/semantic-dictionary.yaml" (from Phase 1)
+      dependencies:
+        - "INT-001 (Identity & KYC) must be accessible"
+        - "INT-002 (Audit & Compliance) must be accessible"
+
+  blockingGaps:
+    - gapId: "GAP-INT-001-API"
+      description: "Identity & KYC system (INT-001) API contract or integration pattern not yet defined"
+      severity: "HIGH"
+      requiredAction: "Phase 6 (backend-component-design) must document INT-001 integration pattern (REST vs. event)"
+      targetPhase: "Phase 6"
+    
+    - gapId: "GAP-INT-002-EVENT-SCHEMA"
+      description: "Audit & Compliance event schema not yet defined"
+      severity: "MEDIUM"
+      requiredAction: "Phase 6 must define audit event schema; Phase 7 may produce AsyncAPI contract"
+      targetPhase: "Phase 6-7"
+
+  nonBlockingGaps:
+    - gapId: "GAP-CACHE-POLICY"
+      description: "KYC status cache validity period and refresh strategy not specified"
+      severity: "LOW"
+      recommendedAction: "Phase 6 should define based on compliance/security review"
+    
+    - gapId: "GAP-OFFER-EXPIRY-ENFORCEMENT"
+      description: "Offer expiration enforcement (72-hour window, BR-007) not yet mapped to component"
+      severity: "MEDIUM"
+      recommendedAction: "Phase 6 to define as scheduled job, TTL cache, or event-driven cleanup"
+
+  # =============================
+  # COMPONENT DESIGN SEQUENCE
+  # =============================
+  componentDesignSequence:
+    sequenceRationale: |
+      Components are sequenced by dependency and criticality:
+      1. Domain APIs (BIAN-aligned, foundational)
+      2. Business APIs (orchestration layer, depends on domain APIs)
+      3. Experience APIs (customer-facing, depends on business APIs)
+      4. Support APIs (cross-cutting, low dependency priority)
+      
+      Within each layer, components are ordered by: use case coverage, criticality, external dependencies.
+    
+    # PHASE 3: Solution-level landscape (draft components, no design detail)
+    # PHASES 6-7: Detailed backend component and contract design (in sequence below)
+    
+    sequence:
+      # —— DOMAIN LAYER (Foundation) ——
+      - rank: 1
+        componentName: "PartyLifecycleMgmt-Domain-API"
+        layer: "Domain"
+        bianSD: "PartyLifecycleManagement"
+        capability: "CAP-LOAN-001-REQUEST"
+        useCases: ["UC-001"]
+        businessRules: ["BR-001"]
+        description: "Lookup KYC status; prerequisite validation for loan request"
+        externalDependencies: ["INT-001"]
+        internalDependencies: []
+        priority: "P0 (blocker)"
+        designSequencePhase: "Phase 6.1"
+        contractPhase: "Phase 7.1"
+        rationale: |
+          MUST be designed first — blocks UC-001 loan request initiation.
+          Direct mapping to BIAN PartyLifecycleManagement.
+          Low complexity: read-only KYC status lookup.
+
+      - rank: 2
+        componentName: "CustomerOffer-Domain-API"
+        layer: "Domain"
+        bianSD: "CustomerOffer"
+        capability: "CAP-LOAN-001-REQUEST, CAP-LOAN-003-OFFER"
+        useCases: ["UC-001", "UC-002", "UC-004", "UC-005"]
+        businessRules: ["BR-001", "BR-006", "BR-007", "BR-009"]
+        description: "Loan request intake; offer generation with pricing; acceptance recording"
+        externalDependencies: ["EXT-004:DIGITAL_SIGNATURE_PROVIDER", "EXT-006:DOCUMENT_STORAGE"]
+        internalDependencies: ["INT-002:Audit & Compliance"]
+        priority: "P0 (core)"
+        designSequencePhase: "Phase 6.2"
+        contractPhase: "Phase 7.2"
+        rationale: |
+          Core domain API for loan origination.
+          Maps directly to BIAN CustomerOffer SD (Create, Update, ExchangeFacilityApplication).
+          Depends on PartyLifecycleMgmt (UC-001 prerequisite).
+          Moderate complexity: stateful offer lifecycle (DRAFT, SUBMITTED, ACCEPTED, REJECTED).
+
+      - rank: 3
+        componentName: "Underwriting-Domain-API"
+        layer: "Domain"
+        bianSD: "Underwriting"
+        capability: "CAP-LOAN-002-UNDERWRITING"
+        useCases: ["UC-003", "UC-006"]
+        businessRules: ["BR-002", "BR-003", "BR-004", "BR-005", "BR-010"]
+        description: "Automated and manual credit evaluation; decision recording"
+        externalDependencies: ["EXT-001:CREDIT_BUREAU", "EXT-002:SCORING_ENGINE"]
+        internalDependencies: ["INT-002:Audit & Compliance"]
+        priority: "P0 (core)"
+        designSequencePhase: "Phase 6.3"
+        contractPhase: "Phase 7.3"
+        rationale: |
+          Core domain API for credit evaluation.
+          Maps directly to BIAN Underwriting SD.
+          Moderate-to-high complexity: decision logic (scoring, bureau integration, referral).
+          Must integrate with external scoring service and credit bureau (failure fallbacks).
+
+      - rank: 4
+        componentName: "Disbursement-Domain-API"
+        layer: "Domain"
+        bianSD: "Disbursement"
+        capability: "CAP-LOAN-004-DISBURSEMENT"
+        useCases: ["UC-007"]
+        businessRules: ["BR-011"]
+        description: "Loan disbursement instruction and confirmation"
+        externalDependencies: ["EXT-003:CORE_BANKING"]
+        internalDependencies: ["INT-002:Audit & Compliance"]
+        priority: "P1 (high)"
+        designSequencePhase: "Phase 6.4"
+        contractPhase: "Phase 7.4"
+        rationale: |
+          Critical domain API for disbursement execution.
+          Maps directly to BIAN Disbursement SD.
+          High complexity: fund transfer orchestration, audit trail.
+          **REUSE OPPORTUNITY**: DisbursementAPI v1.1 exists in catalog (85% fit).
+          Phase 4 (api-landscape-governance) will decide REUSE vs. EXTEND.
+
+      # —— BUSINESS LAYER (Orchestration) ——
+      - rank: 5
+        componentName: "LoanOriginationOrchestrator-Business-API"
+        layer: "Business"
+        capability: "CAP-LOAN-ORIGINATION-CORE"
+        useCases: ["UC-001", "UC-002", "UC-003", "UC-004", "UC-005", "UC-006", "UC-007"]
+        businessRules: ["BR-001" through "BR-012"]
+        description: "Orchestrate loan origination workflow: request → evaluation → offer → acceptance → disbursement"
+        externalDependencies: ["EXT-005:NOTIFICATION_SERVICE"]
+        internalDependencies: [
+          "PartyLifecycleMgmt-Domain-API",
+          "CustomerOffer-Domain-API",
+          "Underwriting-Domain-API",
+          "Disbursement-Domain-API",
+          "INT-002:Audit & Compliance"
+        ]
+        priority: "P0 (core orchestrator)"
+        designSequencePhase: "Phase 6.5"
+        contractPhase: "Phase 7.5"
+        rationale: |
+          Business API orchestrates all domain APIs and manages overall loan lifecycle.
+          Implements complex state machine (DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, ACCEPTED, DISBURSED).
+          Handles workflow transitions, async callbacks, event publication.
+          Not directly BIAN-mapped (orchestration layer is proprietary).
+
+      # —— EXPERIENCE LAYER (Customer-facing) ——
+      - rank: 6
+        componentName: "LoanRequest-Experience-API"
+        layer: "Experience"
+        capability: "CAP-LOAN-001-REQUEST"
+        useCases: ["UC-001", "UC-002"]
+        description: "Initiate loan request; upload supporting documents"
+        externalDependencies: []
+        internalDependencies: ["LoanOriginationOrchestrator-Business-API"]
+        priority: "P0 (customer-facing)"
+        designSequencePhase: "Phase 6.6"
+        contractPhase: "Phase 7.6"
+        apiStyle: "REST"
+        rationale: |
+          Customer-facing API for loan request initiation.
+          Simple CRUD + document upload.
+          Delegates orchestration to LoanOriginationOrchestrator-Business-API.
+          **COLLISION**: CreditApplicationAPI v1.3 exists in catalog.
+          Phase 4 (api-landscape-governance) will decide EXTEND vs. CREATE.
+
+      - rank: 7
+        componentName: "LoanOffer-Experience-API"
+        layer: "Experience"
+        capability: "CAP-LOAN-003-OFFER"
+        useCases: ["UC-004", "UC-005"]
+        description: "Retrieve personalized loan offer; submit acceptance"
+        externalDependencies: []
+        internalDependencies: ["LoanOriginationOrchestrator-Business-API"]
+        priority: "P0 (customer-facing)"
+        designSequencePhase: "Phase 6.7"
+        contractPhase: "Phase 7.7"
+        apiStyle: "REST"
+        rationale: |
+          Customer-facing API for offer retrieval and acceptance.
+          Stateful (offer expiration, signature capture).
+          Integrates with DIGITAL_SIGNATURE_PROVIDER (EXT-004).
+
+      - rank: 8
+        componentName: "LoanStatus-Experience-API"
+        layer: "Experience"
+        capability: "CAP-LOAN-001-REQUEST"
+        useCases: ["UC-008"]
+        description: "Retrieve loan request status and timeline"
+        externalDependencies: []
+        internalDependencies: ["LoanOriginationOrchestrator-Business-API"]
+        priority: "P1 (customer-facing)"
+        designSequencePhase: "Phase 6.8"
+        contractPhase: "Phase 7.8"
+        apiStyle: "REST"
+        rationale: |
+          Customer-facing read-only API for status polling.
+          Low complexity; high customer value (transparency).
+
+      # —— SUPPORT LAYER (Cross-cutting) ——
+      - rank: 9
+        componentName: "LoanAuditLog-Support-API"
+        layer: "Support"
+        capability: "All (cross-cutting)"
+        businessRules: ["BR-010"]
+        description: "Log loan events for compliance and audit"
+        externalDependencies: []
+        internalDependencies: ["INT-002:Audit & Compliance"]
+        priority: "P1 (compliance)"
+        designSequencePhase: "Phase 6.9"
+        contractPhase: "Phase 7.9"
+        apiStyle: "AsyncAPI"
+        rationale: |
+          Support API for async event publishing to audit log.
+          Not a traditional REST API — event publisher.
+          Ensures compliance with BR-010 (audit trail).
+
+  # =============================
+  # TECHNOLOGY & INFRASTRUCTURE
+  # =============================
+  technology:
+    platform: "Java"
+    framework: "TBD in Phase 6"  # e.g., Spring Boot, Quarkus, Microprofile
+    persistence:
+      database: "TBD in Phase 6"
+      cacheLayer: "TBD in Phase 6"
+    messaging:
+      eventBroker: "TBD in Phase 6"  # e.g., Kafka, RabbitMQ
+    deployment:
+      infrastructure: "On-premise (assumed)"
+      containerization: "Docker/Kubernetes (assumed)"
+
+  # =============================
+  # SUCCESS CRITERIA FOR PHASE 2
+  # =============================
+  successCriteria:
+    - "✓ Execution mode inferred as 'standard'"
+    - "✓ BIAN Release 14 domain standard profile defined"
+    - "✓ Required design views and layers identified"
+    - "✓ Required skills for downstream phases documented"
+    - "✓ Phase gates and blocking gaps identified"
+    - "✓ Component design sequence prioritized and rationale provided"
+    - "✓ CreditApplicationAPI collision flagged for Phase 4 resolution"
+    - "✓ DisbursementAPI reuse opportunity identified"
+    - "✓ INT-001 and INT-002 identified as mandatory reuse"
+
+  # =============================
+  # TRANSITION TO PHASE 3
+  # =============================
+  nextPhase: "Phase 3: solution-landscape"
+  nextPhaseInput:
+    - "design/execution-plan.yaml" ✓
+    - "design/existing-component-impact.yaml" ✓
+    - "design/context/context-pack.yaml" ✓ (from Phase 1)
+    - "design/enterprise-capability-map.yaml" ✓ (from Phase 1)
+    - "design/domain-standard-alignment.yaml" ✓ (from Phase 1)
+  
+  nextPhaseTask: |
+    Phase 3 (backend-component-designer in landscape mode) will:
+    1. Define solution vision and key flows
+    2. Create initial component inventory (marked as DRAFT, validation: PENDING)
+    3. Define conceptual bounded contexts / major domains
+    4. Draft api-landscape.yaml structure (LAYERS: experience, business, domain, support)
+    5. Record action (reuse | extend | create) for each component (derived from Phase 2 analysis)
